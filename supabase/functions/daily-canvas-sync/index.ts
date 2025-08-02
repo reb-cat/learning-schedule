@@ -44,7 +44,7 @@ async function syncStudentAssignments(studentName: string, token: string) {
     // 1) Fetch existing assignments from database
     const { data: existingAssignments } = await supabase
       .from('assignments')
-      .select('student_name, course_name, title')
+      .select('id, student_name, course_name, title, canvas_id, category')
       .eq('student_name', studentName);
     
     const existing = new Set(
@@ -109,8 +109,35 @@ async function syncStudentAssignments(studentName: string, token: string) {
           continue;
         }
         
-        const key = `${studentName}|${course.name}|${assignment.name}`;
-        if (existing.has(key)) continue; // Skip existing assignments
+        // Check if assignment already exists
+        const existingAssignment = existingAssignments?.find(existing => 
+          existing.canvas_id === assignment.id?.toString()
+        );
+        
+        if (existingAssignment) {
+          // Check if category needs to be updated
+          const correctCategory = categorizeAssignment(assignment.name);
+          if (existingAssignment.category !== correctCategory) {
+            console.log(`  🔄 Updating category for "${assignment.name}" from ${existingAssignment.category} to ${correctCategory}`);
+            
+            const { error: updateError } = await supabase
+              .from('assignments')
+              .update({ 
+                category: correctCategory,
+                eligible_for_scheduling: correctCategory === 'academic'
+              })
+              .eq('id', existingAssignment.id);
+              
+            if (updateError) {
+              console.error(`❌ Error updating category for ${assignment.name}:`, updateError);
+            } else {
+              console.log(`  ✅ Category updated successfully for ${assignment.name}`);
+            }
+          } else {
+            console.log(`  ✅ Assignment already exists with correct category: ${assignment.name}`);
+          }
+          continue;
+        }
 
         // Format due date
         const dueDateISO = dueDate.toISOString();
