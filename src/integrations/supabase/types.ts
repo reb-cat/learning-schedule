@@ -73,6 +73,7 @@ export type Database = {
           academic_year: string | null
           canvas_id: string | null
           canvas_url: string | null
+          category: string | null
           cognitive_load: string | null
           course_name: string | null
           created_at: string
@@ -90,6 +91,7 @@ export type Database = {
           academic_year?: string | null
           canvas_id?: string | null
           canvas_url?: string | null
+          category?: string | null
           cognitive_load?: string | null
           course_name?: string | null
           created_at?: string
@@ -107,6 +109,7 @@ export type Database = {
           academic_year?: string | null
           canvas_id?: string | null
           canvas_url?: string | null
+          category?: string | null
           cognitive_load?: string | null
           course_name?: string | null
           created_at?: string

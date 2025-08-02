@@ -13,6 +13,7 @@ export interface Assignment {
   estimated_time_minutes?: number;
   canvas_id?: string;
   canvas_url?: string;
+  category?: 'academic' | 'administrative';
   created_at: string;
   updated_at: string;
 }

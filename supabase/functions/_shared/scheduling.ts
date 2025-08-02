@@ -24,11 +24,12 @@ export async function scheduleAssignments(supabase: any, studentName: string): P
       .eq('student_name', studentName)
       .eq('scheduled_date', today.toISOString().split('T')[0]);
     
-    // Get unscheduled assignments, prioritized
+    // Get unscheduled assignments, prioritized (only academic assignments)
     const { data: assignments, error } = await supabase
       .from('assignments')
       .select('*')
       .eq('student_name', studentName)
+      .eq('category', 'academic') // Only schedule academic assignments
       .is('scheduled_block', null)
       .order('urgency', { ascending: false }) // overdue first
       .order('due_date', { ascending: true }); // then by due date

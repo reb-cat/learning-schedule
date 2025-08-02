@@ -21,6 +21,22 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 // Academic year cutoff date - only sync assignments due on or after this date
 const ACADEMIC_YEAR_CUTOFF = '2025-08-01T00:00:00Z';
 
+// Function to categorize assignments based on title keywords
+function categorizeAssignment(title: string): 'academic' | 'administrative' {
+  const administrativeKeywords = [
+    'fee', 'permission', 'form', 'payment', 'consent', 'waiver',
+    'registration', 'enrollment', 'medical', 'emergency contact',
+    'field trip', 'photo release', 'media consent'
+  ];
+  
+  const titleLower = title.toLowerCase();
+  const isAdministrative = administrativeKeywords.some(keyword => 
+    titleLower.includes(keyword)
+  );
+  
+  return isAdministrative ? 'administrative' : 'academic';
+}
+
 async function syncStudentAssignments(studentName: string, token: string) {
   console.log(`🔄 Starting sync for ${studentName}...`);
   
@@ -99,6 +115,10 @@ async function syncStudentAssignments(studentName: string, token: string) {
         // Format due date
         const dueDateISO = dueDate.toISOString();
 
+        // Categorize assignment
+        const category = categorizeAssignment(assignment.name);
+        console.log(`  📂 Categorized "${assignment.name}" as: ${category}`);
+
         // Insert new assignment
         const { error } = await supabase
           .from('assignments')
@@ -109,7 +129,8 @@ async function syncStudentAssignments(studentName: string, token: string) {
             due_date: dueDateISO,
             canvas_id: assignment.id?.toString(),
             canvas_url: assignment.html_url,
-            eligible_for_scheduling: true
+            eligible_for_scheduling: category === 'academic', // Only academic assignments are eligible for scheduling
+            category: category
           });
 
         if (error) {
