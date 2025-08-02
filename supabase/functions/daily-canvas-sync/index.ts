@@ -13,7 +13,10 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const abigailToken = Deno.env.get('ABIGAIL_CANVAS_TOKEN')!;
 const khalilToken = Deno.env.get('KHALIL_CANVAS_TOKEN')!;
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  db: { schema: 'public' },
+  auth: { persistSession: false }
+});
 
 interface CanvasAssignment {
   id: number;
