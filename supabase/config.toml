@@ -1,1 +1,4 @@
 project_id = "yusqctrtoskjtahtibwh"
+
+[functions.daily-canvas-sync]
+verify_jwt = false
