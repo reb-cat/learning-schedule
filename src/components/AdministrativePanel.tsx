@@ -99,16 +99,13 @@ const AdministrativePanel = () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="all">All ({activeNotifications.length})</TabsTrigger>
-            <TabsTrigger value="fees">Fees ({filterByType('fee').filter(n => !n.completed).length})</TabsTrigger>
-            <TabsTrigger value="forms">Forms ({filterByType('form').filter(n => !n.completed).length})</TabsTrigger>
-            <TabsTrigger value="permissions">Permissions ({filterByType('permission').filter(n => !n.completed).length})</TabsTrigger>
+        <Tabs defaultValue="pending" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="pending">Pending ({activeNotifications.length})</TabsTrigger>
             <TabsTrigger value="completed">Completed ({completedNotifications.length})</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="all">
+          <TabsContent value="pending">
             <div className="space-y-4">
               {activeNotifications.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
@@ -177,169 +174,6 @@ const AdministrativePanel = () => {
             </div>
           </TabsContent>
           
-          <TabsContent value="fees">
-            <div className="space-y-4">
-              {filterByType('fee').filter(n => !n.completed).map((notification) => (
-                <Card key={notification.id} className="border-l-4 border-l-green-500">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <DollarSign className="h-4 w-4" />
-                          <h3 className="font-semibold">{notification.title}</h3>
-                          <Badge className={getPriorityColor(notification.priority)}>
-                            {notification.priority}
-                          </Badge>
-                          <Badge variant="outline">{notification.student_name}</Badge>
-                        </div>
-                        
-                        {notification.description && (
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {notification.description}
-                          </p>
-                        )}
-                        
-                        <div className="flex items-center gap-4 text-sm">
-                          <span>Due: {formatDate(notification.due_date)}</span>
-                          {notification.amount && (
-                            <span className="font-bold text-green-600 text-lg">
-                              ${notification.amount.toFixed(2)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        {notification.canvas_url && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(notification.canvas_url, '_blank')}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleMarkCompleted(notification.id, notification.title)}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Paid
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="forms">
-            <div className="space-y-4">
-              {filterByType('form').filter(n => !n.completed).map((notification) => (
-                <Card key={notification.id} className="border-l-4 border-l-blue-500">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FileText className="h-4 w-4" />
-                          <h3 className="font-semibold">{notification.title}</h3>
-                          <Badge className={getPriorityColor(notification.priority)}>
-                            {notification.priority}
-                          </Badge>
-                          <Badge variant="outline">{notification.student_name}</Badge>
-                        </div>
-                        
-                        {notification.description && (
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {notification.description}
-                          </p>
-                        )}
-                        
-                        <div className="text-sm text-muted-foreground">
-                          Due: {formatDate(notification.due_date)}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        {notification.canvas_url && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(notification.canvas_url, '_blank')}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleMarkCompleted(notification.id, notification.title)}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Submitted
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="permissions">
-            <div className="space-y-4">
-              {filterByType('permission').filter(n => !n.completed).map((notification) => (
-                <Card key={notification.id} className="border-l-4 border-l-orange-500">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <AlertCircle className="h-4 w-4" />
-                          <h3 className="font-semibold">{notification.title}</h3>
-                          <Badge className={getPriorityColor(notification.priority)}>
-                            {notification.priority}
-                          </Badge>
-                          <Badge variant="outline">{notification.student_name}</Badge>
-                        </div>
-                        
-                        {notification.description && (
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {notification.description}
-                          </p>
-                        )}
-                        
-                        <div className="text-sm text-muted-foreground">
-                          Due: {formatDate(notification.due_date)}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        {notification.canvas_url && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(notification.canvas_url, '_blank')}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleMarkCompleted(notification.id, notification.title)}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Approved
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
           
           <TabsContent value="completed">
             <div className="space-y-4">
