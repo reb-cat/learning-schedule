@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -22,168 +21,253 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 interface CanvasAssignment {
   id: number;
   name: string;
-  description: string;
-  due_at: string;
-  html_url: string;
-  course_id: number;
-  points_possible: number;
-  submission_types: string[];
+  description?: string;
+  due_at?: string;
+  points_possible?: number;
+  html_url?: string;
+  course_id?: number;
+  workflow_state?: string;
+  published?: boolean;
+  submission_types?: string[];
+  unlock_at?: string;
+  lock_at?: string;
+}
+
+interface AdministrativeNotification {
+  student_name: string;
+  title: string;
+  description?: string;
+  notification_type: string;
+  priority: string;
+  due_date?: string;
+  amount?: number;
+  canvas_id?: string;
+  canvas_url?: string;
+  course_name?: string;
 }
 
 const CANVAS_BASE_URL = 'https://canvas.instructure.com/api/v1';
 
-async function fetchCanvasAssignments(token: string, studentName: string) {
-  console.log(`Fetching Canvas assignments for ${studentName}`);
+function isAdministrativeItem(name: string, courseName: string, description?: string): boolean {
+  const administrativeKeywords = [
+    'yearbook', 'fees', 'fee', 'permission', 'form', 'waiver', 'consent',
+    'athletic', 'sports', 'fundraiser', 'volunteer', 'parent', 'guardian',
+    'medical', 'emergency', 'contact', 'information', 'survey', 'evaluation',
+    'attendance', 'tardy', 'discipline', 'behavior', 'policy', 'handbook',
+    'registration', 'enrollment', 'transcript', 'graduation', 'ceremony',
+    'copy fee', 'field trip', 'payment', 'donation', 'club', 'activity fee'
+  ];
   
-  try {
-    // Fetch courses first - only active enrollment
-    const coursesResponse = await fetch(`${CANVAS_BASE_URL}/courses?enrollment_state=active&per_page=100`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    if (!coursesResponse.ok) {
-      throw new Error(`Canvas API error: ${coursesResponse.status}`);
-    }
-    
-    const courses = await coursesResponse.json();
-    console.log(`Found ${courses.length} courses for ${studentName}`);
-    console.log(`Courses: ${courses.map(c => c.name).join(', ')}`);
-    
-    const allAssignments: any[] = [];
+  const lowerName = name.toLowerCase();
+  const lowerCourse = courseName.toLowerCase();
+  const lowerDesc = description?.toLowerCase() || '';
+  
+  return administrativeKeywords.some(keyword => 
+    lowerName.includes(keyword) || 
+    lowerCourse.includes(keyword) || 
+    lowerDesc.includes(keyword)
+  );
+}
+
+function isNonAcademicAssignment(name: string, courseName: string): boolean {
+  // Legacy function - kept for backward compatibility
+  return isAdministrativeItem(name, courseName);
+}
+
+function isLikelyAdministrative(assignment: CanvasAssignment, courseName: string): boolean {
+  // Check for 0-point assignments (often administrative)
+  if (assignment.points_possible === 0) {
+    return true;
+  }
+  
+  // Check for certain submission types that indicate administrative tasks
+  const adminSubmissionTypes = ['not_graded', 'none'];
+  if (assignment.submission_types && 
+      assignment.submission_types.some(type => adminSubmissionTypes.includes(type))) {
+    return true;
+  }
+  
+  return false;
+}
+
+function getAdministrativeNotificationType(name: string, description?: string): string {
+  const text = (name + ' ' + (description || '')).toLowerCase();
+  
+  if (text.includes('fee') || text.includes('payment') || text.includes('cost') || text.includes('money')) {
+    return 'fee';
+  }
+  if (text.includes('permission') || text.includes('form') || text.includes('waiver') || text.includes('consent')) {
+    return 'form';
+  }
+  if (text.includes('field trip') || text.includes('activity') || text.includes('event')) {
+    return 'permission';
+  }
+  
+  return 'general';
+}
+
+function getAdministrativePriority(name: string, dueDate?: string): string {
+  const text = name.toLowerCase();
+  
+  if (text.includes('urgent') || text.includes('asap') || text.includes('immediate')) {
+    return 'high';
+  }
+  
+  if (dueDate) {
+    const due = new Date(dueDate);
     const now = new Date();
-    const twoWeeksAgo = new Date(now.getTime() - (14 * 24 * 60 * 60 * 1000));
+    const daysDiff = (due.getTime() - now.getTime()) / (1000 * 3600 * 24);
     
-    // Fetch assignments for each course
-    for (const course of courses) {
-      console.log(`\nFetching assignments for course: ${course.name} (ID: ${course.id})`);
-      
-      // Updated query - remove problematic bucket parameters and add date filtering
-      const assignmentsUrl = `${CANVAS_BASE_URL}/courses/${course.id}/assignments?per_page=100&order_by=due_at&include[]=submission`;
-      
-      console.log(`Assignment API URL: ${assignmentsUrl}`);
-      
-      const assignmentsResponse = await fetch(assignmentsUrl, { 
-        headers: { 'Authorization': `Bearer ${token}` } 
-      });
-      
-      if (assignmentsResponse.ok) {
-        const assignments = await assignmentsResponse.json();
-        console.log(`Raw assignments count for ${course.name}: ${assignments.length}`);
-        
-        // Log first assignment for debugging
-        if (assignments.length > 0) {
-          console.log(`Sample raw assignment:`, JSON.stringify(assignments[0], null, 2));
-        }
-        
-        for (const assignment of assignments) {
-          // Skip non-academic assignments
-          if (isNonAcademicAssignment(assignment)) {
-            console.log(`Skipping non-academic assignment: ${assignment.name}`);
-            continue;
-          }
-          
-          // Skip assignments without due dates that are likely administrative
-          if (!assignment.due_at && isLikelyAdministrative(assignment)) {
-            console.log(`Skipping likely administrative assignment without due date: ${assignment.name}`);
-            continue;
-          }
-          
-          // If there's a due date, check if it's too old or too far in future
-          if (assignment.due_at) {
-            const dueDate = new Date(assignment.due_at);
-            const sixMonthsFromNow = new Date(now.getTime() + (6 * 30 * 24 * 60 * 60 * 1000));
-            
-            // Skip assignments due more than 2 weeks ago or more than 6 months in future
-            if (dueDate < twoWeeksAgo) {
-              console.log(`Skipping old assignment: ${assignment.name} (due: ${assignment.due_at})`);
-              continue;
-            }
-            
-            if (dueDate > sixMonthsFromNow) {
-              console.log(`Skipping far future assignment: ${assignment.name} (due: ${assignment.due_at})`);
-              continue;
-            }
-          }
-          
-          // Determine subject from course name
-          const subject = determineSubject(course.name);
-          const cognitiveLoad = determineCognitiveLoad(subject, assignment.name);
-          const estimatedMinutes = estimateTimeRequired(assignment, cognitiveLoad);
-          
-          const processedAssignment = {
-            canvas_id: assignment.id.toString(),
-            student_name: studentName,
-            title: assignment.name,
-            course_name: course.name,
-            subject,
-            due_date: assignment.due_at,
-            urgency: calculateUrgency(assignment.due_at),
-            cognitive_load: cognitiveLoad,
-            estimated_time_minutes: estimatedMinutes,
-            canvas_url: assignment.html_url
-          };
-          
-          console.log(`Including assignment: ${assignment.name} (due: ${assignment.due_at || 'no due date'})`);
-          allAssignments.push(processedAssignment);
-        }
-      } else {
-        console.error(`Failed to fetch assignments for course ${course.name}: ${assignmentsResponse.status}`);
-      }
-    }
-    
-    console.log(`Final processed assignment count for ${studentName}: ${allAssignments.length}`);
-    return allAssignments;
-    
-  } catch (error) {
-    console.error(`Error fetching Canvas assignments for ${studentName}:`, error);
-    throw error;
+    if (daysDiff <= 3) return 'high';
+    if (daysDiff <= 7) return 'medium';
+  }
+  
+  return 'medium';
+}
+
+function extractFeeAmount(name: string, description?: string): number | undefined {
+  const text = (name + ' ' + (description || '')).toLowerCase();
+  const feeRegex = /\$(\d+(?:\.\d{2})?)/;
+  const match = text.match(feeRegex);
+  return match ? parseFloat(match[1]) : undefined;
+}
+
+function getCurrentAcademicYear(): string {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0-11
+  
+  // Assume academic year starts in August (month 7)
+  if (currentMonth >= 7) {
+    return `${currentYear}-${currentYear + 1}`;
+  } else {
+    return `${currentYear - 1}-${currentYear}`;
   }
 }
 
-function isNonAcademicAssignment(assignment: any): boolean {
-  const name = assignment.name.toLowerCase();
-  const nonAcademicKeywords = [
-    'roll call',
-    'attendance',
-    'copy fee',
-    'textbook fee',
-    'material fee',
-    'lab fee',
-    'technology fee',
-    'enrollment',
-    'registration',
-    'orientation',
-    'welcome',
-    'introduction to canvas',
-    'course introduction',
-    'syllabus quiz',
-    'getting started'
-  ];
+function isEligibleForScheduling(assignment: CanvasAssignment): boolean {
+  if (!assignment.due_at) return false;
   
-  return nonAcademicKeywords.some(keyword => name.includes(keyword));
+  const dueDate = new Date(assignment.due_at);
+  const now = new Date();
+  const daysDiff = (dueDate.getTime() - now.getTime()) / (1000 * 3600 * 24);
+  
+  // Only schedule assignments due within the next 3 months
+  // but keep older assignments in database in case they weren't turned in
+  return daysDiff >= -7 && daysDiff <= 90;
 }
 
-function isLikelyAdministrative(assignment: any): boolean {
-  const name = assignment.name.toLowerCase();
-  const description = (assignment.description || '').toLowerCase();
+async function fetchCanvasAssignments(token: string, studentName: string) {
+  console.log(`Starting Canvas fetch for ${studentName}`);
   
-  // Check for administrative patterns
-  const adminPatterns = [
-    'fee',
-    'payment',
-    'bill',
-    'invoice',
-    'registration',
-    'enrollment',
-    'attendance',
-    'roll call',
-    'check-in',
-    'orientation'
-  ];
-  
-  return adminPatterns.some(pattern => 
-    name.includes(pattern) || description.includes(pattern)
-  );
+  try {
+    // Fetch active courses
+    const coursesResponse = await fetch(
+      'https://canvas.instructure.com/api/v1/courses?enrollment_state=active&enrollment_type=student&include[]=term&state[]=available',
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (!coursesResponse.ok) {
+      console.error(`Failed to fetch courses for ${studentName}: ${coursesResponse.status}`);
+      return { assignments: [], administrativeItems: [] };
+    }
+
+    const courses = await coursesResponse.json();
+    console.log(`Found ${courses.length} courses for ${studentName}`);
+
+    const allAssignments = [];
+    const allAdministrativeItems = [];
+    const currentAcademicYear = getCurrentAcademicYear();
+
+    for (const course of courses) {
+      try {
+        console.log(`Fetching assignments for course: ${course.name} (${course.id})`);
+        
+        // Fetch ALL assignments for this course - we'll filter later
+        const assignmentsResponse = await fetch(
+          `https://canvas.instructure.com/api/v1/courses/${course.id}/assignments?` + 
+          `order_by=due_at&include[]=submission&per_page=100`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (!assignmentsResponse.ok) {
+          console.error(`Failed to fetch assignments for course ${course.id}: ${assignmentsResponse.status}`);
+          continue;
+        }
+
+        const assignments = await assignmentsResponse.json();
+        console.log(`Found ${assignments.length} assignments in ${course.name}`);
+
+        for (const assignment of assignments) {
+          // Route to administrative notifications if it's an administrative item
+          if (isAdministrativeItem(assignment.name, course.name, assignment.description)) {
+            console.log(`Routing to administrative: ${assignment.name}`);
+            
+            const adminItem: AdministrativeNotification = {
+              student_name: studentName,
+              title: assignment.name,
+              description: assignment.description,
+              notification_type: getAdministrativeNotificationType(assignment.name, assignment.description),
+              priority: getAdministrativePriority(assignment.name, assignment.due_at),
+              due_date: assignment.due_at,
+              amount: extractFeeAmount(assignment.name, assignment.description),
+              canvas_id: assignment.id.toString(),
+              canvas_url: assignment.html_url,
+              course_name: course.name
+            };
+            
+            allAdministrativeItems.push(adminItem);
+            continue;
+          }
+
+          // Skip if it's likely administrative but didn't get caught above
+          if (isLikelyAdministrative(assignment, course.name)) {
+            console.log(`Skipping likely administrative assignment: ${assignment.name}`);
+            continue;
+          }
+
+          // Process as academic assignment
+          const processedAssignment = {
+            id: assignment.id.toString(),
+            student_name: studentName,
+            title: assignment.name,
+            course_name: course.name,
+            subject: determineSubject(course.name),
+            due_date: assignment.due_at,
+            urgency: calculateUrgency(assignment.due_at),
+            cognitive_load: determineCognitiveLoad(assignment.name, course.name),
+            estimated_time_minutes: estimateTimeRequired(assignment.name, assignment.description),
+            canvas_id: assignment.id.toString(),
+            canvas_url: assignment.html_url,
+            eligible_for_scheduling: isEligibleForScheduling(assignment),
+            academic_year: currentAcademicYear
+          };
+
+          allAssignments.push(processedAssignment);
+        }
+      } catch (error) {
+        console.error(`Error fetching assignments for course ${course.id}:`, error);
+      }
+    }
+
+    console.log(`Total processed assignments for ${studentName}: ${allAssignments.length}`);
+    console.log(`Total administrative items for ${studentName}: ${allAdministrativeItems.length}`);
+    return { assignments: allAssignments, administrativeItems: allAdministrativeItems };
+    
+  } catch (error) {
+    console.error(`Error in fetchCanvasAssignments for ${studentName}:`, error);
+    return { assignments: [], administrativeItems: [] };
+  }
 }
 
 function determineSubject(courseName: string): string {
@@ -213,21 +297,22 @@ function determineCognitiveLoad(subject: string, title: string): 'light' | 'medi
   return 'light';
 }
 
-function estimateTimeRequired(assignment: any, cognitiveLoad: string): number {
+function estimateTimeRequired(title: string, description?: string): number {
   // Base estimates by cognitive load
   const baseMinutes = {
     'light': 20,
     'medium': 35,
     'heavy': 50
-  }[cognitiveLoad];
+  };
   
   // Adjust based on assignment type
-  const title = assignment.name?.toLowerCase() || '';
-  if (title.includes('test') || title.includes('exam')) return Math.round(baseMinutes * 1.5);
-  if (title.includes('project')) return Math.round(baseMinutes * 2);
-  if (title.includes('reading')) return Math.round(baseMinutes * 0.8);
+  const titleLower = title.toLowerCase();
+  if (titleLower.includes('test') || titleLower.includes('exam')) return 60;
+  if (titleLower.includes('project')) return 90;
+  if (titleLower.includes('reading')) return 25;
+  if (titleLower.includes('quiz')) return 30;
   
-  return baseMinutes;
+  return 35; // Default
 }
 
 function calculateUrgency(dueDate: string | null): 'overdue' | 'due_today' | 'due_soon' | 'upcoming' {
@@ -277,83 +362,98 @@ serve(async (req) => {
   try {
     console.log('Starting daily Canvas sync...');
     
-    const results = {
-      abigail: { fetched: 0, scheduled: 0, error: null },
-      khalil: { fetched: 0, scheduled: 0, error: null }
-    };
+    let totalFetched = 0;
+    let totalScheduled = 0;
 
-    // Process each student
-    for (const [studentName, token] of [['Abigail', abigailToken], ['Khalil', khalilToken]]) {
+    for (const studentName of ['Abigail', 'Khalil']) {
       try {
-        console.log(`\n=== Processing ${studentName} ===`);
+        await updateSyncStatus(studentName, 'running', `Starting sync for ${studentName}`, 0, 0);
         
-        // Fetch assignments from Canvas
-        const assignments = await fetchCanvasAssignments(token, studentName);
-        results[studentName.toLowerCase()].fetched = assignments.length;
+        console.log(`\n--- Processing ${studentName} ---`);
+        const token = studentName === 'Abigail' ? abigailToken : khalilToken;
         
-        console.log(`\nFinal assignments for ${studentName}:`);
-        assignments.forEach((a, i) => {
-          console.log(`${i + 1}. ${a.title} (${a.course_name}) - Due: ${a.due_date || 'No due date'}`);
-        });
-        
-        // Clear existing assignments for this student
-        console.log(`\nClearing existing assignments for ${studentName}...`);
+        // Fetch assignments and administrative items from Canvas
+        const { assignments: canvasAssignments, administrativeItems } = await fetchCanvasAssignments(token, studentName);
+        console.log(`Fetched ${canvasAssignments.length} assignments and ${administrativeItems.length} administrative items for ${studentName}`);
+
+        // Delete existing assignments for this student
         const { error: deleteError } = await supabase
           .from('assignments')
           .delete()
           .eq('student_name', studentName);
-          
+
         if (deleteError) {
-          console.error(`Error deleting assignments for ${studentName}:`, deleteError);
-          throw new Error(`Database delete error: ${deleteError.message}`);
+          console.error(`Error deleting existing assignments for ${studentName}:`, deleteError);
+          await updateSyncStatus(studentName, 'error', `Failed to delete existing assignments: ${deleteError.message}`, 0, 0);
+          continue;
         }
-        
+
+        // Delete existing administrative notifications for this student
+        const { error: deleteAdminError } = await supabase
+          .from('administrative_notifications')
+          .delete()
+          .eq('student_name', studentName);
+
+        if (deleteAdminError) {
+          console.error(`Error deleting existing administrative notifications for ${studentName}:`, deleteAdminError);
+        }
+
         // Insert new assignments
-        if (assignments.length > 0) {
-          console.log(`Inserting ${assignments.length} assignments for ${studentName}...`);
-          
+        if (canvasAssignments.length > 0) {
           const { data: insertData, error: insertError } = await supabase
             .from('assignments')
-            .insert(assignments)
-            .select();
-            
+            .insert(canvasAssignments);
+
           if (insertError) {
-            console.error(`Database insert error for ${studentName}:`, insertError);
-            console.error('Insert error details:', JSON.stringify(insertError, null, 2));
-            throw new Error(`Database insert error: ${insertError.message}`);
+            console.error(`Error inserting assignments for ${studentName}:`, insertError);
+            await updateSyncStatus(studentName, 'error', `Failed to insert assignments: ${insertError.message}`, canvasAssignments.length, 0);
+            continue;
           }
-          
-          console.log(`✓ Successfully inserted ${insertData?.length || 0} assignments for ${studentName}`);
-        } else {
-          console.log(`No assignments to insert for ${studentName}`);
+
+          console.log(`Successfully inserted ${canvasAssignments.length} assignments for ${studentName}`);
         }
+
+        // Insert new administrative notifications
+        if (administrativeItems.length > 0) {
+          const { data: insertAdminData, error: insertAdminError } = await supabase
+            .from('administrative_notifications')
+            .insert(administrativeItems);
+
+          if (insertAdminError) {
+            console.error(`Error inserting administrative notifications for ${studentName}:`, insertAdminError);
+          } else {
+            console.log(`Successfully inserted ${administrativeItems.length} administrative notifications for ${studentName}`);
+          }
+        }
+
+        // Schedule only eligible assignments using the shared scheduling logic
+        const eligibleAssignments = canvasAssignments.filter(a => a.eligible_for_scheduling);
+        const { scheduleAssignments } = await import('../_shared/scheduling.ts');
+        const schedulingResult = scheduleAssignments(eligibleAssignments, studentName, 'Monday'); // Default to Monday for sync
         
-        // Run scheduling algorithm
-        const scheduledCount = await scheduleAssignments(supabase, studentName);
-        results[studentName.toLowerCase()].scheduled = scheduledCount;
-        
-        // Update sync status
+        console.log(`Scheduling result for ${studentName}:`, {
+          total: canvasAssignments.length,
+          eligible: eligibleAssignments.length,
+          scheduled: schedulingResult.scheduledAssignments.length,
+          unscheduled: schedulingResult.unscheduledAssignments.length,
+          administrative: administrativeItems.length,
+          warnings: schedulingResult.warnings.length
+        });
+
         await updateSyncStatus(
-          studentName,
-          'success',
-          `Successfully synced ${assignments.length} assignments, scheduled ${scheduledCount}`,
-          assignments.length,
-          scheduledCount
+          studentName, 
+          'success', 
+          `Successfully synced ${canvasAssignments.length} assignments and ${administrativeItems.length} administrative items`, 
+          canvasAssignments.length,
+          schedulingResult.scheduledAssignments.length
         );
         
-        console.log(`✓ ${studentName}: ${assignments.length} fetched, ${scheduledCount} scheduled`);
+        totalFetched += canvasAssignments.length;
+        totalScheduled += schedulingResult.scheduledAssignments.length;
         
       } catch (error) {
         console.error(`Error processing ${studentName}:`, error);
-        results[studentName.toLowerCase()].error = error.message;
-        
-        await updateSyncStatus(
-          studentName,
-          'error',
-          `Sync failed: ${error.message}`,
-          0,
-          0
-        );
+        await updateSyncStatus(studentName, 'error', `Sync failed: ${error.message}`, 0, 0);
       }
     }
 
@@ -362,7 +462,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       message: 'Daily sync completed',
-      results
+      totalFetched,
+      totalScheduled
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

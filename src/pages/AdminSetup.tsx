@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import AdministrativePanel from "@/components/AdministrativePanel";
 import { RefreshCw, CheckCircle, AlertTriangle, Clock, Database, Search, Eye, BarChart3 } from "lucide-react";
 
 const AdminSetup = () => {
@@ -123,12 +124,17 @@ const AdminSetup = () => {
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
+    <div className="container mx-auto p-6 max-w-6xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Admin Setup & Management</h1>
         <p className="text-muted-foreground mt-2">
           Monitor and manage Canvas integration and assignment scheduling.
         </p>
+      </div>
+
+      {/* Parent Administrative Panel */}
+      <div className="mb-6">
+        <AdministrativePanel />
       </div>
 
       {/* Automated Sync Status */}

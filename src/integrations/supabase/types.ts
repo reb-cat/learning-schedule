@@ -14,14 +14,70 @@ export type Database = {
   }
   public: {
     Tables: {
+      administrative_notifications: {
+        Row: {
+          amount: number | null
+          canvas_id: string | null
+          canvas_url: string | null
+          completed: boolean
+          completed_at: string | null
+          course_name: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          notification_type: string
+          priority: string
+          student_name: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          canvas_id?: string | null
+          canvas_url?: string | null
+          completed?: boolean
+          completed_at?: string | null
+          course_name?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          notification_type?: string
+          priority?: string
+          student_name: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          canvas_id?: string | null
+          canvas_url?: string | null
+          completed?: boolean
+          completed_at?: string | null
+          course_name?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          notification_type?: string
+          priority?: string
+          student_name?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       assignments: {
         Row: {
+          academic_year: string | null
           canvas_id: string | null
           canvas_url: string | null
           cognitive_load: string | null
           course_name: string | null
           created_at: string
           due_date: string | null
+          eligible_for_scheduling: boolean
           estimated_time_minutes: number | null
           id: string
           student_name: string
@@ -31,12 +87,14 @@ export type Database = {
           urgency: string | null
         }
         Insert: {
+          academic_year?: string | null
           canvas_id?: string | null
           canvas_url?: string | null
           cognitive_load?: string | null
           course_name?: string | null
           created_at?: string
           due_date?: string | null
+          eligible_for_scheduling?: boolean
           estimated_time_minutes?: number | null
           id?: string
           student_name: string
@@ -46,12 +104,14 @@ export type Database = {
           urgency?: string | null
         }
         Update: {
+          academic_year?: string | null
           canvas_id?: string | null
           canvas_url?: string | null
           cognitive_load?: string | null
           course_name?: string | null
           created_at?: string
           due_date?: string | null
+          eligible_for_scheduling?: boolean
           estimated_time_minutes?: number | null
           id?: string
           student_name?: string
