@@ -14,7 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      assignments: {
+        Row: {
+          canvas_id: string | null
+          canvas_url: string | null
+          cognitive_load: string | null
+          course_name: string | null
+          created_at: string
+          due_date: string | null
+          estimated_time_minutes: number | null
+          id: string
+          student_name: string
+          subject: string | null
+          title: string
+          updated_at: string
+          urgency: string | null
+        }
+        Insert: {
+          canvas_id?: string | null
+          canvas_url?: string | null
+          cognitive_load?: string | null
+          course_name?: string | null
+          created_at?: string
+          due_date?: string | null
+          estimated_time_minutes?: number | null
+          id?: string
+          student_name: string
+          subject?: string | null
+          title: string
+          updated_at?: string
+          urgency?: string | null
+        }
+        Update: {
+          canvas_id?: string | null
+          canvas_url?: string | null
+          cognitive_load?: string | null
+          course_name?: string | null
+          created_at?: string
+          due_date?: string | null
+          estimated_time_minutes?: number | null
+          id?: string
+          student_name?: string
+          subject?: string | null
+          title?: string
+          updated_at?: string
+          urgency?: string | null
+        }
+        Relationships: []
+      }
+      sync_status: {
+        Row: {
+          assignments_count: number | null
+          created_at: string
+          id: string
+          message: string | null
+          status: string
+          student_name: string
+          sync_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          assignments_count?: number | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          status: string
+          student_name: string
+          sync_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assignments_count?: number | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          status?: string
+          student_name?: string
+          sync_type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
