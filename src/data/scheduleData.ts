@@ -7,6 +7,8 @@ export interface ScheduleBlock {
   subject: string;
   type: string;
   isAssignmentBlock: boolean;
+  assignment?: any;
+  isCompleted?: boolean;
 }
 
 export const scheduleData: ScheduleBlock[] = [
