@@ -13,10 +13,12 @@ interface CanvasAssignment {
 
 interface CanvasSettings {
   apiUrl: string;
-  abigailApiToken: string;
-  khalilApiToken: string;
-  abigailCourseId: string;
-  khalilCourseId: string;
+}
+
+interface CanvasCourse {
+  id: number;
+  name: string;
+  course_code: string;
 }
 
 export interface Assignment {
@@ -42,9 +44,20 @@ class CanvasService {
       throw new Error("Canvas settings not configured");
     }
 
-    const apiToken = student === 'Abigail' ? settings.abigailApiToken : settings.khalilApiToken;
+    // Get token from Supabase secrets
+    const tokenKey = student === 'Abigail' ? 'ABIGAIL_CANVAS_TOKEN' : 'KHALIL_CANVAS_TOKEN';
+    const { data: { user } } = await import('@/integrations/supabase/client').then(m => m.supabase.auth.getUser());
+    
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    // In a real implementation, you'd fetch the secret from Supabase
+    // For now, we'll check if it exists in the environment (which Supabase edge functions provide)
+    const apiToken = typeof window !== 'undefined' ? null : process.env[tokenKey];
+    
     if (!apiToken) {
-      throw new Error(`API token not configured for ${student}`);
+      throw new Error(`API token not configured for ${student}. Please add ${tokenKey} in Supabase secrets.`);
     }
 
     const url = `${settings.apiUrl}/api/v1${endpoint}`;
@@ -89,47 +102,61 @@ class CanvasService {
     const settings = this.getSettings();
     if (!settings) return [];
 
-    const courseId = student === 'Abigail' ? settings.abigailCourseId : settings.khalilCourseId;
-    if (!courseId) return [];
-
     try {
+      // First, get all courses for the student
+      const courses: CanvasCourse[] = await this.makeRequest('/courses?enrollment_state=active&per_page=100', student);
+      
       const twoWeeksFromNow = new Date();
       twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
 
-      const assignments: CanvasAssignment[] = await this.makeRequest(
-        `/courses/${courseId}/assignments?include[]=submission&per_page=100`,
-        student
-      );
+      let allAssignments: Assignment[] = [];
 
-      return assignments
-        .filter(assignment => {
-          // Filter out submitted assignments
-          if (assignment.submission?.workflow_state === 'submitted') {
-            return false;
-          }
+      // Fetch assignments from all courses
+      for (const course of courses) {
+        try {
+          const assignments: CanvasAssignment[] = await this.makeRequest(
+            `/courses/${course.id}/assignments?include[]=submission&per_page=100`,
+            student
+          );
 
-          // Filter assignments due within 2 weeks
-          if (assignment.due_at) {
-            const dueDate = new Date(assignment.due_at);
-            return dueDate <= twoWeeksFromNow && dueDate >= new Date();
-          }
+      const courseAssignments = assignments
+            .filter(assignment => {
+              // Filter out submitted assignments
+              if (assignment.submission?.workflow_state === 'submitted') {
+                return false;
+              }
 
-          return false;
-        })
-        .map(assignment => ({
-          id: assignment.id,
-          name: assignment.name,
-          description: assignment.description || '',
-          dueDate: assignment.due_at ? new Date(assignment.due_at) : null,
-          courseId: assignment.course_id,
-          isSubmitted: assignment.submission?.workflow_state === 'submitted',
-          pointsPossible: assignment.points_possible || 0,
-          subject: this.guessSubjectFromAssignment(assignment)
-        }))
-        .sort((a, b) => {
-          if (!a.dueDate || !b.dueDate) return 0;
-          return a.dueDate.getTime() - b.dueDate.getTime();
-        });
+              // Filter assignments due within 2 weeks
+              if (assignment.due_at) {
+                const dueDate = new Date(assignment.due_at);
+                return dueDate <= twoWeeksFromNow && dueDate >= new Date();
+              }
+
+              return false;
+            })
+            .map(assignment => ({
+              id: assignment.id,
+              name: assignment.name,
+              description: assignment.description || '',
+              dueDate: assignment.due_at ? new Date(assignment.due_at) : null,
+              courseId: assignment.course_id,
+              isSubmitted: assignment.submission?.workflow_state === 'submitted',
+              pointsPossible: assignment.points_possible || 0,
+              subject: this.guessSubjectFromAssignment(assignment)
+            }));
+
+          allAssignments = [...allAssignments, ...courseAssignments];
+        } catch (error) {
+          console.error(`Error fetching assignments for course ${course.id}:`, error);
+          // Continue with other courses even if one fails
+        }
+      }
+
+      // Sort all assignments by due date
+      return allAssignments.sort((a, b) => {
+        if (!a.dueDate || !b.dueDate) return 0;
+        return a.dueDate.getTime() - b.dueDate.getTime();
+      });
     } catch (error) {
       console.error('Error fetching Canvas assignments:', error);
       return [];

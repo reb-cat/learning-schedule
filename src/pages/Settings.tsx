@@ -9,10 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 
 interface CanvasSettings {
   apiUrl: string;
-  abigailApiToken: string;
-  khalilApiToken: string;
-  abigailCourseId: string;
-  khalilCourseId: string;
 }
 
 const Settings = () => {
@@ -20,11 +16,7 @@ const Settings = () => {
   const [pin, setPin] = useState("");
   const [showToken, setShowToken] = useState(false);
   const [settings, setSettings] = useState<CanvasSettings>({
-    apiUrl: "",
-    abigailApiToken: "",
-    khalilApiToken: "",
-    abigailCourseId: "",
-    khalilCourseId: ""
+    apiUrl: ""
   });
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -139,69 +131,14 @@ const Settings = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="abigailApiToken">Abigail's API Token</Label>
-              <div className="relative">
-                <Input
-                  id="abigailApiToken"
-                  type={showToken ? "text" : "password"}
-                  value={settings.abigailApiToken}
-                  onChange={(e) => handleInputChange("abigailApiToken", e.target.value)}
-                  placeholder="Enter Abigail's Canvas API token"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6"
-                  onClick={() => setShowToken(!showToken)}
-                >
-                  {showToken ? <EyeOff size={14} /> : <Eye size={14} />}
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="khalilApiToken">Khalil's API Token</Label>
-              <div className="relative">
-                <Input
-                  id="khalilApiToken"
-                  type={showToken ? "text" : "password"}
-                  value={settings.khalilApiToken}
-                  onChange={(e) => handleInputChange("khalilApiToken", e.target.value)}
-                  placeholder="Enter Khalil's Canvas API token"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6"
-                  onClick={() => setShowToken(!showToken)}
-                >
-                  {showToken ? <EyeOff size={14} /> : <Eye size={14} />}
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="abigailCourseId">Abigail's Course ID</Label>
-                <Input
-                  id="abigailCourseId"
-                  value={settings.abigailCourseId}
-                  onChange={(e) => handleInputChange("abigailCourseId", e.target.value)}
-                  placeholder="12345"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="khalilCourseId">Khalil's Course ID</Label>
-                <Input
-                  id="khalilCourseId"
-                  value={settings.khalilCourseId}
-                  onChange={(e) => handleInputChange("khalilCourseId", e.target.value)}
-                  placeholder="12346"
-                />
+            <div className="bg-muted/30 p-4 rounded-lg">
+              <h3 className="font-semibold mb-2">API Tokens</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                API tokens are stored securely in Supabase. Use the forms above to add them.
+              </p>
+              <div className="text-xs text-muted-foreground">
+                <p>✓ ABIGAIL_CANVAS_TOKEN: {'{'}Configured in Supabase secrets{'}'}</p>
+                <p>✓ KHALIL_CANVAS_TOKEN: {'{'}Configured in Supabase secrets{'}'}</p>
               </div>
             </div>
 
@@ -212,9 +149,12 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        <div className="mt-6 text-sm text-muted-foreground">
-          <p><strong>Note:</strong> To get your API token, go to Canvas → Account → Settings → Approved Integrations → New Access Token</p>
-          <p><strong>Course IDs:</strong> Found in the URL when viewing a course (e.g., /courses/12345)</p>
+        <div className="mt-6 text-sm text-muted-foreground space-y-2">
+          <p><strong>How to get API tokens:</strong></p>
+          <p>1. Go to Canvas → Account → Settings → Approved Integrations</p>
+          <p>2. Click "New Access Token"</p>
+          <p>3. Add the token using the secure forms above</p>
+          <p><strong>Note:</strong> Assignments will be fetched from all enrolled courses automatically.</p>
         </div>
       </div>
     </div>
