@@ -143,7 +143,18 @@ serve(async (req) => {
   }
 
   try {
-    const { studentName } = await req.json();
+    // Handle empty request body
+    let studentName = null;
+    try {
+      const body = await req.text();
+      console.log(`📝 Request body: "${body}"`);
+      if (body.trim()) {
+        const parsed = JSON.parse(body);
+        studentName = parsed.studentName;
+      }
+    } catch (parseError) {
+      console.log(`⚠️ No valid JSON in request body, syncing all students`);
+    }
     
     const studentsToSync = studentName ? [studentName] : ['Abigail', 'Khalil'];
     const results = {};
