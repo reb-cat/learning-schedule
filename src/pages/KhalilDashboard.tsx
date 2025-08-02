@@ -1,15 +1,27 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Home } from "lucide-react";
-import { format } from "date-fns";
-import { getScheduleForStudentAndDay, getCurrentDayName } from "@/data/scheduleData";
+import { format, parse, isValid } from "date-fns";
+import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 
 const KhalilDashboard = () => {
-  const today = new Date();
-  const dateDisplay = format(today, "EEEE, MMMM d, yyyy");
-  const currentDay = getCurrentDayName();
+  const [searchParams] = useSearchParams();
+  const dateParam = searchParams.get('date');
+  
+  // Use date parameter if provided and valid, otherwise use today
+  let displayDate = new Date();
+  if (dateParam) {
+    const parsedDate = parse(dateParam, 'yyyy-MM-dd', new Date());
+    if (isValid(parsedDate)) {
+      displayDate = parsedDate;
+    }
+  }
+  
+  const dateDisplay = format(displayDate, "EEEE, MMMM d, yyyy");
+  const currentDay = format(displayDate, "EEEE");
+  const isWeekend = currentDay === "Saturday" || currentDay === "Sunday";
   const todaySchedule = getScheduleForStudentAndDay("Khalil", currentDay);
 
   return (
@@ -31,7 +43,14 @@ const KhalilDashboard = () => {
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">Today's Schedule</h2>
           
-          {todaySchedule.length === 0 ? (
+          {isWeekend ? (
+            <Card className="bg-card border border-border">
+              <CardContent className="p-8 text-center">
+                <h3 className="text-lg font-semibold text-foreground mb-2">No classes today!</h3>
+                <p className="text-muted-foreground">Enjoy your weekend! 🎉</p>
+              </CardContent>
+            </Card>
+          ) : todaySchedule.length === 0 ? (
             <Card className="bg-card border border-border">
               <CardContent className="p-8 text-center">
                 <p className="text-muted-foreground">No schedule available for {currentDay}</p>
