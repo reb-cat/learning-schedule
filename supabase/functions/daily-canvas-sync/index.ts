@@ -37,6 +37,193 @@ function categorizeAssignment(title: string): 'academic' | 'administrative' {
   return isAdministrative ? 'administrative' : 'academic';
 }
 
+// Function to extract fees and requirements from text content
+function extractAdministrativeRequirements(content: string, courseName: string, source: string): Array<{
+  title: string;
+  description: string;
+  type: string;
+  priority: string;
+  amount?: number;
+  isDayOne?: boolean;
+}> {
+  if (!content) return [];
+  
+  const contentLower = content.toLowerCase();
+  const requirements: Array<any> = [];
+  
+  // Extract copy fees
+  const copyFeePatterns = [
+    /copy\s*fee[s]?\s*[$:]?\s*(\$?\d+(?:\.\d{2})?)/gi,
+    /copying\s*cost[s]?\s*[$:]?\s*(\$?\d+(?:\.\d{2})?)/gi,
+    /copy\s*charge[s]?\s*[$:]?\s*(\$?\d+(?:\.\d{2})?)/gi,
+    /copies?\s*will\s*be\s*(\$?\d+(?:\.\d{2})?)/gi
+  ];
+  
+  copyFeePatterns.forEach(pattern => {
+    const matches = content.matchAll(pattern);
+    for (const match of matches) {
+      const amount = parseFloat(match[1].replace('$', ''));
+      requirements.push({
+        title: `Copy Fee - ${courseName}`,
+        description: `Copy fee required for ${courseName}: ${match[0]}`,
+        type: 'fee',
+        priority: 'high',
+        amount: amount,
+        isDayOne: contentLower.includes('first day') || contentLower.includes('day 1') || contentLower.includes('day one')
+      });
+    }
+  });
+  
+  // Extract supply requirements
+  const supplyPatterns = [
+    /bring\s+(?:the\s+)?following\s+(?:supplies?|materials?|items?)[:\s]+(.*?)(?:\n\n|\. [A-Z]|$)/gi,
+    /(?:required\s+)?(?:supplies?|materials?)\s*(?:needed|required)?[:\s]+(.*?)(?:\n\n|\. [A-Z]|$)/gi,
+    /you\s+(?:will\s+)?need[:\s]+(.*?)(?:\n\n|\. [A-Z]|$)/gi
+  ];
+  
+  supplyPatterns.forEach(pattern => {
+    const matches = content.matchAll(pattern);
+    for (const match of matches) {
+      const supplies = match[1].trim();
+      if (supplies.length > 10 && supplies.length < 500) { // Reasonable length check
+        requirements.push({
+          title: `Supplies Needed - ${courseName}`,
+          description: `Required supplies for ${courseName}: ${supplies}`,
+          type: 'supplies',
+          priority: 'medium',
+          isDayOne: contentLower.includes('first day') || contentLower.includes('day 1') || contentLower.includes('day one')
+        });
+      }
+    }
+  });
+  
+  // Extract forms and permissions
+  const formPatterns = [
+    /(?:permission\s+)?(?:form|slip)[s]?\s+(?:required|needed|must\s+be\s+(?:signed|returned))/gi,
+    /(?:medical|emergency)\s+(?:form|information)\s+(?:required|needed)/gi,
+    /field\s+trip\s+(?:permission|form)/gi
+  ];
+  
+  formPatterns.forEach(pattern => {
+    const matches = content.matchAll(pattern);
+    for (const match of matches) {
+      requirements.push({
+        title: `Form Required - ${courseName}`,
+        description: `Administrative form needed for ${courseName}: ${match[0]}`,
+        type: 'form',
+        priority: 'high',
+        isDayOne: contentLower.includes('first day') || contentLower.includes('day 1') || contentLower.includes('day one')
+      });
+    }
+  });
+  
+  return requirements;
+}
+
+// Function to fetch and parse course syllabi
+async function fetchCourseSyllabus(courseId: string, token: string): Promise<string> {
+  try {
+    const response = await fetch(
+      `${canvasBaseUrl}/api/v1/courses/${courseId}?include[]=syllabus_body`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch syllabus for course ${courseId}: ${response.status}`);
+      return '';
+    }
+    
+    const course = await response.json();
+    return course.syllabus_body || '';
+  } catch (error) {
+    console.error(`Error fetching syllabus for course ${courseId}:`, error);
+    return '';
+  }
+}
+
+// Function to fetch course announcements
+async function fetchCourseAnnouncements(courseId: string, token: string): Promise<string> {
+  try {
+    const response = await fetch(
+      `${canvasBaseUrl}/api/v1/announcements?context_codes[]=course_${courseId}&per_page=10&active_only=true`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch announcements for course ${courseId}: ${response.status}`);
+      return '';
+    }
+    
+    const announcements = await response.json();
+    return announcements.map((ann: any) => `${ann.title}\n${ann.message || ''}`).join('\n\n');
+  } catch (error) {
+    console.error(`Error fetching announcements for course ${courseId}:`, error);
+    return '';
+  }
+}
+
+// Function to fetch course pages
+async function fetchCoursePages(courseId: string, token: string): Promise<string> {
+  try {
+    const response = await fetch(
+      `${canvasBaseUrl}/api/v1/courses/${courseId}/pages?per_page=20&published=true`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch pages for course ${courseId}: ${response.status}`);
+      return '';
+    }
+    
+    const pages = await response.json();
+    let allContent = '';
+    
+    // Fetch content for each page that might contain requirements
+    for (const page of pages.slice(0, 5)) { // Limit to first 5 pages to avoid too much data
+      if (page.title.toLowerCase().includes('supply') || 
+          page.title.toLowerCase().includes('requirement') ||
+          page.title.toLowerCase().includes('material') ||
+          page.title.toLowerCase().includes('fee')) {
+        
+        const pageResponse = await fetch(
+          `${canvasBaseUrl}/api/v1/courses/${courseId}/pages/${page.url}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (pageResponse.ok) {
+          const pageData = await pageResponse.json();
+          allContent += `${pageData.title}\n${pageData.body || ''}\n\n`;
+        }
+      }
+    }
+    
+    return allContent;
+  } catch (error) {
+    console.error(`Error fetching pages for course ${courseId}:`, error);
+    return '';
+  }
+}
+
 async function syncStudentAssignments(studentName: string, token: string) {
   console.log(`🔄 Starting sync for ${studentName}...`);
   
@@ -77,6 +264,41 @@ async function syncStudentAssignments(studentName: string, token: string) {
     // 3) Process each course
     for (const course of courses) {
       console.log(`📚 Processing course: ${course.name}`);
+      
+      // Fetch additional course content for administrative requirements
+      console.log(`   🔍 Fetching syllabi, announcements, and pages for ${course.name}...`);
+      const [syllabusContent, announcementsContent, pagesContent] = await Promise.all([
+        fetchCourseSyllabus(course.id, token),
+        fetchCourseAnnouncements(course.id, token),
+        fetchCoursePages(course.id, token)
+      ]);
+      
+      // Extract administrative requirements from all content sources
+      const allContent = `${syllabusContent}\n\n${announcementsContent}\n\n${pagesContent}`;
+      const adminRequirements = extractAdministrativeRequirements(allContent, course.name, 'course_content');
+      
+      // Insert administrative requirements as notifications
+      for (const req of adminRequirements) {
+        console.log(`   📋 Found ${req.type}: ${req.title}${req.isDayOne ? ' (Day 1)' : ''}`);
+        
+        const { error: adminError } = await supabase
+          .from('administrative_notifications')
+          .insert({
+            student_name: studentName,
+            title: req.title,
+            description: req.description,
+            notification_type: req.type,
+            priority: req.isDayOne ? 'high' : req.priority,
+            course_name: course.name,
+            amount: req.amount || null
+          });
+          
+        if (adminError) {
+          console.error(`❌ Error inserting administrative requirement "${req.title}":`, adminError);
+        } else {
+          console.log(`   ✅ Added administrative requirement: ${req.title}`);
+        }
+      }
       
       // Fetch assignments for this course
       const assignmentsResponse = await fetch(
