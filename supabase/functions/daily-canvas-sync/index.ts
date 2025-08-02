@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -35,7 +36,7 @@ async function fetchCanvasAssignments(token: string, studentName: string) {
   console.log(`Fetching Canvas assignments for ${studentName}`);
   
   try {
-    // Fetch courses first
+    // Fetch courses first - only active enrollment
     const coursesResponse = await fetch(`${CANVAS_BASE_URL}/courses?enrollment_state=active&per_page=100`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -46,26 +47,70 @@ async function fetchCanvasAssignments(token: string, studentName: string) {
     
     const courses = await coursesResponse.json();
     console.log(`Found ${courses.length} courses for ${studentName}`);
+    console.log(`Courses: ${courses.map(c => c.name).join(', ')}`);
     
     const allAssignments: any[] = [];
+    const now = new Date();
+    const twoWeeksAgo = new Date(now.getTime() - (14 * 24 * 60 * 60 * 1000));
     
     // Fetch assignments for each course
     for (const course of courses) {
-      const assignmentsResponse = await fetch(
-        `${CANVAS_BASE_URL}/courses/${course.id}/assignments?per_page=100&bucket=future&bucket=overdue&bucket=undated`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
-      );
+      console.log(`\nFetching assignments for course: ${course.name} (ID: ${course.id})`);
+      
+      // Updated query - remove problematic bucket parameters and add date filtering
+      const assignmentsUrl = `${CANVAS_BASE_URL}/courses/${course.id}/assignments?per_page=100&order_by=due_at&include[]=submission`;
+      
+      console.log(`Assignment API URL: ${assignmentsUrl}`);
+      
+      const assignmentsResponse = await fetch(assignmentsUrl, { 
+        headers: { 'Authorization': `Bearer ${token}` } 
+      });
       
       if (assignmentsResponse.ok) {
         const assignments = await assignmentsResponse.json();
+        console.log(`Raw assignments count for ${course.name}: ${assignments.length}`);
+        
+        // Log first assignment for debugging
+        if (assignments.length > 0) {
+          console.log(`Sample raw assignment:`, JSON.stringify(assignments[0], null, 2));
+        }
         
         for (const assignment of assignments) {
+          // Skip non-academic assignments
+          if (isNonAcademicAssignment(assignment)) {
+            console.log(`Skipping non-academic assignment: ${assignment.name}`);
+            continue;
+          }
+          
+          // Skip assignments without due dates that are likely administrative
+          if (!assignment.due_at && isLikelyAdministrative(assignment)) {
+            console.log(`Skipping likely administrative assignment without due date: ${assignment.name}`);
+            continue;
+          }
+          
+          // If there's a due date, check if it's too old or too far in future
+          if (assignment.due_at) {
+            const dueDate = new Date(assignment.due_at);
+            const sixMonthsFromNow = new Date(now.getTime() + (6 * 30 * 24 * 60 * 60 * 1000));
+            
+            // Skip assignments due more than 2 weeks ago or more than 6 months in future
+            if (dueDate < twoWeeksAgo) {
+              console.log(`Skipping old assignment: ${assignment.name} (due: ${assignment.due_at})`);
+              continue;
+            }
+            
+            if (dueDate > sixMonthsFromNow) {
+              console.log(`Skipping far future assignment: ${assignment.name} (due: ${assignment.due_at})`);
+              continue;
+            }
+          }
+          
           // Determine subject from course name
           const subject = determineSubject(course.name);
           const cognitiveLoad = determineCognitiveLoad(subject, assignment.name);
           const estimatedMinutes = estimateTimeRequired(assignment, cognitiveLoad);
           
-          allAssignments.push({
+          const processedAssignment = {
             canvas_id: assignment.id.toString(),
             student_name: studentName,
             title: assignment.name,
@@ -76,12 +121,17 @@ async function fetchCanvasAssignments(token: string, studentName: string) {
             cognitive_load: cognitiveLoad,
             estimated_time_minutes: estimatedMinutes,
             canvas_url: assignment.html_url
-          });
+          };
+          
+          console.log(`Including assignment: ${assignment.name} (due: ${assignment.due_at || 'no due date'})`);
+          allAssignments.push(processedAssignment);
         }
+      } else {
+        console.error(`Failed to fetch assignments for course ${course.name}: ${assignmentsResponse.status}`);
       }
     }
     
-    console.log(`Processed ${allAssignments.length} assignments for ${studentName}`);
+    console.log(`Final processed assignment count for ${studentName}: ${allAssignments.length}`);
     return allAssignments;
     
   } catch (error) {
@@ -90,15 +140,61 @@ async function fetchCanvasAssignments(token: string, studentName: string) {
   }
 }
 
+function isNonAcademicAssignment(assignment: any): boolean {
+  const name = assignment.name.toLowerCase();
+  const nonAcademicKeywords = [
+    'roll call',
+    'attendance',
+    'copy fee',
+    'textbook fee',
+    'material fee',
+    'lab fee',
+    'technology fee',
+    'enrollment',
+    'registration',
+    'orientation',
+    'welcome',
+    'introduction to canvas',
+    'course introduction',
+    'syllabus quiz',
+    'getting started'
+  ];
+  
+  return nonAcademicKeywords.some(keyword => name.includes(keyword));
+}
+
+function isLikelyAdministrative(assignment: any): boolean {
+  const name = assignment.name.toLowerCase();
+  const description = (assignment.description || '').toLowerCase();
+  
+  // Check for administrative patterns
+  const adminPatterns = [
+    'fee',
+    'payment',
+    'bill',
+    'invoice',
+    'registration',
+    'enrollment',
+    'attendance',
+    'roll call',
+    'check-in',
+    'orientation'
+  ];
+  
+  return adminPatterns.some(pattern => 
+    name.includes(pattern) || description.includes(pattern)
+  );
+}
+
 function determineSubject(courseName: string): string {
   const name = courseName.toLowerCase();
-  if (name.includes('math') || name.includes('algebra') || name.includes('geometry')) return 'Math';
-  if (name.includes('english') || name.includes('language arts') || name.includes('writing')) return 'Language Arts';
+  if (name.includes('math') || name.includes('algebra') || name.includes('geometry') || name.includes('calculus')) return 'Math';
+  if (name.includes('english') || name.includes('language arts') || name.includes('writing') || name.includes('literature')) return 'Language Arts';
   if (name.includes('science') || name.includes('biology') || name.includes('chemistry') || name.includes('physics')) return 'Science';
-  if (name.includes('history') || name.includes('social studies') || name.includes('government')) return 'History';
-  if (name.includes('art') || name.includes('music') || name.includes('drama')) return 'Art';
-  if (name.includes('pe') || name.includes('physical education') || name.includes('health')) return 'PE';
-  if (name.includes('bible') || name.includes('theology')) return 'Bible';
+  if (name.includes('history') || name.includes('social studies') || name.includes('government') || name.includes('civics')) return 'History';
+  if (name.includes('art') || name.includes('music') || name.includes('drama') || name.includes('theater')) return 'Art';
+  if (name.includes('pe') || name.includes('physical education') || name.includes('health') || name.includes('fitness')) return 'PE';
+  if (name.includes('bible') || name.includes('theology') || name.includes('religion')) return 'Bible';
   return 'Elective';
 }
 
@@ -112,7 +208,7 @@ function determineCognitiveLoad(subject: string, title: string): 'light' | 'medi
   // Check assignment title for complexity indicators
   const titleLower = title.toLowerCase();
   if (titleLower.includes('test') || titleLower.includes('exam') || titleLower.includes('essay')) return 'heavy';
-  if (titleLower.includes('quiz') || titleLower.includes('project')) return 'medium';
+  if (titleLower.includes('quiz') || titleLower.includes('project') || titleLower.includes('paper')) return 'medium';
   
   return 'light';
 }
@@ -127,9 +223,9 @@ function estimateTimeRequired(assignment: any, cognitiveLoad: string): number {
   
   // Adjust based on assignment type
   const title = assignment.name?.toLowerCase() || '';
-  if (title.includes('test') || title.includes('exam')) return baseMinutes * 1.5;
-  if (title.includes('project')) return baseMinutes * 2;
-  if (title.includes('reading')) return baseMinutes * 0.8;
+  if (title.includes('test') || title.includes('exam')) return Math.round(baseMinutes * 1.5);
+  if (title.includes('project')) return Math.round(baseMinutes * 2);
+  if (title.includes('reading')) return Math.round(baseMinutes * 0.8);
   
   return baseMinutes;
 }
@@ -189,14 +285,19 @@ serve(async (req) => {
     // Process each student
     for (const [studentName, token] of [['Abigail', abigailToken], ['Khalil', khalilToken]]) {
       try {
-        console.log(`Processing ${studentName}...`);
+        console.log(`\n=== Processing ${studentName} ===`);
         
         // Fetch assignments from Canvas
         const assignments = await fetchCanvasAssignments(token, studentName);
         results[studentName.toLowerCase()].fetched = assignments.length;
         
+        console.log(`\nFinal assignments for ${studentName}:`);
+        assignments.forEach((a, i) => {
+          console.log(`${i + 1}. ${a.title} (${a.course_name}) - Due: ${a.due_date || 'No due date'}`);
+        });
+        
         // Clear existing assignments for this student
-        console.log(`Clearing existing assignments for ${studentName}...`);
+        console.log(`\nClearing existing assignments for ${studentName}...`);
         const { error: deleteError } = await supabase
           .from('assignments')
           .delete()
@@ -210,7 +311,6 @@ serve(async (req) => {
         // Insert new assignments
         if (assignments.length > 0) {
           console.log(`Inserting ${assignments.length} assignments for ${studentName}...`);
-          console.log('Sample assignment data:', JSON.stringify(assignments[0], null, 2));
           
           const { data: insertData, error: insertError } = await supabase
             .from('assignments')
@@ -257,7 +357,7 @@ serve(async (req) => {
       }
     }
 
-    console.log('Daily Canvas sync completed');
+    console.log('\n=== Daily Canvas sync completed ===');
     
     return new Response(JSON.stringify({
       success: true,
