@@ -1,9 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 
-interface CanvasSettings {
-  apiUrl: string;
-}
-
 export interface Assignment {
   id: number;
   name: string;
@@ -16,24 +12,12 @@ export interface Assignment {
 }
 
 class CanvasService {
-  private getSettings(): CanvasSettings | null {
-    const settings = localStorage.getItem("canvasSettings");
-    return settings ? JSON.parse(settings) : null;
-  }
-
   async getAssignmentsForStudent(student: 'Abigail' | 'Khalil'): Promise<Assignment[]> {
-    const settings = this.getSettings();
-    if (!settings || !settings.apiUrl) {
-      console.error('Canvas settings not configured');
-      return [];
-    }
-
     try {
       const { data, error } = await supabase.functions.invoke('canvas-api', {
         body: {
           student,
-          action: 'getAssignments',
-          apiUrl: settings.apiUrl
+          action: 'getAssignments'
         }
       });
 
@@ -55,17 +39,11 @@ class CanvasService {
   }
 
   async submitAssignment(courseId: number, assignmentId: number, student: 'Abigail' | 'Khalil'): Promise<boolean> {
-    const settings = this.getSettings();
-    if (!settings || !settings.apiUrl) {
-      return false;
-    }
-
     try {
       const { data, error } = await supabase.functions.invoke('canvas-api', {
         body: {
           student,
           action: 'submitAssignment',
-          apiUrl: settings.apiUrl,
           courseId,
           assignmentId
         }

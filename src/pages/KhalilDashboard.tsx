@@ -2,7 +2,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Home, Settings, Calendar, CheckCircle } from "lucide-react";
+import { Home, Calendar, CheckCircle } from "lucide-react";
 import { format, parse, isValid, isToday, isTomorrow } from "date-fns";
 import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 import { canvasService } from "@/services/canvasService";
@@ -131,11 +131,6 @@ const KhalilDashboard = () => {
               <Calendar size={16} />
               {syncing ? "Syncing..." : "Sync Now"}
             </Button>
-            <Link to="/settings">
-              <Button variant="outline" size="sm">
-                <Settings size={16} />
-              </Button>
-            </Link>
             <Link to="/">
               <Button variant="outline" size="sm" className="flex items-center gap-2">
                 <Home size={16} />

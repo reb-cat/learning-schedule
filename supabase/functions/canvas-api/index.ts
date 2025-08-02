@@ -44,16 +44,21 @@ serve(async (req) => {
   }
 
   try {
-    const { student, action, apiUrl } = await req.json();
+    const { student, action } = await req.json();
     console.log(`Canvas API request: ${action} for student: ${student}`);
 
-    if (!student || !action || !apiUrl) {
-      throw new Error('Missing required parameters: student, action, apiUrl');
+    if (!student || !action) {
+      throw new Error('Missing required parameters: student, action');
     }
 
-    // Get the appropriate API token from secrets
+    // Get Canvas URL and API token from secrets
+    const apiUrl = Deno.env.get('CANVAS_BASE_URL');
     const tokenKey = student === 'Abigail' ? 'ABIGAIL_CANVAS_TOKEN' : 'KHALIL_CANVAS_TOKEN';
     const apiToken = Deno.env.get(tokenKey);
+    
+    if (!apiUrl) {
+      throw new Error('Canvas base URL not configured. Please add CANVAS_BASE_URL in Supabase secrets.');
+    }
     
     if (!apiToken) {
       throw new Error(`API token not configured for ${student}. Please add ${tokenKey} in Supabase secrets.`);
