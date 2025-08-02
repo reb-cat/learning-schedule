@@ -63,18 +63,16 @@ async function fetchCanvasAssignments(token: string, studentName: string) {
           const estimatedMinutes = estimateTimeRequired(assignment, cognitiveLoad);
           
           allAssignments.push({
-            canvas_id: assignment.id,
+            canvas_id: assignment.id.toString(),
             student_name: studentName,
-            subject,
             title: assignment.name,
-            description: assignment.description || '',
+            course_name: course.name,
+            subject,
             due_date: assignment.due_at,
-            status: 'pending',
             urgency: calculateUrgency(assignment.due_at),
             cognitive_load: cognitiveLoad,
-            estimated_minutes: estimatedMinutes,
-            canvas_course_id: course.id,
-            canvas_assignment_url: assignment.html_url
+            estimated_time_minutes: estimatedMinutes,
+            canvas_url: assignment.html_url
           });
         }
       }
@@ -147,19 +145,28 @@ function calculateUrgency(dueDate: string | null): 'overdue' | 'due_today' | 'du
 }
 
 async function updateSyncStatus(studentName: string, status: string, message: string, fetched: number, scheduled: number) {
-  const { error } = await supabase
+  console.log(`Updating sync status for ${studentName}: ${status} - ${message}`);
+  
+  const { data, error } = await supabase
     .from('sync_status')
-    .update({
-      last_sync: new Date().toISOString(),
-      sync_status: status,
-      sync_message: message,
-      assignments_fetched: fetched,
-      assignments_scheduled: scheduled
+    .upsert({
+      student_name: studentName,
+      status: status,
+      message: message,
+      assignments_count: fetched,
+      sync_type: 'manual',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'student_name'
     })
-    .eq('student_name', studentName);
+    .select();
     
   if (error) {
     console.error(`Error updating sync status for ${studentName}:`, error);
+    console.error('Error details:', JSON.stringify(error, null, 2));
+  } else {
+    console.log(`✓ Sync status updated for ${studentName}:`, data);
   }
 }
 
@@ -186,20 +193,36 @@ serve(async (req) => {
         results[studentName.toLowerCase()].fetched = assignments.length;
         
         // Clear existing assignments for this student
-        await supabase
+        console.log(`Clearing existing assignments for ${studentName}...`);
+        const { error: deleteError } = await supabase
           .from('assignments')
           .delete()
           .eq('student_name', studentName);
+          
+        if (deleteError) {
+          console.error(`Error deleting assignments for ${studentName}:`, deleteError);
+          throw new Error(`Database delete error: ${deleteError.message}`);
+        }
         
         // Insert new assignments
         if (assignments.length > 0) {
-          const { error: insertError } = await supabase
+          console.log(`Inserting ${assignments.length} assignments for ${studentName}...`);
+          console.log('Sample assignment data:', JSON.stringify(assignments[0], null, 2));
+          
+          const { data: insertData, error: insertError } = await supabase
             .from('assignments')
-            .insert(assignments);
+            .insert(assignments)
+            .select();
             
           if (insertError) {
+            console.error(`Database insert error for ${studentName}:`, insertError);
+            console.error('Insert error details:', JSON.stringify(insertError, null, 2));
             throw new Error(`Database insert error: ${insertError.message}`);
           }
+          
+          console.log(`✓ Successfully inserted ${insertData?.length || 0} assignments for ${studentName}`);
+        } else {
+          console.log(`No assignments to insert for ${studentName}`);
         }
         
         // Run scheduling algorithm
