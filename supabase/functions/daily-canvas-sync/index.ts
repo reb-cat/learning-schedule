@@ -48,7 +48,19 @@ function extractAdministrativeRequirements(content: string, courseName: string, 
 }> {
   if (!content) return [];
   
-  const contentLower = content.toLowerCase();
+  // Clean HTML content and normalize whitespace
+  const cleanContent = content
+    .replace(/<[^>]*>/g, ' ')  // Remove HTML tags
+    .replace(/&nbsp;/g, ' ')   // Replace HTML entities
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')      // Normalize whitespace
+    .trim();
+  
+  const contentLower = cleanContent.toLowerCase();
   const requirements: Array<any> = [];
   
   // Extract copy fees
@@ -60,7 +72,7 @@ function extractAdministrativeRequirements(content: string, courseName: string, 
   ];
   
   copyFeePatterns.forEach(pattern => {
-    const matches = content.matchAll(pattern);
+    const matches = cleanContent.matchAll(pattern);
     for (const match of matches) {
       const amount = parseFloat(match[1].replace('$', ''));
       requirements.push({
@@ -74,18 +86,35 @@ function extractAdministrativeRequirements(content: string, courseName: string, 
     }
   });
   
-  // Extract supply requirements
+  // Enhanced supply requirements extraction with multiple approaches
   const supplyPatterns = [
-    /bring\s+(?:the\s+)?following\s+(?:supplies?|materials?|items?)[:\s]+(.*?)(?:\n\n|\. [A-Z]|$)/gi,
-    /(?:required\s+)?(?:supplies?|materials?)\s*(?:needed|required)?[:\s]+(.*?)(?:\n\n|\. [A-Z]|$)/gi,
-    /you\s+(?:will\s+)?need[:\s]+(.*?)(?:\n\n|\. [A-Z]|$)/gi
+    // Look for "supplies:" or "materials:" followed by content
+    /(?:required\s+)?(?:supplies?|materials?|items?)\s*(?:needed|required)?[:\s]+([^.]*(?:\.[^A-Z][^.]*)*)/gi,
+    // Look for "bring the following" patterns
+    /bring\s+(?:the\s+)?following\s+(?:supplies?|materials?|items?)[:\s]+([^.]*(?:\.[^A-Z][^.]*)*)/gi,
+    // Look for "you will need" patterns
+    /you\s+(?:will\s+)?need\s*[:\s]+([^.]*(?:\.[^A-Z][^.]*)*)/gi,
+    // Look for bulleted/numbered lists after supply keywords
+    /(?:supplies?|materials?|items?)[:\s]*(?:\n|\s)*(?:[-•*]|\d+\.)\s*([^.]*(?:\n\s*(?:[-•*]|\d+\.)\s*[^.]*)*)/gi
   ];
   
   supplyPatterns.forEach(pattern => {
-    const matches = content.matchAll(pattern);
+    const matches = cleanContent.matchAll(pattern);
     for (const match of matches) {
-      const supplies = match[1].trim();
-      if (supplies.length > 10 && supplies.length < 500) { // Reasonable length check
+      let supplies = match[1].trim();
+      
+      // Clean up the supplies text
+      supplies = supplies
+        .replace(/\n+/g, ' ')  // Replace newlines with spaces
+        .replace(/\s+/g, ' ')  // Normalize spaces
+        .replace(/^[:\s-]+/, '') // Remove leading punctuation
+        .trim();
+      
+      // More generous length check and content validation
+      if (supplies.length > 5 && supplies.length < 1000 && 
+          !supplies.match(/^[^a-zA-Z]*$/) && // Not just punctuation/numbers
+          supplies.split(' ').length > 2) {   // At least 3 words
+        
         requirements.push({
           title: `Supplies Needed - ${courseName}`,
           description: `Required supplies for ${courseName}: ${supplies}`,
@@ -105,7 +134,7 @@ function extractAdministrativeRequirements(content: string, courseName: string, 
   ];
   
   formPatterns.forEach(pattern => {
-    const matches = content.matchAll(pattern);
+    const matches = cleanContent.matchAll(pattern);
     for (const match of matches) {
       requirements.push({
         title: `Form Required - ${courseName}`,
