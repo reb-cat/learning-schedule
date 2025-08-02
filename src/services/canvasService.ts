@@ -13,7 +13,8 @@ interface CanvasAssignment {
 
 interface CanvasSettings {
   apiUrl: string;
-  apiToken: string;
+  abigailApiToken: string;
+  khalilApiToken: string;
   abigailCourseId: string;
   khalilCourseId: string;
 }
@@ -35,16 +36,21 @@ class CanvasService {
     return settings ? JSON.parse(settings) : null;
   }
 
-  private async makeRequest(endpoint: string): Promise<any> {
+  private async makeRequest(endpoint: string, student: 'Abigail' | 'Khalil'): Promise<any> {
     const settings = this.getSettings();
-    if (!settings || !settings.apiUrl || !settings.apiToken) {
+    if (!settings || !settings.apiUrl) {
       throw new Error("Canvas settings not configured");
+    }
+
+    const apiToken = student === 'Abigail' ? settings.abigailApiToken : settings.khalilApiToken;
+    if (!apiToken) {
+      throw new Error(`API token not configured for ${student}`);
     }
 
     const url = `${settings.apiUrl}/api/v1${endpoint}`;
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${settings.apiToken}`,
+        'Authorization': `Bearer ${apiToken}`,
         'Content-Type': 'application/json'
       }
     });
@@ -91,7 +97,8 @@ class CanvasService {
       twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
 
       const assignments: CanvasAssignment[] = await this.makeRequest(
-        `/courses/${courseId}/assignments?include[]=submission&per_page=100`
+        `/courses/${courseId}/assignments?include[]=submission&per_page=100`,
+        student
       );
 
       return assignments
@@ -129,10 +136,11 @@ class CanvasService {
     }
   }
 
-  async submitAssignment(courseId: number, assignmentId: number): Promise<boolean> {
+  async submitAssignment(courseId: number, assignmentId: number, student: 'Abigail' | 'Khalil'): Promise<boolean> {
     try {
       await this.makeRequest(
-        `/courses/${courseId}/assignments/${assignmentId}/submissions`
+        `/courses/${courseId}/assignments/${assignmentId}/submissions`,
+        student
       );
       return true;
     } catch (error) {

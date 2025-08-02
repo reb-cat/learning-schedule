@@ -9,7 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 
 interface CanvasSettings {
   apiUrl: string;
-  apiToken: string;
+  abigailApiToken: string;
+  khalilApiToken: string;
   abigailCourseId: string;
   khalilCourseId: string;
 }
@@ -20,7 +21,8 @@ const Settings = () => {
   const [showToken, setShowToken] = useState(false);
   const [settings, setSettings] = useState<CanvasSettings>({
     apiUrl: "",
-    apiToken: "",
+    abigailApiToken: "",
+    khalilApiToken: "",
     abigailCourseId: "",
     khalilCourseId: ""
   });
@@ -138,14 +140,36 @@ const Settings = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="apiToken">API Token</Label>
+              <Label htmlFor="abigailApiToken">Abigail's API Token</Label>
               <div className="relative">
                 <Input
-                  id="apiToken"
+                  id="abigailApiToken"
                   type={showToken ? "text" : "password"}
-                  value={settings.apiToken}
-                  onChange={(e) => handleInputChange("apiToken", e.target.value)}
-                  placeholder="Enter Canvas API token"
+                  value={settings.abigailApiToken}
+                  onChange={(e) => handleInputChange("abigailApiToken", e.target.value)}
+                  placeholder="Enter Abigail's Canvas API token"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6"
+                  onClick={() => setShowToken(!showToken)}
+                >
+                  {showToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="khalilApiToken">Khalil's API Token</Label>
+              <div className="relative">
+                <Input
+                  id="khalilApiToken"
+                  type={showToken ? "text" : "password"}
+                  value={settings.khalilApiToken}
+                  onChange={(e) => handleInputChange("khalilApiToken", e.target.value)}
+                  placeholder="Enter Khalil's Canvas API token"
                 />
                 <Button
                   type="button"
