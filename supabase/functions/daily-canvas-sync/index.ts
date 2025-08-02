@@ -18,6 +18,9 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { persistSession: false }
 });
 
+// Academic year cutoff date - only sync assignments due on or after this date
+const ACADEMIC_YEAR_CUTOFF = '2025-08-01T00:00:00Z';
+
 async function syncStudentAssignments(studentName: string, token: string) {
   console.log(`🔄 Starting sync for ${studentName}...`);
   
@@ -82,11 +85,19 @@ async function syncStudentAssignments(studentName: string, token: string) {
       for (const assignment of assignments) {
         if (!assignment.due_at) continue; // Skip assignments without due dates
         
+        // Skip assignments due before the academic year cutoff
+        const dueDate = new Date(assignment.due_at);
+        const cutoffDate = new Date(ACADEMIC_YEAR_CUTOFF);
+        if (dueDate < cutoffDate) {
+          console.log(`  📅 Skipping old assignment: ${assignment.name} (due: ${dueDate.toDateString()})`);
+          continue;
+        }
+        
         const key = `${studentName}|${course.name}|${assignment.name}`;
         if (existing.has(key)) continue; // Skip existing assignments
 
         // Format due date
-        const dueDate = new Date(assignment.due_at).toISOString();
+        const dueDateISO = dueDate.toISOString();
 
         // Insert new assignment
         const { error } = await supabase
@@ -95,7 +106,7 @@ async function syncStudentAssignments(studentName: string, token: string) {
             student_name: studentName,
             title: assignment.name,
             course_name: course.name,
-            due_date: dueDate,
+            due_date: dueDateISO,
             canvas_id: assignment.id?.toString(),
             canvas_url: assignment.html_url,
             eligible_for_scheduling: true
