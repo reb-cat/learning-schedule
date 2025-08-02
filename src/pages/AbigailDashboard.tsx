@@ -4,20 +4,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Home } from "lucide-react";
 import { format } from "date-fns";
-
-const scheduleBlocks = [
-  { time: "9:00-9:20 AM", subject: "Bible Study", isFixed: true },
-  { time: "9:20-10:10 AM", subject: "Assignment Block 1", isFixed: false },
-  { time: "10:10-11:00 AM", subject: "Assignment Block 2", isFixed: false },
-  { time: "11:00-11:50 AM", subject: "Assignment Block 3", isFixed: false },
-  { time: "11:50 AM-12:30 PM", subject: "Lunch", isFixed: true },
-  { time: "12:30-1:20 PM", subject: "Assignment Block 4", isFixed: false },
-  { time: "1:20-2:10 PM", subject: "Assignment Block 5", isFixed: false },
-];
+import { getScheduleForStudentAndDay, getCurrentDayName } from "@/data/scheduleData";
 
 const AbigailDashboard = () => {
   const today = new Date();
   const dateDisplay = format(today, "EEEE, MMMM d, yyyy");
+  const currentDay = getCurrentDayName();
+  const todaySchedule = getScheduleForStudentAndDay("Abigail", currentDay);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -38,27 +31,40 @@ const AbigailDashboard = () => {
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">Today's Schedule</h2>
           
-          <div className="space-y-3">
-            {scheduleBlocks.map((block, index) => (
-              <Card key={index} className={`${block.isFixed ? 'bg-muted' : 'bg-card'} border border-border`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="font-medium text-sm text-muted-foreground min-w-0">
-                        {block.time}
+          {todaySchedule.length === 0 ? (
+            <Card className="bg-card border border-border">
+              <CardContent className="p-8 text-center">
+                <p className="text-muted-foreground">No schedule available for {currentDay}</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {todaySchedule.map((block, index) => (
+                <Card key={index} className={`${block.isAssignmentBlock ? 'bg-card' : 'bg-muted'} border border-border`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="font-medium text-sm text-muted-foreground min-w-0">
+                          {block.start} - {block.end}
+                        </div>
+                        <div className="font-semibold text-foreground">
+                          {block.subject}
+                        </div>
+                        {block.block && (
+                          <Badge variant="outline" className="text-xs">
+                            Block {block.block}
+                          </Badge>
+                        )}
                       </div>
-                      <div className="font-semibold text-foreground">
-                        {block.subject}
-                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        Not Started
+                      </Badge>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      Not Started
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
