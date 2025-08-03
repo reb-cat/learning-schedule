@@ -6,7 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AdministrativePanel from '@/components/AdministrativePanel';
 import { ManualAssignmentForm } from '@/components/ManualAssignmentForm';
-import { useAssignments } from '@/hooks/useAssignments';
+import AlertsMonitoring from '@/components/AlertsMonitoring';
+import { useAssignments, Assignment } from '@/hooks/useAssignments';
 import { 
   Users, 
   Calendar,
@@ -46,6 +47,18 @@ const ParentDashboard = () => {
   const abigailOverdue = getOverdueAssignments(abigailAssignments);
   const khalilOverdue = getOverdueAssignments(khalilAssignments);
 
+  const handleMarkResolved = (assignmentId: string) => {
+    // TODO: Implement marking assignment as resolved
+    console.log('Marking assignment as resolved:', assignmentId);
+  };
+
+  const handleViewAssignment = (assignment: Assignment) => {
+    // TODO: Implement navigation to assignment details
+    if (assignment.canvas_url) {
+      window.open(assignment.canvas_url, '_blank');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -55,6 +68,33 @@ const ParentDashboard = () => {
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
             Manage administrative tasks, track progress, and create custom assignments for your children's learning journey.
           </p>
+        </div>
+
+        {/* Alerts & Help Needed Section */}
+        <div className="space-y-6">
+          <h2 className="text-2xl font-semibold text-foreground">🚨 Alerts & Help Needed</h2>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-lg font-medium mb-3 text-foreground">Abigail's Alerts</h3>
+              <AlertsMonitoring 
+                assignments={abigailAssignments}
+                studentName="Abigail"
+                onMarkResolved={handleMarkResolved}
+                onViewAssignment={handleViewAssignment}
+              />
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-medium mb-3 text-foreground">Khalil's Alerts</h3>
+              <AlertsMonitoring 
+                assignments={khalilAssignments}
+                studentName="Khalil"
+                onMarkResolved={handleMarkResolved}
+                onViewAssignment={handleViewAssignment}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Quick Overview Cards */}
