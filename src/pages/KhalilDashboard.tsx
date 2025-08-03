@@ -87,6 +87,7 @@ const KhalilDashboard = () => {
               assignments={assignments}
               scheduledAssignments={scheduledAssignments}
               currentDay={currentDay}
+              currentDate={displayDate}
               isLoading={assignmentsLoading}
               error={assignmentsError}
             />
