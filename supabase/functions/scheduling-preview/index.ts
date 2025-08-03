@@ -29,6 +29,53 @@ function calculateUrgency(assignment: any, today: Date): 'critical' | 'high' | '
   return 'low'; // Due later
 }
 
+// Determine if assignment should be scheduled based on type and due date
+function shouldScheduleAssignment(assignment: any, today: Date): boolean {
+  if (!assignment.due_date) return false;
+  
+  const dueDate = new Date(assignment.due_date);
+  const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  
+  // Don't schedule administrative tasks - they should be checklist items
+  if (isAdministrativeTask(assignment)) {
+    console.log(`⚠️ Skipping administrative task: "${assignment.title}" - should be a checklist item`);
+    return false;
+  }
+  
+  // Don't schedule items more than 7 days before due date
+  if (daysDiff > 7) {
+    console.log(`⚠️ Too early to schedule: "${assignment.title}" due in ${daysDiff} days`);
+    return false;
+  }
+  
+  return true;
+}
+
+// Detect administrative tasks that should be checklist items
+function isAdministrativeTask(assignment: any): boolean {
+  const title = assignment.title?.toLowerCase() || '';
+  const adminKeywords = ['fee', 'form', 'permission', 'bring', 'deliver', 'submit form', 'turn in', 'payment'];
+  return adminKeywords.some(keyword => title.includes(keyword));
+}
+
+// Get intelligent time estimate based on task type
+function getIntelligentTimeEstimate(assignment: any): number {
+  const title = assignment.title?.toLowerCase() || '';
+  
+  // Administrative tasks (should be checklist items, but if scheduled)
+  if (isAdministrativeTask(assignment)) {
+    return 3; // 3 minutes max for fees, forms
+  }
+  
+  // Review tasks
+  if (title.includes('syllabus')) return 5;
+  if (title.includes('recipe')) return 7;
+  if (title.includes('review') && title.length < 40) return 10;
+  
+  // Use existing estimate or intelligent default
+  return assignment.actual_estimated_minutes || assignment.estimated_time_minutes || 45;
+}
+
 // Generate scheduling reasoning
 function generateReasoning(assignment: any, urgency: string, targetDate: string, targetBlock: number): string {
   const reasons = [];
@@ -108,8 +155,14 @@ async function previewScheduling(studentName: string) {
   
   // Process assignments and create decisions
   for (const assignment of assignments) {
+    // Check if assignment should be scheduled
+    if (!shouldScheduleAssignment(assignment, today)) {
+      console.log(`⏭️ Skipping "${assignment.title}" - not ready for scheduling or should be checklist item`);
+      continue;
+    }
+    
     const urgency = calculateUrgency(assignment, today);
-    const estimatedMinutes = assignment.actual_estimated_minutes || assignment.estimated_time_minutes || 45;
+    const estimatedMinutes = getIntelligentTimeEstimate(assignment);
     
     let targetDay = null;
     let targetBlock = null;

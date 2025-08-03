@@ -140,6 +140,53 @@ function calculateUrgency(assignment: any, today: Date): 'critical' | 'high' | '
   return 'low'; // Due later
 }
 
+// Determine if assignment should be scheduled based on type and due date
+function shouldScheduleAssignment(assignment: any, today: Date): boolean {
+  if (!assignment.due_date) return false;
+  
+  const dueDate = new Date(assignment.due_date);
+  const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  
+  // Don't schedule administrative tasks - they should be checklist items
+  if (isAdministrativeTask(assignment)) {
+    console.log(`⚠️ Skipping administrative task: "${assignment.title}" - should be a checklist item`);
+    return false;
+  }
+  
+  // Don't schedule items more than 7 days before due date
+  if (daysDiff > 7) {
+    console.log(`⚠️ Too early to schedule: "${assignment.title}" due in ${daysDiff} days`);
+    return false;
+  }
+  
+  return true;
+}
+
+// Detect administrative tasks that should be checklist items
+function isAdministrativeTask(assignment: any): boolean {
+  const title = assignment.title?.toLowerCase() || '';
+  const adminKeywords = ['fee', 'form', 'permission', 'bring', 'deliver', 'submit form', 'turn in', 'payment'];
+  return adminKeywords.some(keyword => title.includes(keyword));
+}
+
+// Get intelligent time estimate based on task type
+function getIntelligentTimeEstimate(assignment: any): number {
+  const title = assignment.title?.toLowerCase() || '';
+  
+  // Administrative tasks (should be checklist items, but if scheduled)
+  if (isAdministrativeTask(assignment)) {
+    return 3; // 3 minutes max for fees, forms
+  }
+  
+  // Review tasks
+  if (title.includes('syllabus')) return 5;
+  if (title.includes('recipe')) return 7;
+  if (title.includes('review') && title.length < 40) return 10;
+  
+  // Use existing estimate or intelligent default
+  return assignment.actual_estimated_minutes || assignment.estimated_time_minutes || 45;
+}
+
 // Split large assignments into multiple parts
 async function createSplitAssignment(assignment: any, parts: number): Promise<string[]> {
   const splitIds = [];
@@ -242,10 +289,17 @@ async function scheduleAssignments(studentName: string): Promise<number> {
   const scheduledBlocks = new Map(); // Track what's scheduled where
   let scheduledCount = 0;
   
+  // Filter assignments that should be scheduled
+  const schedulableAssignments = assignments.filter(assignment => 
+    shouldScheduleAssignment(assignment, today)
+  );
+  
+  console.log(`📝 Filtered to ${schedulableAssignments.length} schedulable assignments (${assignments.length - schedulableAssignments.length} skipped)`);
+  
   // Split large assignments first
   const processedAssignments = [];
-  for (const assignment of assignments) {
-    const estimatedMinutes = assignment.actual_estimated_minutes || assignment.estimated_time_minutes || 45;
+  for (const assignment of schedulableAssignments) {
+    const estimatedMinutes = getIntelligentTimeEstimate(assignment);
     
     if (estimatedMinutes > 60) {
       // Split into multiple parts
