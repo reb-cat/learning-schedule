@@ -11,7 +11,8 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar, Clock, User, BookOpen, Target, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, User, BookOpen, Target, AlertCircle, CalendarDays } from 'lucide-react';
+import { addDays, format, parseISO } from 'date-fns';
 
 interface ManualAssignmentFormProps {
   onSuccess?: () => void;
@@ -28,23 +29,29 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
     estimated_time_minutes: 45,
     priority: 'medium',
     due_date: '',
+    end_date: '',
     notes: '',
     is_recurring: false,
-    recurrence_days: [] as string[]
+    recurrence_days: [] as string[],
+    is_multi_day_event: false,
+    volunteer_hours: 0,
+    volunteer_organization: ''
   });
 
   const assignmentTypes = [
     { value: 'academic', label: 'Academic', description: 'Traditional schoolwork' },
     { value: 'life_skills', label: 'Life Skills', description: 'Driving, job applications, cooking' },
     { value: 'tutoring', label: 'Tutoring', description: 'Preply Spanish, other 1-on-1 sessions' },
-    { value: 'recurring', label: 'Recurring', description: 'Same time each week' }
+    { value: 'recurring', label: 'Recurring', description: 'Same time each week' },
+    { value: 'volunteer_events', label: 'Volunteer Events', description: 'Community service and volunteer work' }
   ];
 
   const subjectOptions = {
     academic: ['Math', 'Language Arts', 'Science', 'History', 'Reading'],
     life_skills: ['Driving', 'Job Applications', 'Cooking', 'Banking', 'Interview Prep', 'Resume Writing', 'Work/Volunteer', 'Household Management'],
     tutoring: ['Spanish (Preply)', 'Foreign Language Tutoring', 'Math Tutoring', 'Reading Support'],
-    recurring: ['Weekly Review', 'Weekly Planning', 'Skill Practice']
+    recurring: ['Weekly Review', 'Weekly Planning', 'Skill Practice'],
+    volunteer_events: ['Community Service', 'Food Bank', 'Environmental Cleanup', 'Tutoring Others', 'Animal Shelter', 'Senior Center', 'Hospital Volunteer', 'Special Events']
   };
 
   const timePresets = [
@@ -53,7 +60,11 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
     { value: 45, label: '45 min' },
     { value: 60, label: '1 hour' },
     { value: 90, label: '1.5 hours' },
-    { value: 120, label: '2 hours' }
+    { value: 120, label: '2 hours' },
+    { value: 240, label: 'Half Day (4 hrs)' },
+    { value: 480, label: 'Full Day (8 hrs)' },
+    { value: 960, label: 'Weekend (16 hrs)' },
+    { value: 1440, label: 'Multi-Day (24+ hrs)' }
   ];
 
   const daysOfWeek = [
@@ -71,37 +82,81 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
       return;
     }
 
+    if (formData.is_multi_day_event && (!formData.due_date || !formData.end_date)) {
+      toast({
+        title: "Missing Date Range",
+        description: "Please specify both start and end dates for multi-day events",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      const assignmentData = {
-        student_name: formData.student_name,
-        title: formData.title,
-        subject: formData.subject,
-        assignment_type: formData.assignment_type,
-        source: 'manual',
-        estimated_time_minutes: formData.estimated_time_minutes,
-        priority: formData.priority,
-        due_date: formData.due_date || null,
-        notes: formData.notes || null,
-        category: 'academic',
-        urgency: 'upcoming',
-        cognitive_load: getCognitiveLoad(formData.subject, formData.assignment_type),
-        is_template: formData.is_recurring,
-        recurrence_pattern: formData.is_recurring ? {
-          days: formData.recurrence_days,
-          frequency: 'weekly'
-        } : null
-      };
+      const assignments = [];
+      
+      if (formData.is_multi_day_event && formData.due_date && formData.end_date) {
+        // Create assignments for each day of the multi-day event
+        const startDate = parseISO(formData.due_date);
+        const endDate = parseISO(formData.end_date);
+        const dayCount = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        const hoursPerDay = formData.volunteer_hours / dayCount;
+        
+        for (let i = 0; i < dayCount; i++) {
+          const currentDate = addDays(startDate, i);
+          const assignmentData = {
+            student_name: formData.student_name,
+            title: `${formData.title} - Day ${i + 1}`,
+            subject: formData.subject,
+            assignment_type: formData.assignment_type,
+            source: 'manual',
+            estimated_time_minutes: Math.round(hoursPerDay * 60),
+            priority: formData.priority,
+            due_date: format(currentDate, 'yyyy-MM-dd'),
+            notes: `${formData.notes || ''}\nVolunteer Organization: ${formData.volunteer_organization}\nTotal Event Hours: ${formData.volunteer_hours}\nDay ${i + 1} of ${dayCount}`,
+            category: formData.assignment_type === 'volunteer_events' ? 'volunteer' : 'academic',
+            urgency: 'upcoming',
+            cognitive_load: getCognitiveLoad(formData.subject, formData.assignment_type),
+            is_template: false,
+            recurrence_pattern: null
+          };
+          assignments.push(assignmentData);
+        }
+      } else {
+        // Single assignment
+        const assignmentData = {
+          student_name: formData.student_name,
+          title: formData.title,
+          subject: formData.subject,
+          assignment_type: formData.assignment_type,
+          source: 'manual',
+          estimated_time_minutes: formData.estimated_time_minutes,
+          priority: formData.priority,
+          due_date: formData.due_date || null,
+          notes: formData.assignment_type === 'volunteer_events' && formData.volunteer_organization
+            ? `${formData.notes || ''}\nVolunteer Organization: ${formData.volunteer_organization}\nVolunteer Hours: ${formData.volunteer_hours || formData.estimated_time_minutes / 60}`
+            : formData.notes || null,
+          category: formData.assignment_type === 'volunteer_events' ? 'volunteer' : 'academic',
+          urgency: 'upcoming',
+          cognitive_load: getCognitiveLoad(formData.subject, formData.assignment_type),
+          is_template: formData.is_recurring,
+          recurrence_pattern: formData.is_recurring ? {
+            days: formData.recurrence_days,
+            frequency: 'weekly'
+          } : null
+        };
+        assignments.push(assignmentData);
+      }
 
       const { error } = await supabase
         .from('assignments')
-        .insert(assignmentData);
+        .insert(assignments);
 
       if (error) throw error;
 
       toast({
         title: "Assignment Created",
-        description: `${formData.title} has been added successfully`,
+        description: `${formData.title} has been added successfully${assignments.length > 1 ? ` (${assignments.length} days)` : ''}`,
       });
 
       // Reset form
@@ -113,9 +168,13 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
         estimated_time_minutes: 45,
         priority: 'medium',
         due_date: '',
+        end_date: '',
         notes: '',
         is_recurring: false,
-        recurrence_days: []
+        recurrence_days: [],
+        is_multi_day_event: false,
+        volunteer_hours: 0,
+        volunteer_organization: ''
       });
 
       onSuccess?.();
@@ -253,14 +312,34 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
             <Slider
               value={[formData.estimated_time_minutes]}
               onValueChange={([value]) => setFormData(prev => ({ ...prev, estimated_time_minutes: value }))}
-              max={180}
+              max={formData.is_multi_day_event ? 2880 : 480}
               min={15}
               step={15}
               className="w-full"
             />
           </div>
 
-          {/* Priority and Due Date */}
+          {/* Multi-Day Event Toggle */}
+          {formData.assignment_type === 'volunteer_events' && (
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="multi_day"
+                  checked={formData.is_multi_day_event}
+                  onCheckedChange={(checked) => setFormData(prev => ({ 
+                    ...prev, 
+                    is_multi_day_event: checked as boolean
+                  }))}
+                />
+                <Label htmlFor="multi_day" className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4" />
+                  Multi-Day Event (e.g., weekend volunteer trip)
+                </Label>
+              </div>
+            </div>
+          )}
+
+          {/* Date Range for Multi-Day Events or Single Date */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="priority">Priority</Label>
@@ -280,7 +359,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
             <div className="space-y-2">
               <Label htmlFor="due_date" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                Due Date
+                {formData.is_multi_day_event ? 'Start Date *' : 'Due Date'}
               </Label>
               <Input
                 id="due_date"
@@ -290,6 +369,55 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
               />
             </div>
           </div>
+
+          {/* End Date for Multi-Day Events */}
+          {formData.is_multi_day_event && (
+            <div className="space-y-2">
+              <Label htmlFor="end_date" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                End Date *
+              </Label>
+              <Input
+                id="end_date"
+                type="date"
+                value={formData.end_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
+                min={formData.due_date}
+              />
+            </div>
+          )}
+
+          {/* Volunteer-Specific Fields */}
+          {formData.assignment_type === 'volunteer_events' && (
+            <div className="space-y-4 p-4 border rounded-lg bg-green-50">
+              <h3 className="font-medium text-green-800">Volunteer Details</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="volunteer_org">Organization</Label>
+                  <Input
+                    id="volunteer_org"
+                    value={formData.volunteer_organization}
+                    onChange={(e) => setFormData(prev => ({ ...prev, volunteer_organization: e.target.value }))}
+                    placeholder="e.g., Local Food Bank"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="volunteer_hours">
+                    {formData.is_multi_day_event ? 'Total Hours' : 'Hours'}
+                  </Label>
+                  <Input
+                    id="volunteer_hours"
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={formData.volunteer_hours}
+                    onChange={(e) => setFormData(prev => ({ ...prev, volunteer_hours: parseFloat(e.target.value) || 0 }))}
+                    placeholder={formData.is_multi_day_event ? "Total hours for entire event" : "Hours for this session"}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Recurring Pattern */}
           <div className="space-y-3">
