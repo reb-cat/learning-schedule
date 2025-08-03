@@ -167,7 +167,10 @@ async function previewScheduling(studentName: string) {
     let targetDay = null;
     let targetBlock = null;
     
-    // Determine target scheduling window based on urgency
+// Determine OPTIMAL scheduling window based on due date proximity
+    const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
+    const dueDays = dueDate ? Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 5;
+    
     if (urgency === 'critical') {
       // Schedule ASAP (today if possible)
       targetDay = scheduleWindow[0];
@@ -178,23 +181,23 @@ async function previewScheduling(studentName: string) {
         targetDay = scheduleWindow[1];
       }
     } else if (urgency === 'medium') {
-      // Due this week - schedule at least 1 day before due date
-      const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
-      const dueDays = dueDate ? Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 5;
+      // Due in 2-3 days - schedule AT LEAST 1 day before, preferably 2 days before
+      const optimalScheduleDay = Math.max(0, Math.min(dueDays - 2, scheduleWindow.length - 1));
       const latestScheduleDay = Math.max(0, Math.min(dueDays - 1, scheduleWindow.length - 1));
       
-      // Try to schedule 2-3 days early if possible
-      for (let i = Math.max(0, latestScheduleDay - 2); i <= latestScheduleDay; i++) {
+      // Try optimal scheduling first (2 days early), then fall back
+      for (let i = optimalScheduleDay; i <= latestScheduleDay; i++) {
         if (scheduleWindow[i] && findAvailableBlock(scheduleWindow[i], scheduledBlocks)) {
           targetDay = scheduleWindow[i];
           break;
         }
       }
     } else {
-      // Low urgency - fill any available slots
-      for (const day of scheduleWindow) {
-        if (findAvailableBlock(day, scheduledBlocks)) {
-          targetDay = day;
+      // Low urgency - schedule closer to due date, but not too early
+      const optimalStart = Math.max(0, Math.min(dueDays - 3, scheduleWindow.length - 2));
+      for (let i = optimalStart; i < scheduleWindow.length; i++) {
+        if (scheduleWindow[i] && findAvailableBlock(scheduleWindow[i], scheduledBlocks)) {
+          targetDay = scheduleWindow[i];
           break;
         }
       }

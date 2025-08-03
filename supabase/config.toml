@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.scheduling-preview]
 verify_jwt = false
+
+[functions.administrative-tasks]
+verify_jwt = false
