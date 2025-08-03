@@ -70,6 +70,14 @@ const ParentTaskDashboard = () => {
     return 'future';                               // Due later
   };
 
+  const getDaysAgoText = (completedAt: string) => {
+    const completedDate = new Date(completedAt);
+    const daysSince = Math.ceil((new Date().getTime() - completedDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysSince === 0) return 'Today';
+    if (daysSince === 1) return 'Yesterday';
+    return `${daysSince} days ago`;
+  };
+
   const activeNotifications = notifications.filter(n => !n.completed);
   
   // Filter recently completed items (last 3 days)
@@ -79,17 +87,6 @@ const ParentTaskDashboard = () => {
     const daysSinceCompleted = Math.ceil((new Date().getTime() - completedDate.getTime()) / (1000 * 60 * 60 * 24));
     return daysSinceCompleted <= 3;
   });
-
-  // Combine and sort: pending first, then recently completed
-  const combinedNotifications = [
-    ...activeNotifications.sort((a, b) => {
-      const urgencyA = getUrgencyLevel(a);
-      const urgencyB = getUrgencyLevel(b);
-      const urgencyOrder = { overdue: 0, urgent: 1, upcoming: 2, future: 3, none: 4 };
-      return urgencyOrder[urgencyA] - urgencyOrder[urgencyB];
-    }),
-    ...recentlyCompleted.sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime())
-  ];
 
   const hasUrgentItems = activeNotifications.some(n => {
     const urgency = getUrgencyLevel(n);
@@ -105,13 +102,17 @@ const ParentTaskDashboard = () => {
     return 'secondary';
   };
 
-  const getDaysAgoText = (completedAt: string) => {
-    const completedDate = new Date(completedAt);
-    const daysSince = Math.ceil((new Date().getTime() - completedDate.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysSince === 0) return 'Today';
-    if (daysSince === 1) return 'Yesterday';
-    return `${daysSince} days ago`;
-  };
+  // Combine and sort: pending first, then recently completed
+  const combinedNotifications = [
+    ...activeNotifications.sort((a, b) => {
+      const urgencyA = getUrgencyLevel(a);
+      const urgencyB = getUrgencyLevel(b);
+      const urgencyOrder = { overdue: 0, urgent: 1, upcoming: 2, future: 3, none: 4 };
+      return urgencyOrder[urgencyA] - urgencyOrder[urgencyB];
+    }),
+    ...recentlyCompleted.sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime())
+  ];
+
 
   const renderContent = () => {
     if (loading) {
