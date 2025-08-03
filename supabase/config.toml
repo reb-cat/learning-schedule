@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.auto-scheduler]
 verify_jwt = false
+
+[functions.scheduling-preview]
+verify_jwt = false

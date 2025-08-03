@@ -104,9 +104,93 @@ async function scheduleAssignment(
   return true;
 }
 
-// Main scheduling function
+// Get available blocks for next N days
+function getAvailableBlocksForDays(daysAhead: number = 5): Array<{date: string, day: string, blocks: number[]}> {
+  const scheduleWindow = [];
+  const today = new Date();
+  
+  for (let i = 0; i < daysAhead; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() + i);
+    
+    // Skip weekends
+    if (date.getDay() === 0 || date.getDay() === 6) continue;
+    
+    scheduleWindow.push({
+      date: date.toISOString().split('T')[0],
+      day: date.toLocaleDateString('en-US', { weekday: 'long' }),
+      blocks: [1, 2, 3, 4, 5, 6] // All available blocks
+    });
+  }
+  
+  return scheduleWindow;
+}
+
+// Calculate urgency based on due date
+function calculateUrgency(assignment: any, today: Date): 'critical' | 'high' | 'medium' | 'low' {
+  if (!assignment.due_date) return 'low';
+  
+  const dueDate = new Date(assignment.due_date);
+  const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (daysDiff < 0) return 'critical'; // Overdue
+  if (daysDiff === 0) return 'critical'; // Due today
+  if (daysDiff === 1) return 'high'; // Due tomorrow
+  if (daysDiff <= 3) return 'medium'; // Due this week
+  return 'low'; // Due later
+}
+
+// Split large assignments into multiple parts
+async function createSplitAssignment(assignment: any, parts: number): Promise<string[]> {
+  const splitIds = [];
+  const estimatedMinutes = assignment.actual_estimated_minutes || assignment.estimated_time_minutes || 45;
+  const minutesPerPart = Math.ceil(estimatedMinutes / parts);
+  
+  for (let i = 1; i <= parts; i++) {
+    const { data, error } = await supabase
+      .from('assignments')
+      .insert({
+        student_name: assignment.student_name,
+        title: `${assignment.title} (Part ${i}/${parts})`,
+        course_name: assignment.course_name,
+        subject: assignment.subject,
+        due_date: assignment.due_date,
+        estimated_time_minutes: minutesPerPart,
+        actual_estimated_minutes: minutesPerPart,
+        cognitive_load: assignment.cognitive_load,
+        category: assignment.category,
+        task_type: assignment.task_type,
+        is_split_assignment: true,
+        split_part_number: i,
+        total_split_parts: parts,
+        parent_assignment_id: assignment.id,
+        priority: assignment.priority,
+        eligible_for_scheduling: true
+      })
+      .select('id')
+      .single();
+      
+    if (error) {
+      console.error(`❌ Error creating split assignment part ${i}:`, error);
+      continue;
+    }
+    
+    splitIds.push(data.id);
+  }
+  
+  // Mark original as template/not eligible for scheduling
+  await supabase
+    .from('assignments')
+    .update({ eligible_for_scheduling: false, is_template: true })
+    .eq('id', assignment.id);
+    
+  console.log(`✂️ Split "${assignment.title}" into ${parts} parts`);
+  return splitIds;
+}
+
+// Main scheduling function with forward-looking logic
 async function scheduleAssignments(studentName: string): Promise<number> {
-  console.log(`🚀 Starting auto-scheduling for ${studentName}...`);
+  console.log(`🚀 Starting smart auto-scheduling for ${studentName}...`);
   
   const today = new Date();
   const isWeekend = today.getDay() === 0 || today.getDay() === 6;
@@ -116,17 +200,22 @@ async function scheduleAssignments(studentName: string): Promise<number> {
     return 0;
   }
   
-  // Clear any existing schedules for today
-  const todayStr = today.toISOString().split('T')[0];
-  await supabase
-    .from('assignments')
-    .update({ 
-      scheduled_block: null, 
-      scheduled_date: null, 
-      scheduled_day: null 
-    })
-    .eq('student_name', studentName)
-    .eq('scheduled_date', todayStr);
+  // Get 5-day scheduling window
+  const scheduleWindow = getAvailableBlocksForDays(5);
+  console.log(`📅 Looking ahead ${scheduleWindow.length} school days for scheduling`);
+  
+  // Clear existing schedules in the window
+  for (const day of scheduleWindow) {
+    await supabase
+      .from('assignments')
+      .update({ 
+        scheduled_block: null, 
+        scheduled_date: null, 
+        scheduled_day: null 
+      })
+      .eq('student_name', studentName)
+      .eq('scheduled_date', day.date);
+  }
   
   // Get unscheduled academic assignments
   const { data: assignments, error: assignmentsError } = await supabase
@@ -135,7 +224,6 @@ async function scheduleAssignments(studentName: string): Promise<number> {
     .eq('student_name', studentName)
     .eq('eligible_for_scheduling', true)
     .is('scheduled_block', null)
-    .not('due_date', 'is', null)
     .order('due_date', { ascending: true });
     
   if (assignmentsError || !assignments) {
@@ -143,7 +231,7 @@ async function scheduleAssignments(studentName: string): Promise<number> {
     return 0;
   }
   
-  console.log(`📝 Found ${assignments.length} unscheduled academic assignments`);
+  console.log(`📝 Found ${assignments.length} unscheduled assignments`);
   
   if (assignments.length === 0) {
     console.log(`✅ No assignments to schedule for ${studentName}`);
@@ -151,70 +239,128 @@ async function scheduleAssignments(studentName: string): Promise<number> {
   }
   
   const accommodations = getStudentAccommodations(studentName);
-  const availableBlocks = [1, 2, 3, 4, 5, 6]; // Available assignment blocks
-  const scheduledSubjects: {[key: number]: string} = {};
+  const scheduledBlocks = new Map(); // Track what's scheduled where
   let scheduledCount = 0;
   
-  // Prioritize assignments: overdue first, then by due date
-  const prioritizedAssignments = assignments.sort((a, b) => {
-    const aDate = new Date(a.due_date);
-    const bDate = new Date(b.due_date);
-    const now = new Date();
+  // Split large assignments first
+  const processedAssignments = [];
+  for (const assignment of assignments) {
+    const estimatedMinutes = assignment.actual_estimated_minutes || assignment.estimated_time_minutes || 45;
     
-    const aOverdue = aDate < now;
-    const bOverdue = bDate < now;
+    if (estimatedMinutes > 60) {
+      // Split into multiple parts
+      const parts = Math.ceil(estimatedMinutes / 45);
+      console.log(`📝 Assignment "${assignment.title}" needs ${parts} parts (${estimatedMinutes} min)`);
+      
+      const splitIds = await createSplitAssignment(assignment, parts);
+      
+      // Fetch the newly created split assignments
+      if (splitIds.length > 0) {
+        const { data: splitAssignments } = await supabase
+          .from('assignments')
+          .select('*')
+          .in('id', splitIds);
+          
+        if (splitAssignments) {
+          processedAssignments.push(...splitAssignments);
+        }
+      }
+    } else {
+      processedAssignments.push(assignment);
+    }
+  }
+  
+  // Prioritize assignments by urgency and due date
+  const prioritizedAssignments = processedAssignments.sort((a, b) => {
+    const aUrgency = calculateUrgency(a, today);
+    const bUrgency = calculateUrgency(b, today);
     
-    if (aOverdue && !bOverdue) return -1;
-    if (!aOverdue && bOverdue) return 1;
+    const urgencyOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+    const urgencyDiff = urgencyOrder[aUrgency] - urgencyOrder[bUrgency];
     
+    if (urgencyDiff !== 0) return urgencyDiff;
+    
+    // Same urgency, sort by due date
+    const aDate = new Date(a.due_date || '2099-12-31');
+    const bDate = new Date(b.due_date || '2099-12-31');
     return aDate.getTime() - bDate.getTime();
   });
   
-  // Special handling: try to place Math assignments in Block 2 first
-  const mathAssignments = prioritizedAssignments.filter(a => a.subject === 'Math');
-  for (const mathAssignment of mathAssignments) {
-    if (availableBlocks.includes(2) && !scheduledSubjects[2]) {
-      const success = await scheduleAssignment(
-        mathAssignment,
-        2,
-        todayStr,
-        today.toLocaleDateString('en-US', { weekday: 'long' })
-      );
-      
-      if (success) {
-        availableBlocks.splice(availableBlocks.indexOf(2), 1);
-        scheduledSubjects[2] = mathAssignment.subject;
-        scheduledCount++;
-      }
-    }
-  }
+  console.log(`🎯 Scheduling ${prioritizedAssignments.length} assignments by urgency...`);
   
-  // Schedule remaining assignments
+  // Schedule assignments using smart distribution
   for (const assignment of prioritizedAssignments) {
-    if (assignment.scheduled_block) continue; // Skip if already scheduled
+    const urgency = calculateUrgency(assignment, today);
+    const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
     
-    const bestBlock = findBestBlock(assignment, availableBlocks, scheduledSubjects, accommodations);
+    console.log(`📋 Processing "${assignment.title}" (${urgency} urgency, due: ${dueDate?.toDateString() || 'no due date'})`);
     
-    if (bestBlock) {
-      const success = await scheduleAssignment(
-        assignment,
-        bestBlock,
-        todayStr,
-        today.toLocaleDateString('en-US', { weekday: 'long' })
-      );
+    let targetDay = null;
+    
+    // Determine target scheduling window based on urgency
+    if (urgency === 'critical') {
+      // Schedule ASAP (today if possible)
+      targetDay = scheduleWindow[0];
+    } else if (urgency === 'high') {
+      // Due tomorrow - schedule today if possible, otherwise early tomorrow
+      targetDay = scheduleWindow[0];
+      if (!findAvailableBlock(targetDay, scheduledBlocks, assignment, accommodations)) {
+        targetDay = scheduleWindow[1];
+      }
+    } else if (urgency === 'medium') {
+      // Due this week - schedule at least 1 day before due date
+      const dueDays = dueDate ? Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 5;
+      const latestScheduleDay = Math.max(0, Math.min(dueDays - 1, scheduleWindow.length - 1));
       
-      if (success) {
-        availableBlocks.splice(availableBlocks.indexOf(bestBlock), 1);
-        scheduledSubjects[bestBlock] = assignment.subject;
-        scheduledCount++;
+      // Try to schedule 2-3 days early if possible
+      for (let i = Math.max(0, latestScheduleDay - 2); i <= latestScheduleDay; i++) {
+        if (scheduleWindow[i] && findAvailableBlock(scheduleWindow[i], scheduledBlocks, assignment, accommodations)) {
+          targetDay = scheduleWindow[i];
+          break;
+        }
       }
     } else {
-      console.log(`⚠️ No available blocks for "${assignment.title}"`);
+      // Low urgency - fill any available slots
+      for (const day of scheduleWindow) {
+        if (findAvailableBlock(day, scheduledBlocks, assignment, accommodations)) {
+          targetDay = day;
+          break;
+        }
+      }
+    }
+    
+    if (!targetDay) {
+      console.log(`⚠️ No available slots for "${assignment.title}" in the ${scheduleWindow.length}-day window`);
+      continue;
+    }
+    
+    const bestBlock = findAvailableBlock(targetDay, scheduledBlocks, assignment, accommodations);
+    
+    if (bestBlock) {
+      const success = await scheduleAssignment(assignment, bestBlock, targetDay.date, targetDay.day);
+      
+      if (success) {
+        const key = `${targetDay.date}-${bestBlock}`;
+        scheduledBlocks.set(key, assignment);
+        scheduledCount++;
+        
+        console.log(`✅ Scheduled "${assignment.title}" in Block ${bestBlock} on ${targetDay.day} (${urgency} urgency)`);
+      }
     }
   }
   
-  console.log(`✅ Auto-scheduling complete for ${studentName}: ${scheduledCount} assignments scheduled`);
+  console.log(`✅ Smart auto-scheduling complete for ${studentName}: ${scheduledCount} assignments scheduled across ${scheduleWindow.length} days`);
   return scheduledCount;
+}
+
+// Find available block considering current schedule
+function findAvailableBlock(day: any, scheduledBlocks: Map<string, any>, assignment: any, accommodations: any): number | null {
+  const availableBlocks = day.blocks.filter(block => {
+    const key = `${day.date}-${block}`;
+    return !scheduledBlocks.has(key);
+  });
+  
+  return findBestBlock(assignment, availableBlocks, {}, accommodations);
 }
 
 serve(async (req) => {
