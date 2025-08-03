@@ -42,7 +42,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
 
   const subjectOptions = {
     academic: ['Math', 'Language Arts', 'Science', 'History', 'Reading'],
-    life_skills: ['Driving', 'Job Applications', 'Cooking', 'Banking', 'Interview Prep', 'Resume Writing'],
+    life_skills: ['Driving', 'Job Applications', 'Cooking', 'Banking', 'Interview Prep', 'Resume Writing', 'Work/Volunteer', 'Household Management'],
     tutoring: ['Spanish (Preply)', 'Foreign Language Tutoring', 'Math Tutoring', 'Reading Support'],
     recurring: ['Weekly Review', 'Weekly Planning', 'Skill Practice']
   };
