@@ -129,6 +129,7 @@ export const CoopAdministrativeChecklist: React.FC<CoopAdministrativeChecklistPr
           <div className="text-center py-4 text-muted-foreground">
             No administrative tasks found
           </div>
+          <AddAdministrativeTaskForm onAdd={handleAddTask} />
         </CardContent>
       </Card>
     );
@@ -153,8 +154,6 @@ export const CoopAdministrativeChecklist: React.FC<CoopAdministrativeChecklistPr
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <AddAdministrativeTaskForm onAdd={handleAddTask} />
-        
         {/* Active Tasks */}
         {activeNotifications.length > 0 && (
           <div className="space-y-3">
@@ -201,6 +200,8 @@ export const CoopAdministrativeChecklist: React.FC<CoopAdministrativeChecklistPr
             ))}
           </div>
         )}
+        
+        <AddAdministrativeTaskForm onAdd={handleAddTask} />
       </CardContent>
     </Card>
   );
