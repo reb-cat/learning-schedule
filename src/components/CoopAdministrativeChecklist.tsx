@@ -5,6 +5,7 @@ import { useAdministrativeNotifications } from '@/hooks/useAdministrativeNotific
 import { CheckCircle, FileText, AlertTriangle, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { EditableAdministrativeNotification } from './EditableAdministrativeNotification';
+import { AddAdministrativeTaskForm } from './AddAdministrativeTaskForm';
 
 interface CoopAdministrativeChecklistProps {
   studentName?: string;
@@ -13,7 +14,7 @@ interface CoopAdministrativeChecklistProps {
 export const CoopAdministrativeChecklist: React.FC<CoopAdministrativeChecklistProps> = ({ 
   studentName 
 }) => {
-  const { notifications, loading, error, markAsCompleted, refetch } = useAdministrativeNotifications();
+  const { notifications, loading, error, markAsCompleted, deleteNotification, addNotification, refetch } = useAdministrativeNotifications();
 
   const handleToggleComplete = async (id: string, title: string) => {
     try {
@@ -22,6 +23,19 @@ export const CoopAdministrativeChecklist: React.FC<CoopAdministrativeChecklistPr
     } catch (error) {
       toast.error('Failed to update task');
     }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteNotification(id);
+      toast.success('Task deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete task');
+    }
+  };
+
+  const handleAddTask = async (taskData: any) => {
+    await addNotification(taskData);
   };
 
   const getTypeIcon = (type: string) => {
@@ -139,6 +153,8 @@ export const CoopAdministrativeChecklist: React.FC<CoopAdministrativeChecklistPr
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <AddAdministrativeTaskForm onAdd={handleAddTask} />
+        
         {/* Active Tasks */}
         {activeNotifications.length > 0 && (
           <div className="space-y-3">
@@ -151,6 +167,7 @@ export const CoopAdministrativeChecklist: React.FC<CoopAdministrativeChecklistPr
                 notification={notification}
                 onUpdate={refetch}
                 onToggleComplete={handleToggleComplete}
+                onDelete={handleDelete}
               />
             ))}
           </div>

@@ -121,6 +121,49 @@ export const useAdministrativeNotifications = () => {
     }
   };
 
+  const deleteNotification = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('administrative_notifications')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local state
+      setNotifications(prev => prev.filter(notification => notification.id !== id));
+    } catch (err) {
+      console.error('Error deleting notification:', err);
+      throw err;
+    }
+  };
+
+  const addNotification = async (notification: Omit<AdministrativeNotification, 'id' | 'created_at' | 'updated_at' | 'completed' | 'completed_at'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('administrative_notifications')
+        .insert({
+          ...notification,
+          completed: false
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local state
+      setNotifications(prev => [...prev, data]);
+      return data;
+    } catch (err) {
+      console.error('Error adding notification:', err);
+      throw err;
+    }
+  };
+
   useEffect(() => {
     fetchNotifications();
   }, []);
@@ -130,6 +173,8 @@ export const useAdministrativeNotifications = () => {
     loading,
     error,
     refetch: fetchNotifications,
-    markAsCompleted
+    markAsCompleted,
+    deleteNotification,
+    addNotification
   };
 };

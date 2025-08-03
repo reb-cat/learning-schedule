@@ -3,13 +3,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Edit3, DollarSign, FileText, AlertTriangle, ExternalLink, CalendarIcon } from 'lucide-react';
+import { Edit3, DollarSign, FileText, AlertTriangle, ExternalLink, CalendarIcon, Trash2 } from 'lucide-react';
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,12 +21,14 @@ interface EditableAdministrativeNotificationProps {
   notification: AdministrativeNotification;
   onUpdate: () => void;
   onToggleComplete: (id: string, title: string) => void;
+  onDelete: (id: string) => void;
 }
 
 export function EditableAdministrativeNotification({ 
   notification, 
   onUpdate, 
-  onToggleComplete 
+  onToggleComplete,
+  onDelete 
 }: EditableAdministrativeNotificationProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [editedTitle, setEditedTitle] = useState(notification.title);
@@ -260,16 +263,40 @@ export function EditableAdministrativeNotification({
             {notification.course_name && ` • ${notification.course_name}`}
           </div>
           
-          {notification.canvas_url && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2"
-              onClick={() => window.open(notification.canvas_url, '_blank')}
-            >
-              <ExternalLink className="h-3 w-3" />
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {notification.canvas_url && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2"
+                onClick={() => window.open(notification.canvas_url, '_blank')}
+              >
+                <ExternalLink className="h-3 w-3" />
+              </Button>
+            )}
+            
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-destructive hover:text-destructive">
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Task</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete "{notification.title}"? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onDelete(notification.id)}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </div>
     </div>
