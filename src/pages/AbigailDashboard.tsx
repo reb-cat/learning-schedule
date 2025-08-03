@@ -183,9 +183,19 @@ const AbigailDashboard = () => {
                           <div className="font-medium text-sm text-muted-foreground min-w-0">
                             {block.start} - {block.end}
                           </div>
-                          <div className="font-semibold text-foreground">
-                            {block.subject}
+                         <div className="font-semibold text-foreground">
+                            {block.isAssignmentBlock ? (
+                              // TODO: Check for assigned assignments here
+                              'Open Block'
+                            ) : (
+                              block.subject
+                            )}
                           </div>
+                          {block.isAssignmentBlock && block.block && (
+                            <div className="text-xs text-muted-foreground">
+                              Looking for block {block.block} on {format(displayDate, 'yyyy-MM-dd')}
+                            </div>
+                          )}
                           {block.block && (
                             <Badge variant="outline" className="text-xs">
                               Block {block.block}
