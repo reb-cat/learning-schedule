@@ -7,16 +7,13 @@ import { format, parse, isValid } from "date-fns";
 import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 import { useAssignments } from "@/hooks/useAssignments";
 import { useState, useEffect, useCallback } from "react";
-import { EnhancedScheduler } from "@/components/EnhancedScheduler";
 
 
 const AbigailDashboard = () => {
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
-  const isDebugMode = searchParams.get('debug') === 'true';
-  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch } = useAssignments('Abigail');
+  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment } = useAssignments('Abigail');
   const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
-  const [debugInfo, setDebugInfo] = useState<any[]>([]);
   
   
   // Use date parameter if provided and valid, otherwise use today
@@ -38,29 +35,18 @@ const AbigailDashboard = () => {
   const loadScheduledAssignments = useCallback(async () => {
     if (!getScheduledAssignment) return;
     
-    const debugData: any[] = [];
     const assignmentMap: {[key: string]: any} = {};
     
     for (const block of todaySchedule) {
       if (block.isAssignmentBlock && block.block) {
-        debugData.push({
-          block: block.block,
-          date: formattedDate,
-          query: `Looking for assignment in block ${block.block} on ${formattedDate}`
-        });
-        
         const assignment = await getScheduledAssignment(block.block, formattedDate);
         if (assignment) {
           assignmentMap[`${block.block}`] = assignment;
-          debugData[debugData.length - 1].found = assignment;
-        } else {
-          debugData[debugData.length - 1].found = null;
         }
       }
     }
     
     setScheduledAssignments(assignmentMap);
-    setDebugInfo(debugData);
   }, [getScheduledAssignment, todaySchedule, formattedDate]);
 
   useEffect(() => {
@@ -92,14 +78,6 @@ const AbigailDashboard = () => {
         
         <div className="space-y-6">
           
-          {/* Enhanced Smart Scheduler */}
-          <EnhancedScheduler 
-            studentName="Abigail" 
-            onSchedulingComplete={() => {
-              refetch();
-              loadScheduledAssignments();
-            }}
-          />
 
           {/* Today's Assignments */}
           <div className="space-y-4">
@@ -204,31 +182,6 @@ const AbigailDashboard = () => {
             )}
           </div>
 
-          {/* Debug Panel */}
-          {isDebugMode && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-foreground">Debug Information</h2>
-              <Card className="bg-card border border-border">
-                <CardContent className="p-4">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Assignment Block Queries:</p>
-                    {debugInfo.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No assignment blocks found for today</p>
-                    ) : (
-                      debugInfo.map((debug, index) => (
-                        <div key={index} className="text-xs space-y-1">
-                          <p className="text-muted-foreground">{debug.query}</p>
-                          <p className={debug.found ? "text-green-600" : "text-orange-500"}>
-                            {debug.found ? `✓ Found: ${debug.found.title}` : "✗ No assignment scheduled"}
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
 
           {/* Schedule */}
           <div className="space-y-4">
@@ -264,16 +217,6 @@ const AbigailDashboard = () => {
                               block.subject
                             )}
                           </div>
-                          {isDebugMode && block.isAssignmentBlock && block.block && (
-                            <div className="text-xs text-muted-foreground">
-                              Looking for block {block.block} on {formattedDate}
-                              {scheduledAssignments[`${block.block}`] && (
-                                <div className="text-green-600">
-                                  ✓ Found: {scheduledAssignments[`${block.block}`].title}
-                                </div>
-                              )}
-                            </div>
-                          )}
                           {block.block && (
                             <Badge variant="outline" className="text-xs">
                               Block {block.block}

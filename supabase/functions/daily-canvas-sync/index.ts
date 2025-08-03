@@ -439,6 +439,37 @@ serve(async (req) => {
       }
     }
 
+    // After successful sync, trigger auto-scheduling in the background
+    if (Object.values(results).some((r: any) => r.success && r.newAssignments > 0)) {
+      console.log(`🤖 Triggering auto-scheduler after successful sync...`);
+      
+      EdgeRuntime.waitUntil(
+        (async () => {
+          try {
+            const schedulerResponse = await fetch(
+              `${supabaseUrl}/functions/v1/auto-scheduler`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${supabaseServiceKey}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+              }
+            );
+            
+            if (schedulerResponse.ok) {
+              console.log(`✅ Auto-scheduler triggered successfully`);
+            } else {
+              console.error(`⚠️ Auto-scheduler trigger failed: ${schedulerResponse.status}`);
+            }
+          } catch (error) {
+            console.error(`❌ Error triggering auto-scheduler:`, error);
+          }
+        })()
+      );
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 

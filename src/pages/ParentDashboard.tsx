@@ -3,6 +3,7 @@ import { useAssignments } from '@/hooks/useAssignments';
 import { AlertBanner } from '@/components/AlertBanner';
 import { StudentSection } from '@/components/StudentSection';
 import ParentTaskDashboard from '@/components/ParentTaskDashboard';
+import { EnhancedScheduler } from '@/components/EnhancedScheduler';
 
 const ParentDashboard = () => {
   // Fetch assignments for both students
@@ -45,6 +46,18 @@ const ParentDashboard = () => {
             assignments={khalilAssignments}
             loading={khalilLoading}
             onAssignmentAdded={handleAssignmentAdded}
+          />
+        </div>
+
+        {/* Enhanced Scheduler Controls */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <EnhancedScheduler 
+            studentName="Abigail" 
+            onSchedulingComplete={handleAssignmentAdded}
+          />
+          <EnhancedScheduler 
+            studentName="Khalil" 
+            onSchedulingComplete={handleAssignmentAdded}
           />
         </div>
 

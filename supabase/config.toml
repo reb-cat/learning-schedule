@@ -2,3 +2,6 @@ project_id = "yusqctrtoskjtahtibwh"
 
 [functions.daily-canvas-sync]
 verify_jwt = false
+
+[functions.auto-scheduler]
+verify_jwt = false
