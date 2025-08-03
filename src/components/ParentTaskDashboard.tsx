@@ -59,14 +59,31 @@ const ParentTaskDashboard = () => {
   const activeNotifications = notifications.filter(n => !n.completed);
   const completedNotifications = notifications.filter(n => n.completed);
   
-  // Calculate urgency indicators
-  const hasUrgentItems = activeNotifications.some(n => 
-    n.priority === 'high' || isOverdue(n.due_date)
-  );
+  // Calculate time-aware urgency indicators
+  const getUrgencyLevel = (notification: any) => {
+    if (!notification.due_date) return 'none';
+    
+    const dueDate = new Date(notification.due_date);
+    const now = new Date();
+    const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntilDue < 0) return 'overdue';        // Past due
+    if (daysUntilDue <= 7) return 'urgent';        // Due within a week
+    if (daysUntilDue <= 30) return 'upcoming';     // Due within a month
+    return 'future';                               // Due later
+  };
+
+  const hasUrgentItems = activeNotifications.some(n => {
+    const urgency = getUrgencyLevel(n);
+    return urgency === 'overdue' || urgency === 'urgent';
+  });
   
   const getPendingBadgeVariant = () => {
     if (hasUrgentItems) return 'destructive';
-    if (activeNotifications.some(n => n.priority === 'medium')) return 'default';
+    if (activeNotifications.some(n => {
+      const urgency = getUrgencyLevel(n);
+      return urgency === 'upcoming' || (n.priority === 'medium' && urgency !== 'future');
+    })) return 'default';
     return 'secondary';
   };
 
