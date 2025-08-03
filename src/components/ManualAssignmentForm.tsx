@@ -7,12 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar, Clock, User, BookOpen, Target, AlertCircle, CalendarDays } from 'lucide-react';
+import { TimeEstimationSection } from '@/components/forms/TimeEstimationSection';
+import { Calendar, User, BookOpen, Target, AlertCircle, CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
 import { addDays, format, parseISO } from 'date-fns';
 
 interface ManualAssignmentFormProps {
@@ -22,6 +23,7 @@ interface ManualAssignmentFormProps {
 export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [formData, setFormData] = useState({
     student_name: '',
     title: '',
@@ -61,18 +63,6 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
     volunteer_events: ['Community Service', 'Food Bank', 'Environmental Cleanup', 'Tutoring Others', 'Animal Shelter', 'Senior Center', 'Hospital Volunteer', 'Special Events']
   };
 
-  const timePresets = [
-    { value: 15, label: '15 min' },
-    { value: 30, label: '30 min' },
-    { value: 45, label: '45 min' },
-    { value: 60, label: '1 hour' },
-    { value: 90, label: '1.5 hours' },
-    { value: 120, label: '2 hours' },
-    { value: 240, label: 'Half Day (4 hrs)' },
-    { value: 480, label: 'Full Day (8 hrs)' },
-    { value: 960, label: 'Weekend (16 hrs)' },
-    { value: 1440, label: 'Multi-Day (24+ hrs)' }
-  ];
 
   const daysOfWeek = [
     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
@@ -241,13 +231,13 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <Card className="w-full max-w-3xl mx-auto">
+      <CardHeader className="pb-4">
+        <CardTitle className="flex items-center gap-2 text-xl">
           <Target className="h-5 w-5" />
           Create Manual Assignment
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-sm text-muted-foreground">
           Add non-Canvas assignments like driving lessons, tutoring, and life skills
         </CardDescription>
       </CardHeader>
@@ -324,36 +314,32 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
           </div>
 
           {/* Time Estimation */}
-          <div className="space-y-3">
-            <Label className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Estimated Time: {formData.estimated_time_minutes} minutes
-            </Label>
-            <div className="flex gap-2 mb-2">
-              {timePresets.map((preset) => (
-                <Button
-                  key={preset.value}
-                  type="button"
-                  variant={formData.estimated_time_minutes === preset.value ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFormData(prev => ({ ...prev, estimated_time_minutes: preset.value }))}
-                >
-                  {preset.label}
-                </Button>
-              ))}
-            </div>
-            <Slider
-              value={[formData.estimated_time_minutes]}
-              onValueChange={([value]) => setFormData(prev => ({ ...prev, estimated_time_minutes: value }))}
-              max={formData.is_multi_day_event ? 2880 : 480}
-              min={15}
-              step={15}
-              className="w-full"
-            />
-          </div>
+          <TimeEstimationSection
+            value={formData.estimated_time_minutes}
+            onChange={(value) => setFormData(prev => ({ ...prev, estimated_time_minutes: value }))}
+          />
 
-          {/* Multi-Day Event Toggle */}
-          {formData.assignment_type === 'volunteer_events' && (
+          {/* Advanced Options */}
+          <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" className="w-full" type="button">
+                {showAdvanced ? (
+                  <>
+                    <ChevronUp className="mr-2 h-4 w-4" />
+                    Hide Advanced Options
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="mr-2 h-4 w-4" />
+                    Show Advanced Options
+                  </>
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-6 pt-4">
+
+            {/* Multi-Day Event Toggle */}
+            {formData.assignment_type === 'volunteer_events' && (
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -368,12 +354,12 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                   <CalendarDays className="h-4 w-4" />
                   Multi-Day Event (e.g., weekend volunteer trip)
                 </Label>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Date Range for Multi-Day Events or Single Date */}
-          <div className="grid grid-cols-2 gap-4">
+            {/* Date Range for Multi-Day Events or Single Date */}
+            <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="priority">Priority</Label>
               <Select value={formData.priority} onValueChange={(value) => 
@@ -400,11 +386,11 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                 value={formData.due_date}
                 onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
               />
+              </div>
             </div>
-          </div>
 
-          {/* End Date for Multi-Day Events */}
-          {formData.is_multi_day_event && (
+            {/* End Date for Multi-Day Events */}
+            {formData.is_multi_day_event && (
             <div className="space-y-2">
               <Label htmlFor="end_date" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
@@ -416,12 +402,12 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                 value={formData.end_date}
                 onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
                 min={formData.due_date}
-              />
-            </div>
-          )}
+                />
+              </div>
+            )}
 
-          {/* Volunteer-Specific Fields */}
-          {formData.assignment_type === 'volunteer_events' && (
+            {/* Volunteer-Specific Fields */}
+            {formData.assignment_type === 'volunteer_events' && (
             <div className="space-y-4 p-4 border rounded-lg bg-green-50">
               <h3 className="font-medium text-green-800">Volunteer Details</h3>
               <div className="grid grid-cols-2 gap-4">
@@ -496,12 +482,12 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                     />
                   </div>
                 )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Specific Date/Time Scheduling */}
-          <div className="space-y-3">
+            {/* Specific Date/Time Scheduling */}
+            <div className="space-y-3">
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="specific_schedule"
@@ -544,12 +530,12 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                     </Select>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
 
-          {/* Recurring Pattern */}
-          <div className="space-y-3">
+            {/* Recurring Pattern */}
+            <div className="space-y-3">
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="recurring"
@@ -590,12 +576,12 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
 
-          {/* Notes */}
-          <div className="space-y-2">
+            {/* Notes */}
+            <div className="space-y-2">
             <Label htmlFor="notes">Special Notes</Label>
             <Textarea
               id="notes"
@@ -610,12 +596,12 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                 <p className="text-sm text-blue-800">
                   {getStudentSpecificNotes(formData.student_name, formData.assignment_type)}
                 </p>
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
 
-          {/* Cognitive Load Preview */}
-          {formData.subject && (
+            {/* Cognitive Load Preview */}
+            {formData.subject && (
             <div className="p-3 bg-muted rounded-lg">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Cognitive Load Preview:</span>
@@ -623,9 +609,12 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                               getCognitiveLoad(formData.subject, formData.assignment_type) === 'medium' ? 'default' : 'secondary'}>
                   {getCognitiveLoad(formData.subject, formData.assignment_type)}
                 </Badge>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+          </CollapsibleContent>
+          </Collapsible>
 
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? 'Creating...' : 'Create Assignment'}

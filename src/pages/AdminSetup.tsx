@@ -412,27 +412,14 @@ const AdminSetup = () => {
           </TabsContent>
 
           <TabsContent value="manual" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />
-                  Manual Assignment Management
-                </CardTitle>
-                <CardDescription>
-                  Create and manage non-Canvas assignments like driving lessons, tutoring sessions, and life skills activities
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ManualAssignmentForm onSuccess={() => {
-                  toast({
-                    title: "Assignment Created",
-                    description: "Manual assignment has been added to the system",
-                  });
-                  // Refresh diagnostics to show new assignment
-                  getDiagnostics().then(setDiagnostics);
-                }} />
-              </CardContent>
-            </Card>
+            <ManualAssignmentForm onSuccess={() => {
+              toast({
+                title: "Assignment Created",
+                description: "Manual assignment has been added to the system",
+              });
+              // Refresh diagnostics to show new assignment
+              getDiagnostics().then(setDiagnostics);
+            }} />
           </TabsContent>
         </Tabs>
       </div>
