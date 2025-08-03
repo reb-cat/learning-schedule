@@ -114,7 +114,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
             priority: formData.priority,
             due_date: format(currentDate, 'yyyy-MM-dd'),
             notes: `${formData.notes || ''}\nVolunteer Organization: ${formData.volunteer_organization}\nTotal Event Hours: ${formData.volunteer_hours}\nDay ${i + 1} of ${dayCount}`,
-            category: formData.assignment_type === 'volunteer_events' ? 'volunteer' : 'academic',
+            category: 'academic', // Use academic for all assignment types
             urgency: 'upcoming',
             cognitive_load: getCognitiveLoad(formData.subject, formData.assignment_type),
             is_template: false,
@@ -143,7 +143,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
           notes: formData.assignment_type === 'volunteer_events' && formData.volunteer_organization
             ? `${formData.notes || ''}\nVolunteer Organization: ${formData.volunteer_organization}\nVolunteer Hours: ${formData.volunteer_hours || formData.estimated_time_minutes / 60}`
             : formData.notes || null,
-          category: formData.assignment_type === 'volunteer_events' ? 'volunteer' : 'academic',
+           category: 'academic', // Use academic for all assignment types since volunteer isn't allowed
           urgency: 'upcoming',
           cognitive_load: getCognitiveLoad(formData.subject, formData.assignment_type),
           is_template: formData.is_recurring,
