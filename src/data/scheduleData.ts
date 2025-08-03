@@ -31,6 +31,7 @@ export const scheduleData: ScheduleBlock[] = [
   { student: "Abigail", day: "Tuesday", start: "12:05 PM", end: "12:35 PM", subject: "Lunch", type: "Lunch", isAssignmentBlock: false },
   { student: "Abigail", day: "Tuesday", block: 6, start: "12:35 PM", end: "1:15 PM", subject: "", type: "Assignment", isAssignmentBlock: true },
   { student: "Abigail", day: "Tuesday", block: 7, start: "1:15 PM", end: "1:50 PM", subject: "", type: "Assignment", isAssignmentBlock: true },
+  { student: "Abigail", day: "Tuesday", block: 8, start: "2:00 PM", end: "3:00 PM", subject: "Forensics", type: "Co-op", isAssignmentBlock: false },
 
   { student: "Abigail", day: "Wednesday", block: 1, start: "9:00 AM", end: "9:20 AM", subject: "Bible", type: "Bible", isAssignmentBlock: false },
   { student: "Abigail", day: "Wednesday", block: 2, start: "9:20 AM", end: "10:00 AM", subject: "", type: "Assignment", isAssignmentBlock: true },
