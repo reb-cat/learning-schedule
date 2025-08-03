@@ -2,6 +2,7 @@ import React from 'react';
 import { useAssignments } from '@/hooks/useAssignments';
 import { AlertBanner } from '@/components/AlertBanner';
 import { StudentSection } from '@/components/StudentSection';
+import { ManualAssignmentForm } from '@/components/ManualAssignmentForm';
 import { startOfWeek, endOfWeek, addWeeks, isWithinInterval, getDay } from 'date-fns';
 
 import { SchedulingPreview } from '@/components/SchedulingPreview';
@@ -9,8 +10,9 @@ import { EditableAssignment } from '@/components/EditableAssignment';
 import { CoopAdministrativeChecklist } from '@/components/CoopAdministrativeChecklist';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { Play, Database } from "lucide-react";
+import { Play, Database, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -117,11 +119,25 @@ const ParentDashboard = () => {
           <p className="text-muted-foreground">Monitor and manage your children's academic progress</p>
         </div>
 
-        {/* Alert Banner */}
-        <AlertBanner 
-          abigailAssignments={abigailAssignments}
-          khalilAssignments={khalilAssignments}
-        />
+        {/* Main Tabs */}
+        <Tabs defaultValue="dashboard" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+              <Play className="h-4 w-4" />
+              Dashboard Overview
+            </TabsTrigger>
+            <TabsTrigger value="add-assignment" className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Manual Assignment
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="dashboard" className="space-y-6">
+            {/* Alert Banner */}
+            <AlertBanner 
+              abigailAssignments={abigailAssignments}
+              khalilAssignments={khalilAssignments}
+            />
 
         {/* Two Column Student Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" id="todays-progress">
@@ -284,11 +300,27 @@ const ParentDashboard = () => {
             </CardContent>
           </Card>
         </div>
-        {/* Co-op Administrative Checklists */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <CoopAdministrativeChecklist studentName="Abigail" />
-          <CoopAdministrativeChecklist studentName="Khalil" />
-        </div>
+            {/* Co-op Administrative Checklists */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <CoopAdministrativeChecklist studentName="Abigail" />
+              <CoopAdministrativeChecklist studentName="Khalil" />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="add-assignment" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5" />
+                  Add Manual Assignment
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ManualAssignmentForm onSuccess={handleAssignmentAdded} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
       </div>
     </div>

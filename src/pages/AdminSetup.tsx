@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
-import { ManualAssignmentForm } from '@/components/ManualAssignmentForm';
+
 import { 
   RefreshCw, 
   Calendar,
@@ -166,17 +166,17 @@ const AdminSetup = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold text-gray-900">Canvas Integration & Scheduling Admin</h1>
+          <h1 className="text-4xl font-bold text-gray-900">Technical Dashboard</h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Monitor and manage the automated Canvas assignment sync and intelligent scheduling system. 
-            View system diagnostics, trigger manual syncs, and ensure optimal learning schedules for both students.
+            Monitor Canvas sync status and system diagnostics. 
+            View technical metrics, trigger manual syncs, and ensure the backend system is running smoothly.
           </p>
         </div>
 
         
 
         <Tabs defaultValue="sync" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="sync" className="flex items-center gap-2">
               <RefreshCw className="h-4 w-4" />
               Canvas Sync
@@ -184,10 +184,6 @@ const AdminSetup = () => {
             <TabsTrigger value="diagnostics" className="flex items-center gap-2">
               <Database className="h-4 w-4" />
               Diagnostics
-            </TabsTrigger>
-            <TabsTrigger value="manual" className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Manual Assignments
             </TabsTrigger>
           </TabsList>
 
@@ -437,16 +433,6 @@ const AdminSetup = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="manual" className="space-y-6">
-            <ManualAssignmentForm onSuccess={() => {
-              toast({
-                title: "Assignment Created",
-                description: "Manual assignment has been added to the system",
-              });
-              // Refresh diagnostics to show new assignment
-              getDiagnostics().then(setDiagnostics);
-            }} />
-          </TabsContent>
         </Tabs>
       </div>
     </div>
