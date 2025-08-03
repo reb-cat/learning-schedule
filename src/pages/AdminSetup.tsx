@@ -6,6 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 import { ManualAssignmentForm } from '@/components/ManualAssignmentForm';
 import { 
@@ -211,40 +212,52 @@ const AdminSetup = () => {
               </CardContent>
             </Card>
 
-            {/* Recent Sync Results - Simplified */}
+            {/* Recent Sync Status - Dropdown Summary */}
             {syncHistory.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Recent Sync Results
-                  </CardTitle>
-                  <CardDescription>
-                    Last 3 sync operations
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {syncHistory.slice(0, 3).map((sync) => (
-                      <div key={sync.id} className="flex items-center justify-between p-4 bg-white rounded-lg border">
-                        <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between p-4 bg-white rounded-lg border">
+                <div className="flex items-center gap-3">
+                  <Clock className="h-5 w-5 text-gray-500" />
+                  <div>
+                    <p className="font-medium">Recent Sync Status</p>
+                    <p className="text-sm text-gray-500">
+                      Last: {new Date(syncHistory[0].created_at).toLocaleString()} 
+                      {syncHistory[0].sync_type === 'scheduled' ? ' (Auto)' : ' (Manual)'}
+                    </p>
+                  </div>
+                  {getStatusBadge(syncHistory[0].status)}
+                </div>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      View History
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-80 max-h-64 overflow-y-auto bg-white border shadow-lg z-50">
+                    <div className="px-3 py-2 border-b">
+                      <p className="font-medium text-sm">Recent Sync History</p>
+                    </div>
+                    {syncHistory.slice(0, 10).map((sync) => (
+                      <DropdownMenuItem key={sync.id} className="flex items-center justify-between p-3 cursor-default">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
                           {getStatusBadge(sync.status)}
-                          <div>
-                            <p className="font-medium">{sync.student_name}</p>
-                            <p className="text-sm text-gray-500">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">{sync.student_name}</p>
+                            <p className="text-xs text-gray-500">
                               {new Date(sync.created_at).toLocaleString()}
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-medium">{sync.assignments_count} assignments</p>
-                          <p className="text-sm text-gray-500">{sync.sync_type}</p>
+                        <div className="text-right text-xs text-gray-500 ml-2">
+                          <div>{sync.assignments_count} items</div>
+                          <div>{sync.sync_type}</div>
                         </div>
-                      </div>
+                      </DropdownMenuItem>
                     ))}
-                  </div>
-                </CardContent>
-              </Card>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )}
           </TabsContent>
 
