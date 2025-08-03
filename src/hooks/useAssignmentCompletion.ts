@@ -28,7 +28,7 @@ export function useAssignmentCompletion() {
           actual_time_minutes: completionData.actualMinutes,
           difficulty_rating: completionData.difficultyRating,
           completion_notes: completionData.notes
-        })
+        } as any)
         .eq('id', assignment.id);
 
       if (updateError) throw updateError;

@@ -11,11 +11,18 @@ export interface Assignment {
   urgency?: 'overdue' | 'due_today' | 'due_soon' | 'upcoming';
   cognitive_load?: 'light' | 'medium' | 'heavy';
   estimated_time_minutes?: number;
+  actual_estimated_minutes?: number;
   canvas_id?: string;
   canvas_url?: string;
   category?: 'academic' | 'administrative';
   created_at: string;
   updated_at: string;
+  // Completion tracking fields
+  completed?: boolean;
+  completed_at?: string;
+  actual_time_minutes?: number;
+  difficulty_rating?: 'easy' | 'medium' | 'hard';
+  completion_notes?: string;
   // Manual assignment fields
   assignment_type?: 'academic' | 'life_skills' | 'tutoring' | 'recurring';
   source?: 'canvas' | 'manual';
