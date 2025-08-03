@@ -233,26 +233,41 @@ async function syncStudentAssignments(studentName: string, token: string) {
       const allContent = `${syllabusContent}\n\n${announcementsContent}\n\n${pagesContent}`;
       const adminRequirements = extractAdministrativeRequirements(allContent, course.name);
       
-      // Insert fees as notifications
+      // Insert fees as notifications (with duplicate prevention)
       for (const req of adminRequirements) {
         console.log(`   💰 Found ${req.type}: ${req.title}`);
         
-        const { error: adminError } = await supabase
+        // Check if this notification already exists
+        const { data: existingNotification } = await supabase
           .from('administrative_notifications')
-          .insert({
-            student_name: studentName,
-            title: req.title,
-            description: req.description,
-            notification_type: req.type,
-            priority: req.priority,
-            course_name: course.name,
-            amount: req.amount || null
-          });
-          
-        if (adminError) {
-          console.error(`❌ Error inserting fee "${req.title}":`, adminError);
+          .select('id')
+          .eq('student_name', studentName)
+          .eq('title', req.title)
+          .eq('notification_type', req.type)
+          .eq('course_name', course.name)
+          .maybeSingle();
+
+        // Only insert if it doesn't already exist
+        if (!existingNotification) {
+          const { error: adminError } = await supabase
+            .from('administrative_notifications')
+            .insert({
+              student_name: studentName,
+              title: req.title,
+              description: req.description,
+              notification_type: req.type,
+              priority: req.priority,
+              course_name: course.name,
+              amount: req.amount || null
+            });
+            
+          if (adminError) {
+            console.error(`❌ Error inserting fee "${req.title}":`, adminError);
+          } else {
+            console.log(`   ✅ Added fee: ${req.title}`);
+          }
         } else {
-          console.log(`   ✅ Added fee: ${req.title}`);
+          console.log(`   ℹ️ Fee already exists: ${req.title}`);
         }
       }
       
