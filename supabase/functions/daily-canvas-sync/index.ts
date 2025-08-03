@@ -86,7 +86,7 @@ function extractAdministrativeRequirements(content: string, courseName: string, 
     }
   });
   
-  // Enhanced supply requirements extraction with smarter boundary detection
+  // Enhanced supply requirements extraction with individual item parsing
   const supplyPatterns = [
     // Look for "supplies:" or "materials:" followed by content until natural boundary
     /(?:required\s+)?(?:supplies?|materials?|items?)\s*(?:needed|required)?[:\s]+([^]*?)(?=\n\s*(?:grading|attendance|homework|assignment|test|exam|project|due|class|course|contact|email|phone|office|schedule|calendar)|$)/gi,
@@ -124,29 +124,141 @@ function extractAdministrativeRequirements(content: string, courseName: string, 
         }
       }
       
-      // Enhanced validation
-      if (supplies.length > 10 && supplies.length < 800 && 
-          !supplies.match(/^[^a-zA-Z]*$/) && // Not just punctuation/numbers
-          supplies.split(' ').length > 3 &&   // At least 4 words
-          !supplies.match(/^(and|or|the|a|an|in|on|at|to|for|of|with|by)\s/i)) { // Not starting with common filler words
+      // Parse individual supply items from the text
+      const supplyItems = parseIndividualSupplyItems(supplies);
+      
+      // Add each valid supply item as a separate requirement
+      supplyItems.forEach(item => {
+        const normalizedItem = item.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
         
-        // Create a normalized version for duplicate detection
-        const normalizedSupplies = supplies.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
-        
-        if (!extractedSupplies.has(normalizedSupplies)) {
-          extractedSupplies.add(normalizedSupplies);
+        if (!extractedSupplies.has(normalizedItem)) {
+          extractedSupplies.add(normalizedItem);
           
           requirements.push({
-            title: `Supplies Needed - ${courseName}`,
-            description: `Required supplies for ${courseName}: ${supplies}`,
+            title: item.title,
+            description: item.description,
             type: 'supplies',
-            priority: 'medium',
+            priority: item.priority || 'medium',
             isDayOne: contentLower.includes('first day') || contentLower.includes('day 1') || contentLower.includes('day one')
           });
         }
-      }
+      });
     }
   });
+  
+  // Helper function to parse individual supply items
+  function parseIndividualSupplyItems(text: string): Array<{title: string; description: string; priority?: string}> {
+    const items: Array<{title: string; description: string; priority?: string}> = [];
+    
+    // Split by common list separators
+    const splitPatterns = [
+      /(?:^|\n)\s*[-•*]\s*/g,  // Bullet points
+      /(?:^|\n)\s*\d+\.\s*/g,  // Numbered lists
+      /(?:^|\n)\s*\([a-z]\)\s*/g, // Lettered lists
+      /\n(?=\s*[A-Z])/g        // Line breaks before capitalized words
+    ];
+    
+    let textParts = [text];
+    
+    // Apply each split pattern
+    splitPatterns.forEach(pattern => {
+      const newParts: string[] = [];
+      textParts.forEach(part => {
+        newParts.push(...part.split(pattern).filter(p => p.trim()));
+      });
+      textParts = newParts;
+    });
+    
+    // Also split on common conjunctions and separators within items
+    const furtherSplitPatterns = [
+      /\s+and\s+(?=\d+)/g,  // "and 3 folders" 
+      /\s*,\s*(?=[A-Z])/g,  // Comma before capitalized words
+      /\s*;\s*/g,           // Semicolons
+    ];
+    
+    furtherSplitPatterns.forEach(pattern => {
+      const newParts: string[] = [];
+      textParts.forEach(part => {
+        newParts.push(...part.split(pattern).filter(p => p.trim()));
+      });
+      textParts = newParts;
+    });
+    
+    // Process each potential supply item
+    textParts.forEach(part => {
+      let cleanPart = part.trim()
+        .replace(/^[:\s-•*]+/, '') // Remove leading punctuation
+        .replace(/[.!?]*$/, '')    // Remove trailing punctuation
+        .trim();
+      
+      // Skip items that are too short, too long, or look like explanatory text
+      if (cleanPart.length < 5 || cleanPart.length > 150 ||
+          cleanPart.match(/^(and|or|the|a|an|in|on|at|to|for|of|with|by|this|that|these|those)\s/i) ||
+          cleanPart.toLowerCase().includes('will be') ||
+          cleanPart.toLowerCase().includes('you will') ||
+          cleanPart.toLowerCase().includes('students will') ||
+          cleanPart.toLowerCase().includes('please') ||
+          cleanPart.toLowerCase().includes('contact') ||
+          cleanPart.toLowerCase().includes('email') ||
+          cleanPart.toLowerCase().includes('phone')) {
+        return;
+      }
+      
+      // Extract the core supply name and any details
+      const coreSupply = extractCoreSupplyName(cleanPart);
+      if (coreSupply) {
+        const priority = determinePriority(cleanPart);
+        
+        items.push({
+          title: coreSupply,
+          description: cleanPart,
+          priority: priority
+        });
+      }
+    });
+    
+    return items;
+  }
+  
+  // Helper to extract the main supply name
+  function extractCoreSupplyName(text: string): string {
+    // Try to find the main noun/supply name at the beginning
+    const words = text.split(/\s+/);
+    
+    // Look for quantity + item patterns
+    const quantityPattern = /^(\d+[-\s]*(?:ring|tab|hole|page|sheet|pack|box|set)?)\s+(.+)/i;
+    const quantityMatch = text.match(quantityPattern);
+    if (quantityMatch) {
+      return quantityMatch[2].split(/\s+/).slice(0, 3).join(' '); // Take first 3 words after quantity
+    }
+    
+    // Look for descriptive + main item patterns
+    const descriptivePattern = /^(?:loose[-\s]?leaf\s+)?(?:3[-\s]?ring\s+)?(?:spiral\s+)?(?:composition\s+)?(?:index\s+)?(?:sticky\s+)?(.+)/i;
+    const descriptiveMatch = text.match(descriptivePattern);
+    if (descriptiveMatch) {
+      return descriptiveMatch[1].split(/\s+/).slice(0, 2).join(' '); // Take first 2 words
+    }
+    
+    // Fallback: take first few meaningful words
+    const meaningfulWords = words.filter(word => 
+      word.length > 2 && 
+      !['and', 'or', 'the', 'with', 'for', 'to', 'in', 'on', 'at'].includes(word.toLowerCase())
+    );
+    
+    return meaningfulWords.slice(0, 2).join(' ');
+  }
+  
+  // Helper to determine priority based on content
+  function determinePriority(text: string): string {
+    const textLower = text.toLowerCase();
+    if (textLower.includes('required') || textLower.includes('must') || textLower.includes('need')) {
+      return 'high';
+    }
+    if (textLower.includes('optional') || textLower.includes('suggested') || textLower.includes('recommended')) {
+      return 'low';
+    }
+    return 'medium';
+  }
   
   // Extract forms and permissions
   const formPatterns = [
