@@ -74,6 +74,7 @@ export type Database = {
           actual_estimated_minutes: number | null
           assignment_type: string | null
           block_position: number | null
+          blocks_scheduling: boolean | null
           buffer_time_minutes: number | null
           canvas_id: string | null
           canvas_url: string | null
@@ -81,11 +82,14 @@ export type Database = {
           cognitive_load: string | null
           course_name: string | null
           created_at: string
+          display_as_single_event: boolean | null
           due_date: string | null
           eligible_for_scheduling: boolean
           estimated_blocks_needed: number | null
           estimated_time_minutes: number | null
+          event_group_id: string | null
           id: string
+          is_full_day_block: boolean | null
           is_split_assignment: boolean | null
           is_template: boolean | null
           notes: string | null
@@ -107,12 +111,15 @@ export type Database = {
           total_split_parts: number | null
           updated_at: string
           urgency: string | null
+          volunteer_hours: number | null
+          volunteer_organization: string | null
         }
         Insert: {
           academic_year?: string | null
           actual_estimated_minutes?: number | null
           assignment_type?: string | null
           block_position?: number | null
+          blocks_scheduling?: boolean | null
           buffer_time_minutes?: number | null
           canvas_id?: string | null
           canvas_url?: string | null
@@ -120,11 +127,14 @@ export type Database = {
           cognitive_load?: string | null
           course_name?: string | null
           created_at?: string
+          display_as_single_event?: boolean | null
           due_date?: string | null
           eligible_for_scheduling?: boolean
           estimated_blocks_needed?: number | null
           estimated_time_minutes?: number | null
+          event_group_id?: string | null
           id?: string
+          is_full_day_block?: boolean | null
           is_split_assignment?: boolean | null
           is_template?: boolean | null
           notes?: string | null
@@ -146,12 +156,15 @@ export type Database = {
           total_split_parts?: number | null
           updated_at?: string
           urgency?: string | null
+          volunteer_hours?: number | null
+          volunteer_organization?: string | null
         }
         Update: {
           academic_year?: string | null
           actual_estimated_minutes?: number | null
           assignment_type?: string | null
           block_position?: number | null
+          blocks_scheduling?: boolean | null
           buffer_time_minutes?: number | null
           canvas_id?: string | null
           canvas_url?: string | null
@@ -159,11 +172,14 @@ export type Database = {
           cognitive_load?: string | null
           course_name?: string | null
           created_at?: string
+          display_as_single_event?: boolean | null
           due_date?: string | null
           eligible_for_scheduling?: boolean
           estimated_blocks_needed?: number | null
           estimated_time_minutes?: number | null
+          event_group_id?: string | null
           id?: string
+          is_full_day_block?: boolean | null
           is_split_assignment?: boolean | null
           is_template?: boolean | null
           notes?: string | null
@@ -185,6 +201,8 @@ export type Database = {
           total_split_parts?: number | null
           updated_at?: string
           urgency?: string | null
+          volunteer_hours?: number | null
+          volunteer_organization?: string | null
         }
         Relationships: [
           {

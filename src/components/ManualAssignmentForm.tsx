@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar, Clock, User, BookOpen, Target, AlertCircle, CalendarDays } from 'lucide-react';
@@ -34,8 +35,14 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
     is_recurring: false,
     recurrence_days: [] as string[],
     is_multi_day_event: false,
+    is_full_day_block: false,
+    blocks_scheduling: false,
+    display_as_single_event: true,
     volunteer_hours: 0,
-    volunteer_organization: ''
+    volunteer_organization: '',
+    schedule_specific_datetime: false,
+    specific_scheduled_date: '',
+    specific_scheduled_block: 1
   });
 
   const assignmentTypes = [
@@ -102,11 +109,14 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
         const dayCount = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         const hoursPerDay = formData.volunteer_hours / dayCount;
         
+        // Generate unique event group ID for multi-day events
+        const eventGroupId = crypto.randomUUID();
+        
         for (let i = 0; i < dayCount; i++) {
           const currentDate = addDays(startDate, i);
           const assignmentData = {
             student_name: formData.student_name,
-            title: `${formData.title} - Day ${i + 1}`,
+            title: formData.display_as_single_event ? formData.title : `${formData.title} - Day ${i + 1}`,
             subject: formData.subject,
             assignment_type: formData.assignment_type,
             source: 'manual',
@@ -118,7 +128,14 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
             urgency: 'upcoming',
             cognitive_load: getCognitiveLoad(formData.subject, formData.assignment_type),
             is_template: false,
-            recurrence_pattern: null
+            recurrence_pattern: null,
+            // Enhanced multi-day event fields
+            is_full_day_block: formData.is_full_day_block,
+            blocks_scheduling: formData.blocks_scheduling,
+            event_group_id: eventGroupId,
+            display_as_single_event: formData.display_as_single_event,
+            volunteer_hours: Math.round(hoursPerDay),
+            volunteer_organization: formData.volunteer_organization
           };
           assignments.push(assignmentData);
         }
@@ -143,7 +160,17 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
           recurrence_pattern: formData.is_recurring ? {
             days: formData.recurrence_days,
             frequency: 'weekly'
-          } : null
+          } : null,
+          // Enhanced event fields
+          is_full_day_block: formData.is_full_day_block,
+          blocks_scheduling: formData.blocks_scheduling,
+          event_group_id: null,
+          display_as_single_event: false,
+          volunteer_hours: formData.volunteer_hours || null,
+          volunteer_organization: formData.volunteer_organization || null,
+          // Specific scheduling
+          scheduled_date: formData.schedule_specific_datetime ? formData.specific_scheduled_date : null,
+          scheduled_block: formData.schedule_specific_datetime ? formData.specific_scheduled_block : null
         };
         assignments.push(assignmentData);
       }
@@ -173,8 +200,14 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
         is_recurring: false,
         recurrence_days: [],
         is_multi_day_event: false,
+        is_full_day_block: false,
+        blocks_scheduling: false,
+        display_as_single_event: true,
         volunteer_hours: 0,
-        volunteer_organization: ''
+        volunteer_organization: '',
+        schedule_specific_datetime: false,
+        specific_scheduled_date: '',
+        specific_scheduled_block: 1
       });
 
       onSuccess?.();
@@ -416,8 +449,104 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                   />
                 </div>
               </div>
+
+              {/* Event Display and Blocking Options */}
+              <div className="space-y-4 pt-2 border-t">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="full_day_block">Full Day Event</Label>
+                  <Switch
+                    id="full_day_block"
+                    checked={formData.is_full_day_block}
+                    onCheckedChange={(checked) => setFormData(prev => ({ 
+                      ...prev, 
+                      is_full_day_block: checked,
+                      estimated_time_minutes: checked ? 480 : prev.estimated_time_minutes 
+                    }))}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label htmlFor="blocks_scheduling">Block Other Scheduling</Label>
+                    <p className="text-xs text-muted-foreground">Prevent other assignments on these dates</p>
+                  </div>
+                  <Switch
+                    id="blocks_scheduling"
+                    checked={formData.blocks_scheduling}
+                    onCheckedChange={(checked) => setFormData(prev => ({ 
+                      ...prev, 
+                      blocks_scheduling: checked 
+                    }))}
+                  />
+                </div>
+
+                {formData.is_multi_day_event && (
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="display_single">Display as Single Event</Label>
+                      <p className="text-xs text-muted-foreground">Show as one card instead of separate days</p>
+                    </div>
+                    <Switch
+                      id="display_single"
+                      checked={formData.display_as_single_event}
+                      onCheckedChange={(checked) => setFormData(prev => ({ 
+                        ...prev, 
+                        display_as_single_event: checked 
+                      }))}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           )}
+
+          {/* Specific Date/Time Scheduling */}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="specific_schedule"
+                checked={formData.schedule_specific_datetime}
+                onCheckedChange={(checked) => setFormData(prev => ({ 
+                  ...prev, 
+                  schedule_specific_datetime: checked as boolean
+                }))}
+              />
+              <Label htmlFor="specific_schedule">Schedule for specific date and time</Label>
+            </div>
+            
+            {formData.schedule_specific_datetime && (
+              <div className="space-y-2 p-4 border rounded-lg bg-blue-50">
+                <Label className="text-blue-800">Fixed Appointment Details</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="specific_date">Date</Label>
+                    <Input
+                      id="specific_date"
+                      type="date"
+                      value={formData.specific_scheduled_date}
+                      onChange={(e) => setFormData(prev => ({ ...prev, specific_scheduled_date: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="specific_block">Block (1-8)</Label>
+                    <Select 
+                      value={formData.specific_scheduled_block.toString()} 
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, specific_scheduled_block: parseInt(value) }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[1,2,3,4,5,6,7,8].map((block) => (
+                          <SelectItem key={block} value={block.toString()}>Block {block}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Recurring Pattern */}
           <div className="space-y-3">
