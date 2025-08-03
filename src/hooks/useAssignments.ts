@@ -28,6 +28,13 @@ export interface Assignment {
   scheduled_block?: number;
   scheduled_date?: string;
   scheduled_day?: string;
+  // Multi-day scheduling fields
+  original_assignment_id?: string;
+  estimated_blocks_needed?: number;
+  scheduling_priority?: number;
+  is_split_assignment?: boolean;
+  split_part_number?: number;
+  total_split_parts?: number;
 }
 
 export const useAssignments = (studentName: string) => {

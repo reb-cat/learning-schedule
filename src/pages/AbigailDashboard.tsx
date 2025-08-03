@@ -7,13 +7,14 @@ import { format, parse, isValid } from "date-fns";
 import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 import { useAssignments } from "@/hooks/useAssignments";
 import { useState, useEffect } from "react";
+import { RunScheduler } from "@/components/RunScheduler";
 
 
 const AbigailDashboard = () => {
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
   const isDebugMode = searchParams.get('debug') === 'true';
-  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment } = useAssignments('Abigail');
+  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch } = useAssignments('Abigail');
   const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
   const [debugInfo, setDebugInfo] = useState<any[]>([]);
   
@@ -90,6 +91,28 @@ const AbigailDashboard = () => {
         </div>
         
         <div className="space-y-6">
+          
+          {/* Smart Scheduler */}
+          <RunScheduler 
+            studentName="Abigail" 
+            onSchedulingComplete={() => {
+              refetch();
+              // Refresh scheduled assignments
+              const loadScheduledAssignments = async () => {
+                const assignmentMap: {[key: string]: any} = {};
+                for (const block of todaySchedule) {
+                  if (block.isAssignmentBlock && block.block) {
+                    const assignment = await getScheduledAssignment(block.block, formattedDate);
+                    if (assignment) {
+                      assignmentMap[`${block.block}`] = assignment;
+                    }
+                  }
+                }
+                setScheduledAssignments(assignmentMap);
+              };
+              loadScheduledAssignments();
+            }}
+          />
 
           {/* Today's Assignments */}
           <div className="space-y-4">

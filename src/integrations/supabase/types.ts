@@ -80,20 +80,26 @@ export type Database = {
           created_at: string
           due_date: string | null
           eligible_for_scheduling: boolean
+          estimated_blocks_needed: number | null
           estimated_time_minutes: number | null
           id: string
+          is_split_assignment: boolean | null
           is_template: boolean | null
           notes: string | null
+          original_assignment_id: string | null
           parent_assignment_id: string | null
           priority: string | null
           recurrence_pattern: Json | null
           scheduled_block: number | null
           scheduled_date: string | null
           scheduled_day: string | null
+          scheduling_priority: number | null
           source: string | null
+          split_part_number: number | null
           student_name: string
           subject: string | null
           title: string
+          total_split_parts: number | null
           updated_at: string
           urgency: string | null
         }
@@ -108,20 +114,26 @@ export type Database = {
           created_at?: string
           due_date?: string | null
           eligible_for_scheduling?: boolean
+          estimated_blocks_needed?: number | null
           estimated_time_minutes?: number | null
           id?: string
+          is_split_assignment?: boolean | null
           is_template?: boolean | null
           notes?: string | null
+          original_assignment_id?: string | null
           parent_assignment_id?: string | null
           priority?: string | null
           recurrence_pattern?: Json | null
           scheduled_block?: number | null
           scheduled_date?: string | null
           scheduled_day?: string | null
+          scheduling_priority?: number | null
           source?: string | null
+          split_part_number?: number | null
           student_name: string
           subject?: string | null
           title: string
+          total_split_parts?: number | null
           updated_at?: string
           urgency?: string | null
         }
@@ -136,20 +148,26 @@ export type Database = {
           created_at?: string
           due_date?: string | null
           eligible_for_scheduling?: boolean
+          estimated_blocks_needed?: number | null
           estimated_time_minutes?: number | null
           id?: string
+          is_split_assignment?: boolean | null
           is_template?: boolean | null
           notes?: string | null
+          original_assignment_id?: string | null
           parent_assignment_id?: string | null
           priority?: string | null
           recurrence_pattern?: Json | null
           scheduled_block?: number | null
           scheduled_date?: string | null
           scheduled_day?: string | null
+          scheduling_priority?: number | null
           source?: string | null
+          split_part_number?: number | null
           student_name?: string
           subject?: string | null
           title?: string
+          total_split_parts?: number | null
           updated_at?: string
           urgency?: string | null
         }
@@ -157,6 +175,13 @@ export type Database = {
           {
             foreignKeyName: "assignments_parent_assignment_id_fkey"
             columns: ["parent_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_original_assignment"
+            columns: ["original_assignment_id"]
             isOneToOne: false
             referencedRelation: "assignments"
             referencedColumns: ["id"]
@@ -201,7 +226,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calculate_estimated_blocks: {
+        Args: { estimated_minutes: number }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
