@@ -2,15 +2,17 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Home, Clock, BookOpen } from "lucide-react";
+import { Home, Clock, BookOpen, Package } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
 import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 import { useAssignments } from "@/hooks/useAssignments";
+import { useStudentSupplies } from "@/hooks/useStudentSupplies";
 
 const AbigailDashboard = () => {
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
   const { assignments, loading: assignmentsLoading, error: assignmentsError } = useAssignments('Abigail');
+  const { suppliesByUrgency, loading: suppliesLoading, error: suppliesError } = useStudentSupplies('Abigail');
   
   // Use date parameter if provided and valid, otherwise use today
   let displayDate = new Date();
@@ -50,6 +52,75 @@ const AbigailDashboard = () => {
         </div>
         
         <div className="space-y-6">
+          {/* Supply Reminders */}
+          {(suppliesByUrgency.today.length > 0 || suppliesByUrgency.tomorrow.length > 0) && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-foreground">Supply Reminders</h2>
+              
+              {suppliesLoading ? (
+                <Card className="bg-card border border-border">
+                  <CardContent className="p-6 text-center">
+                    <p className="text-muted-foreground">Loading supply reminders...</p>
+                  </CardContent>
+                </Card>
+              ) : suppliesError ? (
+                <Card className="bg-card border border-border">
+                  <CardContent className="p-6 text-center">
+                    <p className="text-destructive">Error loading supplies: {suppliesError}</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {/* Today's supplies */}
+                  {suppliesByUrgency.today.map((supply) => (
+                    <Card key={supply.id} className="bg-card border border-primary/20">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Package className="w-5 h-5 text-primary" />
+                            <div className="space-y-1">
+                              <div className="font-semibold text-foreground">{supply.title}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {supply.courseName && `${supply.courseName} • `}
+                                {supply.description}
+                              </div>
+                            </div>
+                          </div>
+                          <Badge variant="destructive" className="text-xs">
+                            Bring Today
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  
+                  {/* Tomorrow's supplies */}
+                  {suppliesByUrgency.tomorrow.map((supply) => (
+                    <Card key={supply.id} className="bg-card border border-border">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Package className="w-5 h-5 text-muted-foreground" />
+                            <div className="space-y-1">
+                              <div className="font-medium text-foreground">{supply.title}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {supply.courseName && `${supply.courseName} • `}
+                                {supply.description}
+                              </div>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            Tomorrow
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Today's Assignments */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-foreground">Today's Assignments</h2>
