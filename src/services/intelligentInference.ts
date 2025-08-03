@@ -8,9 +8,15 @@ export interface SubjectPattern {
 }
 
 export interface EnergyPattern {
-  peakHours: number[];
-  lowHours: number[];
+  peakBlocks: number[];
+  lowBlocks: number[];
   secondWind: number[];
+  patternType: 'subject_based' | 'time_based';
+  subjectEnergy?: {
+    high: string[];
+    medium: string[];
+    low: string[];
+  };
 }
 
 export interface StudentAccommodation {
@@ -100,8 +106,8 @@ export const subjectPatterns: Record<string, SubjectPattern> = {
   }
 };
 
-// Student-specific accommodations and energy patterns
-export const studentAccommodations: Record<string, StudentAccommodation> = {
+// Student-specific accommodations (static data)
+export const studentAccommodations: Record<string, Omit<StudentAccommodation, 'energyPattern'>> = {
   'Khalil': {
     name: 'Khalil',
     subjectAdjustments: {
@@ -109,11 +115,6 @@ export const studentAccommodations: Record<string, StudentAccommodation> = {
         defaultLoad: 'heavy', // Dyslexia makes reading harder
         defaultDuration: 40 // Takes longer due to dyslexia
       }
-    },
-    energyPattern: {
-      peakHours: [10, 11, 14], // Later start, less lunch impact
-      lowHours: [9, 15], // Slow morning, late afternoon fade
-      secondWind: [] // More consistent energy
     },
     globalMultipliers: {
       duration: 1.1, // Generally takes 10% longer
@@ -127,17 +128,58 @@ export const studentAccommodations: Record<string, StudentAccommodation> = {
         defaultLoad: 'heavy' // Executive function challenges with reading comprehension
       }
     },
-    energyPattern: {
-      peakHours: [9, 10, 11], // Morning person
-      lowHours: [13, 14], // Post-lunch dip
-      secondWind: [15, 16] // Afternoon recovery
-    },
     globalMultipliers: {
       duration: 1.0,
       cognitiveLoad: 1.1 // Slightly higher cognitive load due to executive function
     }
   }
 };
+
+/**
+ * Load energy pattern from database for a student
+ */
+export async function getStudentEnergyPattern(studentName: string): Promise<EnergyPattern | null> {
+  try {
+    const { data, error } = await supabase
+      .from('student_energy_patterns')
+      .select('pattern_type, energy_data')
+      .eq('student_name', studentName)
+      .single();
+
+    if (error || !data) {
+      console.warn(`No energy pattern found for student: ${studentName}`);
+      return null;
+    }
+
+    const { pattern_type, energy_data } = data;
+
+    const energyData = energy_data as any; // Type assertion for JSONB data
+
+    if (pattern_type === 'subject_based') {
+      return {
+        peakBlocks: [],
+        lowBlocks: [],
+        secondWind: [],
+        patternType: 'subject_based',
+        subjectEnergy: {
+          high: energyData.high_energy_subjects || [],
+          medium: energyData.medium_energy_subjects || [],
+          low: energyData.low_energy_subjects || []
+        }
+      };
+    } else {
+      return {
+        peakBlocks: energyData.high_energy_blocks || [],
+        lowBlocks: energyData.low_energy_blocks || [],
+        secondWind: energyData.medium_energy_blocks || [],
+        patternType: 'time_based'
+      };
+    }
+  } catch (error) {
+    console.error('Failed to load energy pattern:', error);
+    return null;
+  }
+}
 
 /**
  * Infer cognitive load based on subject, student, task type, and context
@@ -374,41 +416,85 @@ function decreaseCognitiveLoad(load: 'light' | 'medium' | 'heavy'): 'light' | 'm
 /**
  * Get optimal scheduling time based on student energy patterns
  */
-export function getOptimalSchedulingTime(
+export async function getOptimalSchedulingTime(
   studentName: string,
   cognitiveLoad: 'light' | 'medium' | 'heavy',
-  urgency: string = 'upcoming'
-): { preferredBlocks: number[]; avoidBlocks: number[] } {
-  const student = studentAccommodations[studentName];
-  if (!student) {
-    return { preferredBlocks: [], avoidBlocks: [] };
-  }
-
-  const { peakHours, lowHours, secondWind } = student.energyPattern;
+  urgency: string = 'upcoming',
+  subject?: string
+): Promise<{ preferredBlocks: number[]; avoidBlocks: number[] }> {
+  const energyPattern = await getStudentEnergyPattern(studentName);
   
-  // Convert hours to block numbers (assuming 9am = block 1)
-  const peakBlocks = peakHours.map(hour => hour - 8);
-  const lowBlocks = lowHours.map(hour => hour - 8);
-  const secondWindBlocks = secondWind.map(hour => hour - 8);
+  if (!energyPattern) {
+    // Fallback to reasonable defaults
+    return { 
+      preferredBlocks: [1, 2, 3, 4, 5, 6, 7, 8], 
+      avoidBlocks: [] 
+    };
+  }
 
   let preferredBlocks: number[] = [];
-  let avoidBlocks: number[] = lowBlocks;
+  let avoidBlocks: number[] = [];
 
-  if (cognitiveLoad === 'heavy') {
-    // Heavy tasks need peak energy
-    preferredBlocks = urgency === 'overdue' ? peakBlocks : [...peakBlocks, ...secondWindBlocks];
-  } else if (cognitiveLoad === 'medium') {
-    // Medium tasks avoid low energy but don't require peak
-    preferredBlocks = [...peakBlocks, ...secondWindBlocks];
+  if (energyPattern.patternType === 'subject_based' && subject && energyPattern.subjectEnergy) {
+    // For subject-based patterns, determine energy level for this subject
+    const { high, medium, low } = energyPattern.subjectEnergy;
+    
+    let subjectEnergyLevel: 'high' | 'medium' | 'low' = 'medium';
+    
+    if (high.some(s => subject.toLowerCase().includes(s.toLowerCase()))) {
+      subjectEnergyLevel = 'high';
+    } else if (low.some(s => subject.toLowerCase().includes(s.toLowerCase()))) {
+      subjectEnergyLevel = 'low';
+    }
+    
+    // Match cognitive load requirements with subject energy
+    if (cognitiveLoad === 'heavy') {
+      if (subjectEnergyLevel === 'high') {
+        preferredBlocks = [1, 2, 3, 4, 5, 6, 7, 8]; // Can schedule anytime
+      } else if (subjectEnergyLevel === 'medium') {
+        preferredBlocks = [1, 2, 3, 4, 5]; // Earlier blocks preferred
+        avoidBlocks = [7, 8]; // Avoid late blocks
+      } else {
+        preferredBlocks = [1, 2]; // Only early morning
+        avoidBlocks = [5, 6, 7, 8]; // Avoid afternoon
+      }
+    } else if (cognitiveLoad === 'medium') {
+      if (subjectEnergyLevel === 'high') {
+        preferredBlocks = [1, 2, 3, 4, 5, 6, 7, 8];
+      } else if (subjectEnergyLevel === 'medium') {
+        preferredBlocks = [1, 2, 3, 4, 5, 6];
+        avoidBlocks = [8];
+      } else {
+        preferredBlocks = [1, 2, 3, 4];
+        avoidBlocks = [6, 7, 8];
+      }
+    } else {
+      // Light tasks - less restrictive
+      preferredBlocks = [1, 2, 3, 4, 5, 6, 7, 8];
+    }
   } else {
-    // Light tasks can fill low energy slots
-    preferredBlocks = lowBlocks;
-    avoidBlocks = [];
+    // Time-based energy patterns
+    const { peakBlocks, lowBlocks, secondWind } = energyPattern;
+
+    if (cognitiveLoad === 'heavy') {
+      // Heavy tasks need peak energy
+      preferredBlocks = urgency === 'overdue' ? peakBlocks : [...peakBlocks, ...secondWind];
+      avoidBlocks = lowBlocks;
+    } else if (cognitiveLoad === 'medium') {
+      // Medium tasks avoid low energy but don't require peak
+      preferredBlocks = [...peakBlocks, ...secondWind];
+      avoidBlocks = lowBlocks;
+    } else {
+      // Light tasks can fill low energy slots
+      preferredBlocks = [...peakBlocks, ...secondWind, ...lowBlocks];
+      avoidBlocks = [];
+    }
   }
 
+  // Ensure blocks are within valid range (1-8)
   return { 
-    preferredBlocks: preferredBlocks.filter(block => block >= 1 && block <= 6),
-    avoidBlocks: avoidBlocks.filter(block => block >= 1 && block <= 6)
+    preferredBlocks: preferredBlocks.filter(block => block >= 1 && block <= 8),
+    avoidBlocks: avoidBlocks.filter(block => block >= 1 && block <= 8)
   };
 }
 

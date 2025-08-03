@@ -263,6 +263,39 @@ export type Database = {
         }
         Relationships: []
       }
+      student_energy_patterns: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          data_points_count: number | null
+          energy_data: Json
+          id: string
+          last_updated: string
+          pattern_type: string
+          student_name: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          data_points_count?: number | null
+          energy_data: Json
+          id?: string
+          last_updated?: string
+          pattern_type: string
+          student_name: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          data_points_count?: number | null
+          energy_data?: Json
+          id?: string
+          last_updated?: string
+          pattern_type?: string
+          student_name?: string
+        }
+        Relationships: []
+      }
       sync_status: {
         Row: {
           assignments_count: number | null
@@ -312,6 +345,14 @@ export type Database = {
       estimate_task_time: {
         Args: { title: string; estimated_minutes: number }
         Returns: number
+      }
+      update_energy_pattern: {
+        Args: {
+          p_student_name: string
+          p_energy_data: Json
+          p_confidence_adjustment?: number
+        }
+        Returns: undefined
       }
       update_learning_patterns: {
         Args: {

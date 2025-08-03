@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { updateLearningPattern } from '@/services/intelligentInference';
 import { Assignment } from './useAssignments';
+import { useEnergyPatternLearning } from './useEnergyPatternLearning';
 
 export interface CompletionData {
   actualMinutes: number;
@@ -11,6 +12,7 @@ export interface CompletionData {
 
 export function useAssignmentCompletion() {
   const [isLoading, setIsLoading] = useState(false);
+  const { recordPerformanceData } = useEnergyPatternLearning();
 
   const markAsCompleted = async (
     assignment: Assignment, 
@@ -44,6 +46,21 @@ export function useAssignmentCompletion() {
         estimatedMinutes,
         completionData.actualMinutes
       );
+
+      // Record performance data for energy pattern learning
+      if (assignment.scheduled_block && assignment.scheduled_date) {
+        await recordPerformanceData({
+          assignmentId: assignment.id,
+          studentName: assignment.student_name,
+          subject: assignment.subject || assignment.course_name,
+          scheduledBlock: assignment.scheduled_block,
+          scheduledDate: assignment.scheduled_date,
+          actualMinutes: completionData.actualMinutes,
+          estimatedMinutes,
+          difficultyRating: completionData.difficultyRating,
+          completedAt: new Date().toISOString()
+        });
+      }
 
       // Log success for analytics
       console.log(`Assignment "${assignment.title}" completed successfully`, {

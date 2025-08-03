@@ -164,7 +164,7 @@ class SmartScheduler {
     }
 
     // Find best single block
-    const bestSlot = this.findBestBlock(assignment, availabilityWindow, urgencyLevel);
+    const bestSlot = await this.findBestBlock(assignment, availabilityWindow, urgencyLevel);
     
     if (!bestSlot) {
       return {
@@ -188,7 +188,7 @@ class SmartScheduler {
     };
   }
 
-  private scheduleMultiBlockAssignment(
+  private async scheduleMultiBlockAssignment(
     assignment: Assignment, 
     availabilityWindow: DayBlockAvailability[],
     urgencyLevel: 'critical' | 'high' | 'medium' | 'low'
@@ -203,7 +203,7 @@ class SmartScheduler {
 
     // Find enough blocks
     for (let i = 0; i < blocksNeeded && availableSlots.length < blocksNeeded; i++) {
-      const slot = this.findBestBlock(assignment, availabilityWindow, urgencyLevel, availableSlots.map(s => ({ date: s.date, block: s.block })));
+      const slot = await this.findBestBlock(assignment, availabilityWindow, urgencyLevel, availableSlots.map(s => ({ date: s.date, block: s.block })));
       
       if (slot) {
         availableSlots.push(slot);
@@ -245,21 +245,22 @@ class SmartScheduler {
     });
   }
 
-  private findBestBlock(
+  private async findBestBlock(
     assignment: Assignment,
     availabilityWindow: DayBlockAvailability[],
     urgencyLevel: 'critical' | 'high' | 'medium' | 'low',
     excludeSlots: { date: string; block: number }[] = []
-  ): { date: string; block: number; reasoning: string } | null {
+  ): Promise<{ date: string; block: number; reasoning: string } | null> {
     const cognitiveLoad = this.getCognitiveLoad(assignment);
     const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
     const today = new Date();
 
     // Get student-specific energy-based scheduling preferences
-    const energyPreferences = getOptimalSchedulingTime(
+    const energyPreferences = await getOptimalSchedulingTime(
       assignment.student_name, 
       cognitiveLoad, 
-      urgencyLevel
+      urgencyLevel,
+      assignment.subject || assignment.course_name
     );
 
     // Score blocks based on multiple factors
