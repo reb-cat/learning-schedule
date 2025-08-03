@@ -6,7 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import AdministrativePanel from '@/components/AdministrativePanel';
+
 import { ManualAssignmentForm } from '@/components/ManualAssignmentForm';
 import { 
   RefreshCw, 
@@ -144,7 +144,7 @@ const AdminSetup = () => {
           </p>
         </div>
 
-        <AdministrativePanel />
+        
 
         <Tabs defaultValue="sync" className="w-full">
           <TabsList className="grid w-full grid-cols-2">

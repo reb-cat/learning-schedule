@@ -32,6 +32,16 @@ const Index = () => {
               Khalil's Dashboard
             </Button>
           </Link>
+
+          <Link to="/parent" className="block">
+            <Button 
+              variant="outline" 
+              size="lg" 
+              className="w-full h-16 text-lg font-semibold"
+            >
+              Parent Dashboard
+            </Button>
+          </Link>
         </div>
       </div>
     </div>
