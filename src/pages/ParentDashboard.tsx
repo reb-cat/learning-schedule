@@ -5,10 +5,11 @@ import { StudentSection } from '@/components/StudentSection';
 import ParentTaskDashboard from '@/components/ParentTaskDashboard';
 import { SchedulingPreview } from '@/components/SchedulingPreview';
 import { EditableAssignment } from '@/components/EditableAssignment';
+import { CoopAdministrativeChecklist } from '@/components/CoopAdministrativeChecklist';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Play } from "lucide-react";
+import { Play, Database } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -17,6 +18,7 @@ const ParentDashboard = () => {
   const { assignments: abigailAssignments, loading: abigailLoading, refetch: refetchAbigail } = useAssignments('Abigail');
   const { assignments: khalilAssignments, loading: khalilLoading, refetch: refetchKhalil } = useAssignments('Khalil');
   const [testingScheduler, setTestingScheduler] = useState(false);
+  const [migrating, setMigrating] = useState(false);
 
   const handleAssignmentAdded = () => {
     refetchAbigail();
@@ -39,6 +41,32 @@ const ParentDashboard = () => {
       toast.error("Auto-scheduler test failed. Check console for details.");
     } finally {
       setTestingScheduler(false);
+    }
+  };
+
+  const handleMigrateAdministrativeTasks = async () => {
+    setMigrating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('migrate-administrative-tasks');
+      
+      if (error) throw error;
+      
+      const result = data as { success: boolean; migratedCount: number; message: string; errors?: string[] };
+      
+      if (result.success) {
+        toast.success(`${result.message}. Migrated ${result.migratedCount} tasks.`);
+        if (result.errors && result.errors.length > 0) {
+          console.warn('Migration errors:', result.errors);
+        }
+        handleAssignmentAdded(); // Refresh to see changes
+      } else {
+        throw new Error(result.message || 'Migration failed');
+      }
+    } catch (error) {
+      console.error('Migration failed:', error);
+      toast.error("Migration failed. Check console for details.");
+    } finally {
+      setMigrating(false);
     }
   };
 
@@ -91,27 +119,51 @@ const ParentDashboard = () => {
           />
         </div>
 
-        {/* Manual Auto-Scheduler Test */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Auto-Scheduler Control
-              <Button 
-                onClick={handleTestAutoScheduler}
-                disabled={testingScheduler}
-                className="flex items-center gap-2"
-              >
-                <Play size={16} />
-                {testingScheduler ? 'Running...' : 'Test Auto-Scheduler'}
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              Manually trigger the auto-scheduler to distribute unscheduled assignments across the next 5 days based on due dates and priorities.
-            </p>
-          </CardContent>
-        </Card>
+        {/* Control Panel */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                Auto-Scheduler Control
+                <Button 
+                  onClick={handleTestAutoScheduler}
+                  disabled={testingScheduler}
+                  className="flex items-center gap-2"
+                >
+                  <Play size={16} />
+                  {testingScheduler ? 'Running...' : 'Test Auto-Scheduler'}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Manually trigger the auto-scheduler to distribute unscheduled assignments across the next 5 days based on due dates and priorities.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                Administrative Task Migration
+                <Button 
+                  onClick={handleMigrateAdministrativeTasks}
+                  disabled={migrating}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Database size={16} />
+                  {migrating ? 'Migrating...' : 'Migrate Admin Tasks'}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Move administrative tasks (fees, forms) from assignments to the administrative checklist.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Smart Scheduling Preview */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -165,6 +217,12 @@ const ParentDashboard = () => {
             </CardContent>
           </Card>
         </div>
+        {/* Co-op Administrative Checklists */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <CoopAdministrativeChecklist studentName="Abigail" />
+          <CoopAdministrativeChecklist studentName="Khalil" />
+        </div>
+
         {/* Parent Task Dashboard */}
         <ParentTaskDashboard />
       </div>

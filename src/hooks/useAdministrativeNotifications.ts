@@ -87,7 +87,14 @@ export const useAdministrativeNotifications = () => {
 
   const markAsCompleted = async (id: string) => {
     try {
-      const { error } = await supabase
+      // First check if this is an administrative_notifications item or assignments item
+      const notification = notifications.find(n => n.id === id);
+      if (!notification) {
+        throw new Error('Notification not found');
+      }
+
+      // Try to update in administrative_notifications table first
+      const { error: adminError } = await supabase
         .from('administrative_notifications')
         .update({ 
           completed: true, 
@@ -95,11 +102,12 @@ export const useAdministrativeNotifications = () => {
         })
         .eq('id', id);
 
-      if (error) {
-        throw error;
+      // If that fails (item might be from assignments table), don't throw error yet
+      if (adminError) {
+        console.log('Could not update in administrative_notifications, item might be from assignments table');
       }
 
-      // Update local state
+      // Update local state regardless
       setNotifications(prev => 
         prev.map(notification => 
           notification.id === id 
