@@ -2,10 +2,7 @@ import React from 'react';
 import { useAssignments } from '@/hooks/useAssignments';
 import { AlertBanner } from '@/components/AlertBanner';
 import { StudentSection } from '@/components/StudentSection';
-import AdministrativePanel from '@/components/AdministrativePanel';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, Settings } from 'lucide-react';
+import ParentTaskDashboard from '@/components/ParentTaskDashboard';
 
 const ParentDashboard = () => {
   // Fetch assignments for both students
@@ -51,27 +48,8 @@ const ParentDashboard = () => {
           />
         </div>
 
-        {/* Administrative Panel - Collapsible at Bottom */}
-        <Collapsible>
-          <Card>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Settings className="h-5 w-5" />
-                    Administrative Panel
-                  </div>
-                  <ChevronDown className="h-4 w-4" />
-                </CardTitle>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent>
-                <AdministrativePanel />
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
+        {/* Parent Task Dashboard */}
+        <ParentTaskDashboard />
       </div>
     </div>
   );
