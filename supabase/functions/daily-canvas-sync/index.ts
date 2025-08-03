@@ -86,42 +86,64 @@ function extractAdministrativeRequirements(content: string, courseName: string, 
     }
   });
   
-  // Enhanced supply requirements extraction with multiple approaches
+  // Enhanced supply requirements extraction with smarter boundary detection
   const supplyPatterns = [
-    // Look for "supplies:" or "materials:" followed by content
-    /(?:required\s+)?(?:supplies?|materials?|items?)\s*(?:needed|required)?[:\s]+([^.]*(?:\.[^A-Z][^.]*)*)/gi,
-    // Look for "bring the following" patterns
-    /bring\s+(?:the\s+)?following\s+(?:supplies?|materials?|items?)[:\s]+([^.]*(?:\.[^A-Z][^.]*)*)/gi,
-    // Look for "you will need" patterns
-    /you\s+(?:will\s+)?need\s*[:\s]+([^.]*(?:\.[^A-Z][^.]*)*)/gi,
+    // Look for "supplies:" or "materials:" followed by content until natural boundary
+    /(?:required\s+)?(?:supplies?|materials?|items?)\s*(?:needed|required)?[:\s]+([^]*?)(?=\n\s*(?:grading|attendance|homework|assignment|test|exam|project|due|class|course|contact|email|phone|office|schedule|calendar)|$)/gi,
+    // Look for "bring the following" patterns with better boundaries
+    /bring\s+(?:the\s+)?following\s+(?:supplies?|materials?|items?)[:\s]+([^]*?)(?=\n\s*(?:grading|attendance|homework|assignment|test|exam|project|due|class|course|contact|email|phone|office|schedule|calendar)|$)/gi,
+    // Look for "you will need" patterns with context-aware boundaries
+    /you\s+(?:will\s+)?need\s*[:\s]+([^]*?)(?=\n\s*(?:grading|attendance|homework|assignment|test|exam|project|due|class|course|contact|email|phone|office|schedule|calendar)|$)/gi,
     // Look for bulleted/numbered lists after supply keywords
-    /(?:supplies?|materials?|items?)[:\s]*(?:\n|\s)*(?:[-•*]|\d+\.)\s*([^.]*(?:\n\s*(?:[-•*]|\d+\.)\s*[^.]*)*)/gi
+    /(?:supplies?|materials?|items?)[:\s]*\n?\s*(?:[-•*]|\d+\.)\s*([^]*?)(?=\n\s*(?:grading|attendance|homework|assignment|test|exam|project|due|class|course|contact|email|phone|office|schedule|calendar)|$)/gi
   ];
+  
+  const extractedSupplies = new Set(); // Prevent duplicates
   
   supplyPatterns.forEach(pattern => {
     const matches = cleanContent.matchAll(pattern);
     for (const match of matches) {
       let supplies = match[1].trim();
       
-      // Clean up the supplies text
+      // Clean up the supplies text more thoroughly
       supplies = supplies
         .replace(/\n+/g, ' ')  // Replace newlines with spaces
         .replace(/\s+/g, ' ')  // Normalize spaces
         .replace(/^[:\s-]+/, '') // Remove leading punctuation
+        .replace(/\s*\.{2,}\s*/g, ' ') // Remove multiple dots
+        .replace(/\s*-{2,}\s*/g, ' ')  // Remove multiple dashes
         .trim();
       
-      // More generous length check and content validation
-      if (supplies.length > 5 && supplies.length < 1000 && 
+      // Smart content filtering - stop at policy/grading sections
+      const stopWords = ['grading', 'attendance', 'homework policy', 'late work', 'assignment', 'test policy', 'exam', 'contact information', 'office hours'];
+      for (const stopWord of stopWords) {
+        const stopIndex = supplies.toLowerCase().indexOf(stopWord);
+        if (stopIndex > 20) { // Only stop if we have some content first
+          supplies = supplies.substring(0, stopIndex).trim();
+          break;
+        }
+      }
+      
+      // Enhanced validation
+      if (supplies.length > 10 && supplies.length < 800 && 
           !supplies.match(/^[^a-zA-Z]*$/) && // Not just punctuation/numbers
-          supplies.split(' ').length > 2) {   // At least 3 words
+          supplies.split(' ').length > 3 &&   // At least 4 words
+          !supplies.match(/^(and|or|the|a|an|in|on|at|to|for|of|with|by)\s/i)) { // Not starting with common filler words
         
-        requirements.push({
-          title: `Supplies Needed - ${courseName}`,
-          description: `Required supplies for ${courseName}: ${supplies}`,
-          type: 'supplies',
-          priority: 'medium',
-          isDayOne: contentLower.includes('first day') || contentLower.includes('day 1') || contentLower.includes('day one')
-        });
+        // Create a normalized version for duplicate detection
+        const normalizedSupplies = supplies.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+        
+        if (!extractedSupplies.has(normalizedSupplies)) {
+          extractedSupplies.add(normalizedSupplies);
+          
+          requirements.push({
+            title: `Supplies Needed - ${courseName}`,
+            description: `Required supplies for ${courseName}: ${supplies}`,
+            type: 'supplies',
+            priority: 'medium',
+            isDayOne: contentLower.includes('first day') || contentLower.includes('day 1') || contentLower.includes('day one')
+          });
+        }
       }
     }
   });
