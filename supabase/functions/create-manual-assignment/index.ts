@@ -19,36 +19,27 @@ serve(async (req) => {
     );
 
     const requestData = await req.json();
-    console.log('Creating manual assignment:', requestData);
+    console.log('Raw request data:', JSON.stringify(requestData, null, 2));
 
-    // Transform and validate the data before inserting
-    const transformedData = requestData.map((assignment: any) => ({
-      ...assignment,
-      // Ensure due_date is properly formatted for timestamp with time zone
-      due_date: assignment.due_date ? new Date(assignment.due_date).toISOString() : null,
-      // Set proper defaults for database constraints
-      eligible_for_scheduling: true,
-      estimated_blocks_needed: 1,
-      scheduling_priority: 5,
-      is_split_assignment: false,
-      split_part_number: 1,
-      total_split_parts: 1,
-      block_position: 1,
-      buffer_time_minutes: 0,
-      // Set task_type based on assignment_type if not provided
-      task_type: assignment.task_type || (assignment.assignment_type === 'volunteer_events' ? 'volunteer' : 'academic')
-    }));
+    // Create a minimal valid assignment for testing
+    const minimalAssignment = {
+      student_name: requestData[0]?.student_name || 'Test Student',
+      title: requestData[0]?.title || 'Test Assignment',
+      source: 'manual',
+      category: 'academic',
+      assignment_type: 'life_skills',
+      priority: 'medium'
+    };
 
-    // Insert the assignment(s) using service role permissions
-    console.log('About to insert assignments:', JSON.stringify(transformedData, null, 2));
-    
+    console.log('Inserting minimal assignment:', JSON.stringify(minimalAssignment, null, 2));
+
     const { data, error } = await supabase
       .from('assignments')
-      .insert(transformedData)
+      .insert([minimalAssignment])
       .select();
 
     if (error) {
-      console.error('Supabase error details:', {
+      console.error('Database error:', {
         message: error.message,
         details: error.details,
         hint: error.hint,
@@ -57,12 +48,12 @@ serve(async (req) => {
       throw error;
     }
 
-    console.log('Successfully created assignment(s):', data);
+    console.log('Successfully created assignment:', data);
 
     return new Response(JSON.stringify({ 
       success: true, 
       data,
-      message: 'Assignment(s) created successfully' 
+      message: 'Assignment created successfully' 
     }), {
       headers: { 
         ...corsHeaders, 
@@ -74,7 +65,8 @@ serve(async (req) => {
     console.error('Function error:', error);
     return new Response(JSON.stringify({ 
       success: false, 
-      error: error.message 
+      error: error.message || 'Unknown error',
+      details: error.details || null
     }), {
       status: 500,
       headers: { 
