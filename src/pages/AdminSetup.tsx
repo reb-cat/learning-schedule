@@ -147,10 +147,14 @@ const AdminSetup = () => {
         
 
         <Tabs defaultValue="sync" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="sync" className="flex items-center gap-2">
               <RefreshCw className="h-4 w-4" />
               Canvas Sync
+            </TabsTrigger>
+            <TabsTrigger value="diagnostics" className="flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              Diagnostics
             </TabsTrigger>
             <TabsTrigger value="manual" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
@@ -159,91 +163,37 @@ const AdminSetup = () => {
           </TabsList>
 
           <TabsContent value="sync" className="space-y-6">
-            {/* Automated Daily Sync Status */}
-            <Card>
+            {/* Manual Sync - Now Prominent */}
+            <Card className="border-2 border-blue-200">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Automated Daily Sync
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <RefreshCw className="h-6 w-6" />
+                  Manual Canvas Sync
                 </CardTitle>
-                <CardDescription>
-                  Scheduled daily at 6:00 AM to fetch new Canvas assignments and update scheduling
+                <CardDescription className="text-base">
+                  Trigger immediate Canvas assignment sync and schedule update
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    <div>
-                      <p className="font-medium text-green-900">Daily Sync Active</p>
-                      <p className="text-sm text-green-700">Next scheduled sync: Tomorrow at 6:00 AM</p>
-                    </div>
-                  </div>
-                  <Badge variant="secondary" className="bg-green-100 text-green-800">
-                    Automated
-                  </Badge>
-                </div>
-
-                {syncHistory.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="font-medium">Recent Sync History</h4>
-                    <div className="space-y-2">
-                      {syncHistory.slice(0, 3).map((sync) => (
-                        <div key={sync.id} className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center gap-3">
-                            {getStatusBadge(sync.status)}
-                            <div>
-                              <p className="text-sm font-medium">{sync.student_name}</p>
-                              <p className="text-xs text-gray-500">
-                                {new Date(sync.created_at).toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium">{sync.assignments_count} assignments</p>
-                            <p className="text-xs text-gray-500">{sync.sync_type}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Manual Sync (Failsafe) */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <RefreshCw className="h-5 w-5" />
-                  Manual Sync (Failsafe)
-                </CardTitle>
-                <CardDescription>
-                  Emergency sync button for immediate Canvas assignment updates and schedule regeneration
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center gap-3">
-                    <Zap className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <p className="font-medium text-blue-900">On-Demand Sync Available</p>
-                      <p className="text-sm text-blue-700">Manually trigger assignment sync and scheduling update</p>
-                    </div>
+              <CardContent className="space-y-6">
+                <div className="flex flex-col items-center gap-4 p-6 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="text-center">
+                    <p className="font-medium text-blue-900 mb-2">Ready to sync assignments</p>
+                    <p className="text-sm text-blue-700">Click below to fetch latest Canvas assignments and update schedules</p>
                   </div>
                   <Button 
                     onClick={handleManualSync} 
                     disabled={isLoading}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    size="lg"
+                    className="bg-blue-600 hover:bg-blue-700 px-8"
                   >
                     {isLoading ? (
                       <>
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
                         Syncing...
                       </>
                     ) : (
                       <>
-                        <RefreshCw className="mr-2 h-4 w-4" />
+                        <RefreshCw className="mr-2 h-5 w-5" />
                         Run Manual Sync
                       </>
                     )}
@@ -251,7 +201,7 @@ const AdminSetup = () => {
                 </div>
 
                 {syncStatus && (
-                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="p-4 bg-gray-50 rounded-lg">
                     <h4 className="font-medium mb-2">Last Manual Sync Results</h4>
                     <pre className="text-sm bg-white p-3 rounded border overflow-auto">
                       {JSON.stringify(syncStatus, null, 2)}
@@ -261,12 +211,50 @@ const AdminSetup = () => {
               </CardContent>
             </Card>
 
-            {/* Sync Diagnostics */}
+            {/* Recent Sync Results - Simplified */}
+            {syncHistory.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Recent Sync Results
+                  </CardTitle>
+                  <CardDescription>
+                    Last 3 sync operations
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {syncHistory.slice(0, 3).map((sync) => (
+                      <div key={sync.id} className="flex items-center justify-between p-4 bg-white rounded-lg border">
+                        <div className="flex items-center gap-3">
+                          {getStatusBadge(sync.status)}
+                          <div>
+                            <p className="font-medium">{sync.student_name}</p>
+                            <p className="text-sm text-gray-500">
+                              {new Date(sync.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">{sync.assignments_count} assignments</p>
+                          <p className="text-sm text-gray-500">{sync.sync_type}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="diagnostics" className="space-y-6">
+            {/* Detailed Diagnostics - Moved to separate tab */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Database className="h-5 w-5" />
-                  Sync Diagnostics
+                  System Diagnostics
                 </CardTitle>
                 <CardDescription>
                   Detailed view of assignment counts, sync history, and system health metrics
@@ -300,12 +288,12 @@ const AdminSetup = () => {
                       {showDiagnostics ? (
                         <>
                           <ChevronUp className="mr-2 h-4 w-4" />
-                          Hide Detailed Diagnostics
+                          Hide Detailed Data
                         </>
                       ) : (
                         <>
                           <ChevronDown className="mr-2 h-4 w-4" />
-                          Show Detailed Diagnostics
+                          Show Detailed Data
                         </>
                       )}
                     </Button>
@@ -346,7 +334,7 @@ const AdminSetup = () => {
                         </div>
 
                         <div className="space-y-3">
-                          <h4 className="font-medium">Recent Sync History</h4>
+                          <h4 className="font-medium">Complete Sync History</h4>
                           <div className="max-h-64 overflow-auto">
                             <table className="w-full text-sm">
                               <thead>
@@ -374,39 +362,6 @@ const AdminSetup = () => {
                     )}
                   </CollapsibleContent>
                 </Collapsible>
-              </CardContent>
-            </Card>
-
-            {/* Configuration Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
-                  Configuration Status
-                </CardTitle>
-                <CardDescription>
-                  System components and their current status
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="flex items-center justify-between p-3 bg-white rounded border">
-                    <span className="text-sm font-medium">Canvas API</span>
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">Ready</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-white rounded border">
-                    <span className="text-sm font-medium">Supabase DB</span>
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">Ready</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-white rounded border">
-                    <span className="text-sm font-medium">Edge Functions</span>
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">Ready</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-white rounded border">
-                    <span className="text-sm font-medium">Scheduling Engine</span>
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">Ready</Badge>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
