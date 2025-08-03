@@ -1,7 +1,6 @@
 import React from 'react';
 import { useAssignments } from '@/hooks/useAssignments';
 import { AlertBanner } from '@/components/AlertBanner';
-import { QuickActionsBar } from '@/components/QuickActionsBar';
 import { StudentSection } from '@/components/StudentSection';
 import AdministrativePanel from '@/components/AdministrativePanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,9 +31,6 @@ const ParentDashboard = () => {
           abigailAssignments={abigailAssignments}
           khalilAssignments={khalilAssignments}
         />
-
-        {/* Quick Actions Bar */}
-        <QuickActionsBar />
 
         {/* Two Column Student Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" id="todays-progress">
