@@ -2,7 +2,7 @@ import React from 'react';
 import { useAssignments } from '@/hooks/useAssignments';
 import { AlertBanner } from '@/components/AlertBanner';
 import { StudentSection } from '@/components/StudentSection';
-import ParentTaskDashboard from '@/components/ParentTaskDashboard';
+
 import { SchedulingPreview } from '@/components/SchedulingPreview';
 import { EditableAssignment } from '@/components/EditableAssignment';
 import { CoopAdministrativeChecklist } from '@/components/CoopAdministrativeChecklist';
@@ -223,8 +223,6 @@ const ParentDashboard = () => {
           <CoopAdministrativeChecklist studentName="Khalil" />
         </div>
 
-        {/* Parent Task Dashboard */}
-        <ParentTaskDashboard />
       </div>
     </div>
   );
