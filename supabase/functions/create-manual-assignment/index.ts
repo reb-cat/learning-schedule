@@ -21,12 +21,30 @@ serve(async (req) => {
     const requestData = await req.json();
     console.log('Creating manual assignment:', requestData);
 
+    // Transform and validate the data before inserting
+    const transformedData = requestData.map((assignment: any) => ({
+      ...assignment,
+      // Ensure due_date is properly formatted for timestamp with time zone
+      due_date: assignment.due_date ? new Date(assignment.due_date).toISOString() : null,
+      // Set proper defaults for database constraints
+      eligible_for_scheduling: true,
+      estimated_blocks_needed: 1,
+      scheduling_priority: 5,
+      is_split_assignment: false,
+      split_part_number: 1,
+      total_split_parts: 1,
+      block_position: 1,
+      buffer_time_minutes: 0,
+      // Set task_type based on assignment_type if not provided
+      task_type: assignment.task_type || (assignment.assignment_type === 'volunteer_events' ? 'volunteer' : 'academic')
+    }));
+
     // Insert the assignment(s) using service role permissions
-    console.log('About to insert assignments:', JSON.stringify(requestData, null, 2));
+    console.log('About to insert assignments:', JSON.stringify(transformedData, null, 2));
     
     const { data, error } = await supabase
       .from('assignments')
-      .insert(requestData)
+      .insert(transformedData)
       .select();
 
     if (error) {
