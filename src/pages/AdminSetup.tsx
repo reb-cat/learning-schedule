@@ -31,6 +31,7 @@ const AdminSetup = () => {
   const [syncStatus, setSyncStatus] = useState<any>(null);
   const [diagnostics, setDiagnostics] = useState<any>(null);
   const [syncHistory, setSyncHistory] = useState<any[]>([]);
+  const [studentSyncStatus, setStudentSyncStatus] = useState<any[]>([]);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const { toast } = useToast();
 
@@ -50,9 +51,11 @@ const AdminSetup = () => {
 
       setSyncStatus(data);
       
-      // Refresh diagnostics after sync
+      // Refresh diagnostics and student status after sync
       const newDiagnostics = await getDiagnostics();
       setDiagnostics(newDiagnostics);
+      const newStudentStatus = await getStudentSyncStatus();
+      setStudentSyncStatus(newStudentStatus);
       
       toast({
         title: "Sync completed!",
@@ -77,12 +80,36 @@ const AdminSetup = () => {
         .from('sync_status')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(10);
       
       if (error) throw error;
       return data || [];
     } catch (error) {
       console.error('Error fetching sync status:', error);
+      return [];
+    }
+  };
+
+  const getStudentSyncStatus = async () => {
+    try {
+      // Get the most recent successful sync for each student
+      const { data, error } = await supabase
+        .from('sync_status')
+        .select('*')
+        .neq('status', 'pending')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Group by student and get the most recent for each
+      const studentStatus = ['Abigail', 'Khalil'].map(student => {
+        const studentSyncs = data?.filter(sync => sync.student_name === student) || [];
+        return studentSyncs.length > 0 ? studentSyncs[0] : null;
+      }).filter(Boolean);
+      
+      return studentStatus;
+    } catch (error) {
+      console.error('Error fetching student sync status:', error);
       return [];
     }
   };
@@ -119,6 +146,7 @@ const AdminSetup = () => {
   useEffect(() => {
     getSyncStatusFromDB().then(setSyncHistory);
     getDiagnostics().then(setDiagnostics);
+    getStudentSyncStatus().then(setStudentSyncStatus);
   }, []);
 
   const getStatusBadge = (status: string) => {
@@ -212,53 +240,83 @@ const AdminSetup = () => {
               </CardContent>
             </Card>
 
-            {/* Recent Sync Status - Dropdown Summary */}
-            {syncHistory.length > 0 && (
-              <div className="flex items-center justify-between p-4 bg-white rounded-lg border">
-                <div className="flex items-center gap-3">
-                  <Clock className="h-5 w-5 text-gray-500" />
-                  <div>
-                    <p className="font-medium">Recent Sync Status</p>
-                    <p className="text-sm text-gray-500">
-                      Last: {new Date(syncHistory[0].created_at).toLocaleString()} 
-                      {syncHistory[0].sync_type === 'scheduled' ? ' (Auto)' : ' (Manual)'}
-                    </p>
-                  </div>
-                  {getStatusBadge(syncHistory[0].status)}
-                </div>
-                
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      View History
-                      <ChevronDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-80 max-h-64 overflow-y-auto bg-white border shadow-lg z-50">
-                    <div className="px-3 py-2 border-b">
-                      <p className="font-medium text-sm">Recent Sync History</p>
-                    </div>
-                    {syncHistory.slice(0, 10).map((sync) => (
-                      <DropdownMenuItem key={sync.id} className="flex items-center justify-between p-3 cursor-default">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
+            {/* Student Sync Status - Show Both Students */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Student Sync Status
+                </CardTitle>
+                <CardDescription>
+                  Most recent sync status for each student
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {studentSyncStatus.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    {studentSyncStatus.map((sync) => (
+                      <div key={sync.id} className="p-4 border rounded-lg bg-gray-50">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-lg">{sync.student_name}</h4>
                           {getStatusBadge(sync.status)}
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate">{sync.student_name}</p>
-                            <p className="text-xs text-gray-500">
-                              {new Date(sync.created_at).toLocaleString()}
+                        </div>
+                        <div className="space-y-1 text-sm text-gray-600">
+                          <p>
+                            <span className="font-medium">Last sync:</span> {new Date(sync.created_at).toLocaleString()}
+                          </p>
+                          <p>
+                            <span className="font-medium">Type:</span> {sync.sync_type === 'scheduled' ? 'Automatic' : 'Manual'}
+                          </p>
+                          <p>
+                            <span className="font-medium">Assignments:</span> {sync.assignments_count || 0} items
+                          </p>
+                          {sync.message && (
+                            <p>
+                              <span className="font-medium">Message:</span> {sync.message}
                             </p>
-                          </div>
+                          )}
                         </div>
-                        <div className="text-right text-xs text-gray-500 ml-2">
-                          <div>{sync.assignments_count} items</div>
-                          <div>{sync.sync_type}</div>
-                        </div>
-                      </DropdownMenuItem>
+                      </div>
                     ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No sync data available</p>
+                )}
+                
+                <div className="flex justify-center">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        View Complete History
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-80 max-h-64 overflow-y-auto bg-white border shadow-lg z-50">
+                      <div className="px-3 py-2 border-b">
+                        <p className="font-medium text-sm">Complete Sync History</p>
+                      </div>
+                      {syncHistory.slice(0, 10).map((sync) => (
+                        <DropdownMenuItem key={sync.id} className="flex items-center justify-between p-3 cursor-default">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {getStatusBadge(sync.status)}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium truncate">{sync.student_name}</p>
+                              <p className="text-xs text-gray-500">
+                                {new Date(sync.created_at).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right text-xs text-gray-500 ml-2">
+                            <div>{sync.assignments_count} items</div>
+                            <div>{sync.sync_type}</div>
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="diagnostics" className="space-y-6">
