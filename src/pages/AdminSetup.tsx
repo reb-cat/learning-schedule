@@ -7,25 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-
-
-import { 
-  RefreshCw, 
-  Calendar,
-  ChevronDown,
-  ChevronUp,
-  Database,
-  Zap,
-  Settings,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Clock,
-  Plus,
-  BookOpen,
-  AlertTriangle
-} from 'lucide-react';
-
+import { RefreshCw, Calendar, ChevronDown, ChevronUp, Database, Zap, Settings, CheckCircle, XCircle, AlertCircle, Clock, Plus, BookOpen, AlertTriangle } from 'lucide-react';
 const AdminSetup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState<any>(null);
@@ -33,55 +15,53 @@ const AdminSetup = () => {
   const [syncHistory, setSyncHistory] = useState<any[]>([]);
   const [studentSyncStatus, setStudentSyncStatus] = useState<any[]>([]);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
-  const { toast } = useToast();
-
+  const {
+    toast
+  } = useToast();
   const handleManualSync = async () => {
     setIsLoading(true);
     try {
       toast({
         title: "Starting sync...",
-        description: "Fetching assignments from Canvas and updating schedules.",
+        description: "Fetching assignments from Canvas and updating schedules."
       });
-
-      const { data, error } = await supabase.functions.invoke('daily-canvas-sync');
-      
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('daily-canvas-sync');
       if (error) {
         throw new Error(error.message);
       }
-
       setSyncStatus(data);
-      
+
       // Refresh diagnostics and student status after sync
       const newDiagnostics = await getDiagnostics();
       setDiagnostics(newDiagnostics);
       const newStudentStatus = await getStudentSyncStatus();
       setStudentSyncStatus(newStudentStatus);
-      
       toast({
         title: "Sync completed!",
-        description: `Successfully processed assignments for both students.`,
+        description: `Successfully processed assignments for both students.`
       });
-
     } catch (error: any) {
       console.error('Sync error:', error);
       toast({
         title: "Sync failed",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
     }
   };
-
   const getSyncStatusFromDB = async () => {
     try {
-      const { data, error } = await supabase
-        .from('sync_status')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
-      
+      const {
+        data,
+        error
+      } = await supabase.from('sync_status').select('*').order('created_at', {
+        ascending: false
+      }).limit(10);
       if (error) throw error;
       return data || [];
     } catch (error) {
@@ -89,49 +69,45 @@ const AdminSetup = () => {
       return [];
     }
   };
-
   const getStudentSyncStatus = async () => {
     try {
       // Get the most recent successful sync for each student
-      const { data, error } = await supabase
-        .from('sync_status')
-        .select('*')
-        .neq('status', 'pending')
-        .order('created_at', { ascending: false });
-      
+      const {
+        data,
+        error
+      } = await supabase.from('sync_status').select('*').neq('status', 'pending').order('created_at', {
+        ascending: false
+      });
       if (error) throw error;
-      
+
       // Group by student and get the most recent for each
       const studentStatus = ['Abigail', 'Khalil'].map(student => {
         const studentSyncs = data?.filter(sync => sync.student_name === student) || [];
         return studentSyncs.length > 0 ? studentSyncs[0] : null;
       }).filter(Boolean);
-      
       return studentStatus;
     } catch (error) {
       console.error('Error fetching student sync status:', error);
       return [];
     }
   };
-
   const getDiagnostics = async () => {
     try {
       // Get assignment counts
-      const { data: assignments, error: assignmentsError } = await supabase
-        .from('assignments')
-        .select('*');
-      
+      const {
+        data: assignments,
+        error: assignmentsError
+      } = await supabase.from('assignments').select('*');
       if (assignmentsError) throw assignmentsError;
 
       // Get sync status
-      const { data: syncData, error: syncError } = await supabase
-        .from('sync_status')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
-      
+      const {
+        data: syncData,
+        error: syncError
+      } = await supabase.from('sync_status').select('*').order('created_at', {
+        ascending: false
+      }).limit(10);
       if (syncError) throw syncError;
-
       return {
         assignments: assignments || [],
         syncHistory: syncData || [],
@@ -142,13 +118,11 @@ const AdminSetup = () => {
       return null;
     }
   };
-
   useEffect(() => {
     getSyncStatusFromDB().then(setSyncHistory);
     getDiagnostics().then(setDiagnostics);
     getStudentSyncStatus().then(setStudentSyncStatus);
   }, []);
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'success':
@@ -161,16 +135,11 @@ const AdminSetup = () => {
         return <Badge variant="secondary">{status}</Badge>;
     }
   };
-
-  return (
-    <div className="min-h-screen bg-gray-50 p-6">
+  return <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="text-center space-y-4">
           <h1 className="text-4xl font-bold text-gray-900">Technical Dashboard</h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Monitor Canvas sync status and system diagnostics. 
-            View technical metrics, trigger manual syncs, and ensure the backend system is running smoothly.
-          </p>
+          
         </div>
 
         
@@ -205,34 +174,23 @@ const AdminSetup = () => {
                     <p className="font-medium text-blue-900 mb-2">Ready to sync assignments</p>
                     <p className="text-sm text-blue-700">Click below to fetch latest Canvas assignments and update schedules</p>
                   </div>
-                  <Button 
-                    onClick={handleManualSync} 
-                    disabled={isLoading}
-                    size="lg"
-                    className="bg-blue-600 hover:bg-blue-700 px-8"
-                  >
-                    {isLoading ? (
-                      <>
+                  <Button onClick={handleManualSync} disabled={isLoading} size="lg" className="bg-blue-600 hover:bg-blue-700 px-8">
+                    {isLoading ? <>
                         <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
                         Syncing...
-                      </>
-                    ) : (
-                      <>
+                      </> : <>
                         <RefreshCw className="mr-2 h-5 w-5" />
                         Run Manual Sync
-                      </>
-                    )}
+                      </>}
                   </Button>
                 </div>
 
-                {syncStatus && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
+                {syncStatus && <div className="p-4 bg-gray-50 rounded-lg">
                     <h4 className="font-medium mb-2">Last Manual Sync Results</h4>
                     <pre className="text-sm bg-white p-3 rounded border overflow-auto">
                       {JSON.stringify(syncStatus, null, 2)}
                     </pre>
-                  </div>
-                )}
+                  </div>}
               </CardContent>
             </Card>
 
@@ -248,10 +206,8 @@ const AdminSetup = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {studentSyncStatus.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    {studentSyncStatus.map((sync) => (
-                      <div key={sync.id} className="p-4 border rounded-lg bg-gray-50">
+                {studentSyncStatus.length > 0 ? <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    {studentSyncStatus.map(sync => <div key={sync.id} className="p-4 border rounded-lg bg-gray-50">
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="font-medium text-lg">{sync.student_name}</h4>
                           {getStatusBadge(sync.status)}
@@ -266,18 +222,12 @@ const AdminSetup = () => {
                           <p>
                             <span className="font-medium">Assignments:</span> {sync.assignments_count || 0} items
                           </p>
-                          {sync.message && (
-                            <p>
+                          {sync.message && <p>
                               <span className="font-medium">Message:</span> {sync.message}
-                            </p>
-                          )}
+                            </p>}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-4">No sync data available</p>
-                )}
+                      </div>)}
+                  </div> : <p className="text-gray-500 text-center py-4">No sync data available</p>}
                 
                 <div className="flex justify-center">
                   <DropdownMenu>
@@ -291,8 +241,7 @@ const AdminSetup = () => {
                       <div className="px-3 py-2 border-b">
                         <p className="font-medium text-sm">Complete Sync History</p>
                       </div>
-                      {syncHistory.slice(0, 10).map((sync) => (
-                        <DropdownMenuItem key={sync.id} className="flex items-center justify-between p-3 cursor-default">
+                      {syncHistory.slice(0, 10).map(sync => <DropdownMenuItem key={sync.id} className="flex items-center justify-between p-3 cursor-default">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             {getStatusBadge(sync.status)}
                             <div className="min-w-0 flex-1">
@@ -306,8 +255,7 @@ const AdminSetup = () => {
                             <div>{sync.assignments_count} items</div>
                             <div>{sync.sync_type}</div>
                           </div>
-                        </DropdownMenuItem>
-                      ))}
+                        </DropdownMenuItem>)}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -328,8 +276,7 @@ const AdminSetup = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {diagnostics && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {diagnostics && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="text-center p-4 bg-white rounded border">
                       <p className="text-2xl font-bold text-blue-600">{diagnostics.assignments?.length || 0}</p>
                       <p className="text-sm text-gray-600">Total Assignments</p>
@@ -346,28 +293,22 @@ const AdminSetup = () => {
                       </p>
                       <p className="text-sm text-gray-600">Manual Assignments</p>
                     </div>
-                  </div>
-                )}
+                  </div>}
 
                 <Collapsible open={showDiagnostics} onOpenChange={setShowDiagnostics}>
                   <CollapsibleTrigger asChild>
                     <Button variant="outline" className="w-full">
-                      {showDiagnostics ? (
-                        <>
+                      {showDiagnostics ? <>
                           <ChevronUp className="mr-2 h-4 w-4" />
                           Hide Detailed Data
-                        </>
-                      ) : (
-                        <>
+                        </> : <>
                           <ChevronDown className="mr-2 h-4 w-4" />
                           Show Detailed Data
-                        </>
-                      )}
+                        </>}
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-4 pt-4">
-                    {diagnostics && (
-                      <>
+                    {diagnostics && <>
                         <div className="space-y-3">
                           <h4 className="font-medium">Assignment Details</h4>
                           <div className="max-h-64 overflow-auto">
@@ -382,8 +323,7 @@ const AdminSetup = () => {
                                 </tr>
                               </thead>
                               <tbody>
-                                {diagnostics.assignments?.slice(0, 10).map((assignment: any) => (
-                                  <tr key={assignment.id} className="border-b">
+                                {diagnostics.assignments?.slice(0, 10).map((assignment: any) => <tr key={assignment.id} className="border-b">
                                     <td className="p-2">{assignment.student_name}</td>
                                     <td className="p-2">{assignment.title}</td>
                                     <td className="p-2">{assignment.subject}</td>
@@ -393,8 +333,7 @@ const AdminSetup = () => {
                                       </Badge>
                                     </td>
                                     <td className="p-2">{assignment.assignment_type || 'academic'}</td>
-                                  </tr>
-                                ))}
+                                  </tr>)}
                               </tbody>
                             </table>
                           </div>
@@ -413,20 +352,17 @@ const AdminSetup = () => {
                                 </tr>
                               </thead>
                               <tbody>
-                                {diagnostics.syncHistory?.map((sync: any) => (
-                                  <tr key={sync.id} className="border-b">
+                                {diagnostics.syncHistory?.map((sync: any) => <tr key={sync.id} className="border-b">
                                     <td className="p-2">{sync.student_name}</td>
                                     <td className="p-2">{getStatusBadge(sync.status)}</td>
                                     <td className="p-2">{sync.assignments_count}</td>
                                     <td className="p-2">{new Date(sync.created_at).toLocaleString()}</td>
-                                  </tr>
-                                ))}
+                                  </tr>)}
                               </tbody>
                             </table>
                           </div>
                         </div>
-                      </>
-                    )}
+                      </>}
                   </CollapsibleContent>
                 </Collapsible>
               </CardContent>
@@ -435,8 +371,6 @@ const AdminSetup = () => {
 
         </Tabs>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default AdminSetup;
