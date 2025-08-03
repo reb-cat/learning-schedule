@@ -1,11 +1,10 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useAdministrativeNotifications } from '@/hooks/useAdministrativeNotifications';
-import { CheckCircle, DollarSign, FileText, AlertTriangle, ExternalLink } from 'lucide-react';
+import { CheckCircle, FileText, AlertTriangle, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
+import { EditableAdministrativeNotification } from './EditableAdministrativeNotification';
 
 interface CoopAdministrativeChecklistProps {
   studentName?: string;
@@ -14,7 +13,7 @@ interface CoopAdministrativeChecklistProps {
 export const CoopAdministrativeChecklist: React.FC<CoopAdministrativeChecklistProps> = ({ 
   studentName 
 }) => {
-  const { notifications, loading, error, markAsCompleted } = useAdministrativeNotifications();
+  const { notifications, loading, error, markAsCompleted, refetch } = useAdministrativeNotifications();
 
   const handleToggleComplete = async (id: string, title: string) => {
     try {
@@ -147,68 +146,12 @@ export const CoopAdministrativeChecklist: React.FC<CoopAdministrativeChecklistPr
               Pending Tasks
             </h4>
             {activeNotifications.map((notification) => (
-              <div 
+              <EditableAdministrativeNotification
                 key={notification.id}
-                className={`flex items-start gap-3 p-3 rounded-lg border ${
-                  isOverdue(notification.due_date) 
-                    ? 'border-destructive bg-destructive/5' 
-                    : 'border-border bg-card'
-                }`}
-              >
-                <Checkbox
-                  checked={false}
-                  onCheckedChange={() => handleToggleComplete(notification.id, notification.title)}
-                  className="mt-1"
-                />
-                
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        {getTypeIcon(notification.notification_type)}
-                        <span className="font-medium">{notification.title}</span>
-                        {isOverdue(notification.due_date) && (
-                          <AlertTriangle className="h-4 w-4 text-destructive" />
-                        )}
-                      </div>
-                      {notification.description && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {notification.description}
-                        </p>
-                      )}
-                    </div>
-                    
-                    <div className="flex flex-col items-end gap-1">
-                      <Badge variant={getPriorityColor(notification.priority)}>
-                        {notification.priority}
-                      </Badge>
-                      {notification.amount && (
-                        <Badge variant="outline">
-                          ${notification.amount}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs text-muted-foreground">
-                      Due: {formatDate(notification.due_date)}
-                      {notification.course_name && ` • ${notification.course_name}`}
-                    </div>
-                    
-                    {notification.canvas_url && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2"
-                        onClick={() => window.open(notification.canvas_url, '_blank')}
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
+                notification={notification}
+                onUpdate={refetch}
+                onToggleComplete={handleToggleComplete}
+              />
             ))}
           </div>
         )}
