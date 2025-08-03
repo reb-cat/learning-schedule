@@ -6,12 +6,16 @@ import { Home, Clock, BookOpen } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
 import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 import { useAssignments } from "@/hooks/useAssignments";
+import { useState, useEffect } from "react";
 
 
 const AbigailDashboard = () => {
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
-  const { assignments, loading: assignmentsLoading, error: assignmentsError } = useAssignments('Abigail');
+  const isDebugMode = searchParams.get('debug') === 'true';
+  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment } = useAssignments('Abigail');
+  const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
+  const [debugInfo, setDebugInfo] = useState<any[]>([]);
   
   
   // Use date parameter if provided and valid, otherwise use today
@@ -24,9 +28,43 @@ const AbigailDashboard = () => {
   }
   
   const dateDisplay = format(displayDate, "EEEE, MMMM d, yyyy");
+  const formattedDate = format(displayDate, 'yyyy-MM-dd');
   const currentDay = format(displayDate, "EEEE");
   const isWeekend = currentDay === "Saturday" || currentDay === "Sunday";
   const todaySchedule = getScheduleForStudentAndDay("Abigail", currentDay);
+
+  // Load scheduled assignments for this date
+  useEffect(() => {
+    const loadScheduledAssignments = async () => {
+      if (!getScheduledAssignment) return;
+      
+      const debugData: any[] = [];
+      const assignmentMap: {[key: string]: any} = {};
+      
+      for (const block of todaySchedule) {
+        if (block.isAssignmentBlock && block.block) {
+          debugData.push({
+            block: block.block,
+            date: formattedDate,
+            query: `Looking for assignment in block ${block.block} on ${formattedDate}`
+          });
+          
+          const assignment = await getScheduledAssignment(block.block, formattedDate);
+          if (assignment) {
+            assignmentMap[`${block.block}`] = assignment;
+            debugData[debugData.length - 1].found = assignment;
+          } else {
+            debugData[debugData.length - 1].found = null;
+          }
+        }
+      }
+      
+      setScheduledAssignments(assignmentMap);
+      setDebugInfo(debugData);
+    };
+
+    loadScheduledAssignments();
+  }, [todaySchedule, formattedDate, getScheduledAssignment]);
 
   // Get today's assignments
   const todayAssignments = assignments.filter(assignment => {
@@ -156,6 +194,32 @@ const AbigailDashboard = () => {
             )}
           </div>
 
+          {/* Debug Panel */}
+          {isDebugMode && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-foreground">Debug Information</h2>
+              <Card className="bg-card border border-border">
+                <CardContent className="p-4">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Assignment Block Queries:</p>
+                    {debugInfo.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No assignment blocks found for today</p>
+                    ) : (
+                      debugInfo.map((debug, index) => (
+                        <div key={index} className="text-xs space-y-1">
+                          <p className="text-muted-foreground">{debug.query}</p>
+                          <p className={debug.found ? "text-green-600" : "text-orange-500"}>
+                            {debug.found ? `✓ Found: ${debug.found.title}` : "✗ No assignment scheduled"}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* Schedule */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-foreground">Today's Schedule</h2>
@@ -185,15 +249,19 @@ const AbigailDashboard = () => {
                           </div>
                          <div className="font-semibold text-foreground">
                             {block.isAssignmentBlock ? (
-                              // TODO: Check for assigned assignments here
-                              'Open Block'
+                              scheduledAssignments[`${block.block}`]?.title || 'Open Block'
                             ) : (
                               block.subject
                             )}
                           </div>
-                          {block.isAssignmentBlock && block.block && (
+                          {isDebugMode && block.isAssignmentBlock && block.block && (
                             <div className="text-xs text-muted-foreground">
-                              Looking for block {block.block} on {format(displayDate, 'yyyy-MM-dd')}
+                              Looking for block {block.block} on {formattedDate}
+                              {scheduledAssignments[`${block.block}`] && (
+                                <div className="text-green-600">
+                                  ✓ Found: {scheduledAssignments[`${block.block}`].title}
+                                </div>
+                              )}
                             </div>
                           )}
                           {block.block && (

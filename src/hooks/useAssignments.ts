@@ -24,6 +24,10 @@ export interface Assignment {
   priority?: 'high' | 'medium' | 'low';
   is_template?: boolean;
   parent_assignment_id?: string;
+  // Scheduling fields
+  scheduled_block?: number;
+  scheduled_date?: string;
+  scheduled_day?: string;
 }
 
 export const useAssignments = (studentName: string) => {
@@ -55,6 +59,28 @@ export const useAssignments = (studentName: string) => {
     }
   };
 
+  const getScheduledAssignment = async (block: number, date: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('assignments')
+        .select('*')
+        .eq('student_name', studentName)
+        .eq('scheduled_block', block)
+        .eq('scheduled_date', date)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching scheduled assignment:', error);
+        return null;
+      }
+
+      return data as Assignment | null;
+    } catch (err) {
+      console.error('Error in getScheduledAssignment:', err);
+      return null;
+    }
+  };
+
   useEffect(() => {
     fetchAssignments();
   }, [studentName]);
@@ -63,6 +89,7 @@ export const useAssignments = (studentName: string) => {
     assignments,
     loading,
     error,
-    refetch: fetchAssignments
+    refetch: fetchAssignments,
+    getScheduledAssignment
   };
 };

@@ -87,6 +87,9 @@ export type Database = {
           parent_assignment_id: string | null
           priority: string | null
           recurrence_pattern: Json | null
+          scheduled_block: number | null
+          scheduled_date: string | null
+          scheduled_day: string | null
           source: string | null
           student_name: string
           subject: string | null
@@ -112,6 +115,9 @@ export type Database = {
           parent_assignment_id?: string | null
           priority?: string | null
           recurrence_pattern?: Json | null
+          scheduled_block?: number | null
+          scheduled_date?: string | null
+          scheduled_day?: string | null
           source?: string | null
           student_name: string
           subject?: string | null
@@ -137,6 +143,9 @@ export type Database = {
           parent_assignment_id?: string | null
           priority?: string | null
           recurrence_pattern?: Json | null
+          scheduled_block?: number | null
+          scheduled_date?: string | null
+          scheduled_day?: string | null
           source?: string | null
           student_name?: string
           subject?: string | null
