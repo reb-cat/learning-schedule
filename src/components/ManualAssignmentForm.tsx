@@ -165,11 +165,18 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
         assignments.push(assignmentData);
       }
 
-      const { error } = await supabase
-        .from('assignments')
-        .insert(assignments);
+      // Use edge function to create assignment(s) with proper permissions
+      const { data, error } = await supabase.functions.invoke('create-manual-assignment', {
+        body: assignments
+      });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create assignment');
+      }
 
       toast({
         title: "Assignment Created",
