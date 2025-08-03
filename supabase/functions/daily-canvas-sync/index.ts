@@ -129,7 +129,7 @@ function extractAdministrativeRequirements(content: string, courseName: string, 
       
       // Add each valid supply item as a separate requirement
       supplyItems.forEach(item => {
-        const normalizedItem = item.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+        const normalizedItem = item.title.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
         
         if (!extractedSupplies.has(normalizedItem)) {
           extractedSupplies.add(normalizedItem);
