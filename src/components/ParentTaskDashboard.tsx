@@ -6,7 +6,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Card, CardContent } from '@/components/ui/card';
 import { useAdministrativeNotifications } from '@/hooks/useAdministrativeNotifications';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, Clock, DollarSign, FileText, AlertCircle, ExternalLink } from 'lucide-react';
+import { CheckCircle, Clock, DollarSign, FileText, AlertCircle, ExternalLink, ClipboardList } from 'lucide-react';
 
 const ParentTaskDashboard = () => {
   const { notifications, loading, error, markAsCompleted } = useAdministrativeNotifications();
@@ -58,6 +58,17 @@ const ParentTaskDashboard = () => {
 
   const activeNotifications = notifications.filter(n => !n.completed);
   const completedNotifications = notifications.filter(n => n.completed);
+  
+  // Calculate urgency indicators
+  const hasUrgentItems = activeNotifications.some(n => 
+    n.priority === 'high' || isOverdue(n.due_date)
+  );
+  
+  const getPendingBadgeVariant = () => {
+    if (hasUrgentItems) return 'destructive';
+    if (activeNotifications.some(n => n.priority === 'medium')) return 'default';
+    return 'secondary';
+  };
 
   const renderContent = () => {
     if (loading) {
@@ -186,8 +197,22 @@ const ParentTaskDashboard = () => {
   return (
     <Accordion type="single" collapsible className="w-full">
       <AccordionItem value="parent-tasks">
-        <AccordionTrigger className="text-lg font-semibold">
-          Parent Task Dashboard
+        <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+          <div className="flex items-center justify-between w-full mr-4">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5" />
+              <span>Parent Task Dashboard</span>
+              {hasUrgentItems && <AlertCircle className="h-4 w-4 text-red-500" />}
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant={getPendingBadgeVariant()} className="text-xs">
+                {activeNotifications.length} Pending
+              </Badge>
+              <Badge variant="secondary" className="text-xs">
+                {completedNotifications.length} Done
+              </Badge>
+            </div>
+          </div>
         </AccordionTrigger>
         <AccordionContent>
           {renderContent()}
