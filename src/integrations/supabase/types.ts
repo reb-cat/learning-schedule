@@ -71,7 +71,10 @@ export type Database = {
       assignments: {
         Row: {
           academic_year: string | null
+          actual_estimated_minutes: number | null
           assignment_type: string | null
+          block_position: number | null
+          buffer_time_minutes: number | null
           canvas_id: string | null
           canvas_url: string | null
           category: string | null
@@ -94,10 +97,12 @@ export type Database = {
           scheduled_date: string | null
           scheduled_day: string | null
           scheduling_priority: number | null
+          shared_block_id: string | null
           source: string | null
           split_part_number: number | null
           student_name: string
           subject: string | null
+          task_type: string | null
           title: string
           total_split_parts: number | null
           updated_at: string
@@ -105,7 +110,10 @@ export type Database = {
         }
         Insert: {
           academic_year?: string | null
+          actual_estimated_minutes?: number | null
           assignment_type?: string | null
+          block_position?: number | null
+          buffer_time_minutes?: number | null
           canvas_id?: string | null
           canvas_url?: string | null
           category?: string | null
@@ -128,10 +136,12 @@ export type Database = {
           scheduled_date?: string | null
           scheduled_day?: string | null
           scheduling_priority?: number | null
+          shared_block_id?: string | null
           source?: string | null
           split_part_number?: number | null
           student_name: string
           subject?: string | null
+          task_type?: string | null
           title: string
           total_split_parts?: number | null
           updated_at?: string
@@ -139,7 +149,10 @@ export type Database = {
         }
         Update: {
           academic_year?: string | null
+          actual_estimated_minutes?: number | null
           assignment_type?: string | null
+          block_position?: number | null
+          buffer_time_minutes?: number | null
           canvas_id?: string | null
           canvas_url?: string | null
           category?: string | null
@@ -162,10 +175,12 @@ export type Database = {
           scheduled_date?: string | null
           scheduled_day?: string | null
           scheduling_priority?: number | null
+          shared_block_id?: string | null
           source?: string | null
           split_part_number?: number | null
           student_name?: string
           subject?: string | null
+          task_type?: string | null
           title?: string
           total_split_parts?: number | null
           updated_at?: string
@@ -228,6 +243,14 @@ export type Database = {
     Functions: {
       calculate_estimated_blocks: {
         Args: { estimated_minutes: number }
+        Returns: number
+      }
+      classify_task_type: {
+        Args: { title: string; course_name: string }
+        Returns: string
+      }
+      estimate_task_time: {
+        Args: { title: string; estimated_minutes: number }
         Returns: number
       }
     }

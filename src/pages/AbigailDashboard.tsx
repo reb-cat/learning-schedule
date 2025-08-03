@@ -6,8 +6,8 @@ import { Home, Clock, BookOpen } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
 import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 import { useAssignments } from "@/hooks/useAssignments";
-import { useState, useEffect } from "react";
-import { RunScheduler } from "@/components/RunScheduler";
+import { useState, useEffect, useCallback } from "react";
+import { EnhancedScheduler } from "@/components/EnhancedScheduler";
 
 
 const AbigailDashboard = () => {
@@ -34,38 +34,38 @@ const AbigailDashboard = () => {
   const isWeekend = currentDay === "Saturday" || currentDay === "Sunday";
   const todaySchedule = getScheduleForStudentAndDay("Abigail", currentDay);
 
-  // Load scheduled assignments for this date
-  useEffect(() => {
-    const loadScheduledAssignments = async () => {
-      if (!getScheduledAssignment) return;
-      
-      const debugData: any[] = [];
-      const assignmentMap: {[key: string]: any} = {};
-      
-      for (const block of todaySchedule) {
-        if (block.isAssignmentBlock && block.block) {
-          debugData.push({
-            block: block.block,
-            date: formattedDate,
-            query: `Looking for assignment in block ${block.block} on ${formattedDate}`
-          });
-          
-          const assignment = await getScheduledAssignment(block.block, formattedDate);
-          if (assignment) {
-            assignmentMap[`${block.block}`] = assignment;
-            debugData[debugData.length - 1].found = assignment;
-          } else {
-            debugData[debugData.length - 1].found = null;
-          }
+  // Load scheduled assignments for this date - memoized to prevent infinite loops
+  const loadScheduledAssignments = useCallback(async () => {
+    if (!getScheduledAssignment) return;
+    
+    const debugData: any[] = [];
+    const assignmentMap: {[key: string]: any} = {};
+    
+    for (const block of todaySchedule) {
+      if (block.isAssignmentBlock && block.block) {
+        debugData.push({
+          block: block.block,
+          date: formattedDate,
+          query: `Looking for assignment in block ${block.block} on ${formattedDate}`
+        });
+        
+        const assignment = await getScheduledAssignment(block.block, formattedDate);
+        if (assignment) {
+          assignmentMap[`${block.block}`] = assignment;
+          debugData[debugData.length - 1].found = assignment;
+        } else {
+          debugData[debugData.length - 1].found = null;
         }
       }
-      
-      setScheduledAssignments(assignmentMap);
-      setDebugInfo(debugData);
-    };
+    }
+    
+    setScheduledAssignments(assignmentMap);
+    setDebugInfo(debugData);
+  }, [getScheduledAssignment, todaySchedule, formattedDate]);
 
+  useEffect(() => {
     loadScheduledAssignments();
-  }, [todaySchedule, formattedDate, getScheduledAssignment]);
+  }, [loadScheduledAssignments]);
 
   // Get today's assignments
   const todayAssignments = assignments.filter(assignment => {
@@ -92,24 +92,11 @@ const AbigailDashboard = () => {
         
         <div className="space-y-6">
           
-          {/* Smart Scheduler */}
-          <RunScheduler 
+          {/* Enhanced Smart Scheduler */}
+          <EnhancedScheduler 
             studentName="Abigail" 
             onSchedulingComplete={() => {
               refetch();
-              // Refresh scheduled assignments
-              const loadScheduledAssignments = async () => {
-                const assignmentMap: {[key: string]: any} = {};
-                for (const block of todaySchedule) {
-                  if (block.isAssignmentBlock && block.block) {
-                    const assignment = await getScheduledAssignment(block.block, formattedDate);
-                    if (assignment) {
-                      assignmentMap[`${block.block}`] = assignment;
-                    }
-                  }
-                }
-                setScheduledAssignments(assignmentMap);
-              };
               loadScheduledAssignments();
             }}
           />
