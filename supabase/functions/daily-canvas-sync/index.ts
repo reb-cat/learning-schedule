@@ -50,6 +50,7 @@ function extractAdministrativeRequirements(content: string, courseName: string, 
   
   const requirements: Array<any> = [];
   const extractedSupplies = new Set<string>();
+  const deduplicationKey = `${courseName}_${source}`.toLowerCase();
   
   // Clean content
   const cleanContent = content
@@ -59,55 +60,150 @@ function extractAdministrativeRequirements(content: string, courseName: string, 
     .replace(/\s+/g, ' ')
     .trim();
   
-  // Extract fees only
-  const feePattern = /(?:copy\s*fee|fee)[:\s]*\$(\d+(?:\.\d{2})?)/gi;
+  // Extract fees with better validation
+  const feePattern = /(?:copy\s*fee|lab\s*fee|class\s*fee|fee)[:\s-]*\$(\d+(?:\.\d{2})?)/gi;
   let feeMatch;
   while ((feeMatch = feePattern.exec(cleanContent)) !== null) {
     const amount = parseFloat(feeMatch[1]);
     if (amount > 0 && amount < 1000) {
-      requirements.push({
-        title: `Course Fee - $${amount}`,
-        description: `${courseName} fee: $${amount}`,
-        type: 'fee',
-        priority: 'high',
-        amount: amount
-      });
-    }
-  }
-  
-  // Extract only complete, well-defined supplies using strict patterns
-  const completeSupplyPatterns = [
-    /(\d+[-\s]*ring\s+binder(?:\s+with\s+[^.]+)?)/gi,
-    /(loose[-\s]*leaf\s+paper)/gi,
-    /(pens?\s+(?:and|&)\s+pencils?|pencils?\s+(?:and|&)\s+pens?)/gi,
-    /(folders?\s+with\s+pockets)/gi,
-    /(\d+[-\s]*hole\s+punches?)/gi,
-    /(highlighters?)/gi,
-    /(post[-\s]*its?|sticky\s+notes?)/gi,
-    /(DSLR\s+camera)/gi,
-    /(calculators?)/gi,
-    /(divider\s+tabs?)/gi
-  ];
-  
-  for (const pattern of completeSupplyPatterns) {
-    let match;
-    while ((match = pattern.exec(cleanContent)) !== null) {
-      const supplyText = match[1].trim();
-      const normalizedTitle = supplyText.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
-      
-      if (!extractedSupplies.has(normalizedTitle) && supplyText.length >= 3 && supplyText.length <= 50) {
-        extractedSupplies.add(normalizedTitle);
+      const feeKey = `fee_${amount}_${deduplicationKey}`;
+      if (!extractedSupplies.has(feeKey)) {
+        extractedSupplies.add(feeKey);
         requirements.push({
-          title: capitalizeWords(supplyText),
-          description: supplyText,
-          type: 'supplies',
-          priority: 'medium'
+          title: `Course Fee - $${amount}`,
+          description: `${courseName} fee: $${amount}`,
+          type: 'fee',
+          priority: 'high',
+          amount: amount
         });
       }
     }
   }
   
-  return requirements.slice(0, 8); // Conservative limit
+  // Teacher name patterns to exclude
+  const teacherExclusions = [
+    /Mrs?\.\s*[A-Z][a-z]+/gi,
+    /Mr\.\s*[A-Z][a-z]+/gi,
+    /Ms\.\s*[A-Z][a-z]+/gi,
+    /Dr\.\s*[A-Z][a-z]+/gi,
+    /vamaitland@gmail/gi,
+    /Julie\s*Welch/gi,
+    /made\s*payable\s*to/gi
+  ];
+
+  // Generic terms to exclude
+  const genericExclusions = [
+    /^supplies?\s*needed$/gi,
+    /^required\s*supplies?$/gi,
+    /^materials?$/gi,
+    /^homework$/gi,
+    /^graded?$/gi,
+    /^writing$/gi,
+    /^literature$/gi,
+    /^grammar$/gi,
+    /^journal\s*prompts?$/gi,
+    /^class\s*participation$/gi,
+    /^policies?$/gi,
+    /^grading$/gi,
+    /^assignments?$/gi
+  ];
+
+  // Parse structured supply lists
+  const supplyListMatches = [
+    // Look for bulleted or numbered lists
+    ...cleanContent.match(/(?:^|\n)\s*[-•*]\s*([^:\n]+?)(?=\s*(?:[-•*]|\n|$))/gm) || [],
+    ...cleanContent.match(/(?:^|\n)\s*\d+[.)]\s*([^:\n]+?)(?=\s*(?:\d+[.)]|\n|$))/gm) || [],
+    // Look for items in parentheses or after colons
+    ...cleanContent.match(/(?:supplies?|materials?|bring)[:\s]*([^.!?]+)/gi) || [],
+    // Look for "Required:" sections
+    ...cleanContent.match(/required[:\s]*([^.!?\n]+)/gi) || []
+  ];
+
+  // Process each potential supply
+  for (const rawMatch of supplyListMatches) {
+    let supplyText = rawMatch.replace(/^\s*[-•*\d.)\s]+/, '').trim();
+    
+    // Skip if matches teacher exclusions
+    if (teacherExclusions.some(pattern => pattern.test(supplyText))) continue;
+    
+    // Skip if matches generic exclusions  
+    if (genericExclusions.some(pattern => pattern.test(supplyText))) continue;
+    
+    // Skip if too short or too long
+    if (supplyText.length < 4 || supplyText.length > 80) continue;
+    
+    // Skip if contains policy/instruction keywords
+    if (/\b(must|will|should|please|policy|rule|before|after|each|every)\b/i.test(supplyText)) continue;
+    
+    // Skip if ends with incomplete punctuation
+    if (/[,;:]$/.test(supplyText)) continue;
+    
+    // Extract specific supply items using refined patterns
+    const specificPatterns = [
+      // Stationery items
+      /(\d+[-\s]*ring\s+binder(?:\s+with\s+[^,.]+)?)/gi,
+      /(loose[-\s]*leaf\s+paper)/gi,
+      /(notebook\s+paper|lined\s+paper)/gi,
+      /(pens?\s*(?:and|&|\/)\s*pencils?|pencils?\s*(?:and|&|\/)\s*pens?)/gi,
+      /(colored\s+(?:pencils?|pens?))/gi,
+      /(folders?\s+with\s+pockets)/gi,
+      /(\d+[-\s]*hole\s+punches?)/gi,
+      /(highlighters?)/gi,
+      /(post[-\s]*its?|sticky\s+notes?)/gi,
+      /(divider\s+tabs?)/gi,
+      /(index\s+cards?)/gi,
+      
+      // Tech items
+      /(DSLR\s+camera)/gi,
+      /(working\s+lens)/gi,
+      /(calculators?)/gi,
+      /(computers?)/gi,
+      /(printers?)/gi,
+      /(laptops?)/gi,
+      /(tablets?)/gi,
+      /(iPads?)/gi,
+      
+      // Textbooks and materials
+      /(textbooks?)/gi,
+      /(workbooks?)/gi,
+      /(bibles?)/gi,
+      /(dictionaries)/gi,
+      
+      // Art and lab supplies
+      /(art\s+supplies)/gi,
+      /(colored\s+pencils)/gi,
+      /(lab\s+coats?)/gi,
+      /(safety\s+goggles)/gi,
+      /(aprons?)/gi
+    ];
+
+    for (const pattern of specificPatterns) {
+      const matches = supplyText.match(pattern);
+      if (matches) {
+        for (const match of matches) {
+          const cleanSupply = match.trim().replace(/[.,;:!?]+$/, '');
+          const normalizedKey = `${cleanSupply.toLowerCase().replace(/[^a-z0-9\s]/g, '')}_${deduplicationKey}`;
+          
+          if (!extractedSupplies.has(normalizedKey) && cleanSupply.length >= 4) {
+            extractedSupplies.add(normalizedKey);
+            
+            // Check if it's a day one requirement
+            const isDayOne = /day\s*1|first\s*day|first\s*class|day\s*one/i.test(content);
+            
+            requirements.push({
+              title: capitalizeWords(cleanSupply),
+              description: `${cleanSupply} for ${courseName}`,
+              type: 'supplies',
+              priority: isDayOne ? 'high' : 'medium',
+              isDayOne: isDayOne
+            });
+          }
+        }
+      }
+    }
+  }
+  
+  return requirements.slice(0, 6); // Reasonable limit per course
 }
 
 // Helper function to capitalize words properly
