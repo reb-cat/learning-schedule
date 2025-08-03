@@ -171,7 +171,7 @@ const AdminSetup = () => {
                   Manual Canvas Sync
                 </CardTitle>
                 <CardDescription className="text-base">
-                  Trigger immediate Canvas assignment sync and schedule update
+                  Automatic sync runs daily at 4:00 AM UTC. Use this button for immediate manual sync.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">

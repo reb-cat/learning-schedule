@@ -372,7 +372,7 @@ async function syncStudentAssignments(studentName: string, token: string) {
   }
 }
 
-async function updateSyncStatus(studentName: string, status: string, message: string, count: number = 0) {
+async function updateSyncStatus(studentName: string, status: string, message: string, count: number = 0, syncType: string = 'manual') {
   try {
     await supabase
       .from('sync_status')
@@ -381,7 +381,7 @@ async function updateSyncStatus(studentName: string, status: string, message: st
         status,
         message,
         assignments_count: count,
-        sync_type: 'manual'
+        sync_type: syncType
       });
   } catch (error) {
     console.error(`Error updating sync status:`, error);
@@ -396,25 +396,28 @@ serve(async (req) => {
   }
 
   try {
-    // Handle empty request body
+    // Handle request body
     let studentName = null;
+    let isScheduledRun = false;
     try {
       const body = await req.text();
       console.log(`📝 Request body: "${body}"`);
       if (body.trim()) {
         const parsed = JSON.parse(body);
         studentName = parsed.studentName;
+        isScheduledRun = parsed.scheduledRun || false;
       }
     } catch (parseError) {
       console.log(`⚠️ No valid JSON in request body, syncing all students`);
     }
     
     const studentsToSync = studentName ? [studentName] : ['Abigail', 'Khalil'];
+    const syncType = isScheduledRun ? 'scheduled' : 'manual';
     const results = {};
 
     for (const student of studentsToSync) {
       try {
-        await updateSyncStatus(student, 'pending', `Starting sync for ${student}`);
+        await updateSyncStatus(student, 'pending', `Starting sync for ${student}`, 0, syncType);
         
         const token = student === 'Abigail' ? abigailToken : khalilToken;
         if (!token) {
@@ -427,14 +430,15 @@ serve(async (req) => {
           student, 
           'success', 
           `Sync completed successfully`, 
-          result.newAssignments
+          result.newAssignments,
+          syncType
         );
         
         results[student] = result;
 
       } catch (error) {
         console.error(`❌ Sync failed for ${student}:`, error);
-        await updateSyncStatus(student, 'error', error.message);
+        await updateSyncStatus(student, 'error', error.message, 0, syncType);
         results[student] = { success: false, error: error.message };
       }
     }
