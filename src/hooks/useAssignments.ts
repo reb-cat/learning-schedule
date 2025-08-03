@@ -16,6 +16,14 @@ export interface Assignment {
   category?: 'academic' | 'administrative';
   created_at: string;
   updated_at: string;
+  // Manual assignment fields
+  assignment_type?: 'academic' | 'life_skills' | 'tutoring' | 'recurring';
+  source?: 'canvas' | 'manual';
+  recurrence_pattern?: any;
+  notes?: string;
+  priority?: 'high' | 'medium' | 'low';
+  is_template?: boolean;
+  parent_assignment_id?: string;
 }
 
 export const useAssignments = (studentName: string) => {

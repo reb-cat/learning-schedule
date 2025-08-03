@@ -71,6 +71,7 @@ export type Database = {
       assignments: {
         Row: {
           academic_year: string | null
+          assignment_type: string | null
           canvas_id: string | null
           canvas_url: string | null
           category: string | null
@@ -81,6 +82,12 @@ export type Database = {
           eligible_for_scheduling: boolean
           estimated_time_minutes: number | null
           id: string
+          is_template: boolean | null
+          notes: string | null
+          parent_assignment_id: string | null
+          priority: string | null
+          recurrence_pattern: Json | null
+          source: string | null
           student_name: string
           subject: string | null
           title: string
@@ -89,6 +96,7 @@ export type Database = {
         }
         Insert: {
           academic_year?: string | null
+          assignment_type?: string | null
           canvas_id?: string | null
           canvas_url?: string | null
           category?: string | null
@@ -99,6 +107,12 @@ export type Database = {
           eligible_for_scheduling?: boolean
           estimated_time_minutes?: number | null
           id?: string
+          is_template?: boolean | null
+          notes?: string | null
+          parent_assignment_id?: string | null
+          priority?: string | null
+          recurrence_pattern?: Json | null
+          source?: string | null
           student_name: string
           subject?: string | null
           title: string
@@ -107,6 +121,7 @@ export type Database = {
         }
         Update: {
           academic_year?: string | null
+          assignment_type?: string | null
           canvas_id?: string | null
           canvas_url?: string | null
           category?: string | null
@@ -117,13 +132,27 @@ export type Database = {
           eligible_for_scheduling?: boolean
           estimated_time_minutes?: number | null
           id?: string
+          is_template?: boolean | null
+          notes?: string | null
+          parent_assignment_id?: string | null
+          priority?: string | null
+          recurrence_pattern?: Json | null
+          source?: string | null
           student_name?: string
           subject?: string | null
           title?: string
           updated_at?: string
           urgency?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "assignments_parent_assignment_id_fkey"
+            columns: ["parent_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sync_status: {
         Row: {

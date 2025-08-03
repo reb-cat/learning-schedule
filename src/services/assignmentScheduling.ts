@@ -21,25 +21,42 @@ export const baseSubjectLoads: Record<string, 'light' | 'medium' | 'heavy'> = {
   'Music': 'light',
   'Bible': 'light',
   'Lunch': 'light',
-  'Co-op': 'medium'
+  'Co-op': 'medium',
+  // Manual assignment subjects
+  'Life Skills': 'medium',
+  'Driving': 'heavy',
+  'Job Applications': 'medium',
+  'Spanish (Preply)': 'heavy',
+  'Foreign Language Tutoring': 'heavy',
+  'Cooking': 'medium',
+  'Banking': 'medium',
+  'Interview Prep': 'medium',
+  'Resume Writing': 'medium'
 };
 
 // Student-specific accommodations
 export const studentAccommodations = {
   'Abigail': {
-    readingLoad: 'medium' as const, // dyslexia adjustment
-    preferredReadingBlocks: [2, 3, 4], // morning when fresh
-    maxReadingBlocksPerDay: 2,
-    subjectLoadOverrides: {
-      'Reading': 'medium' as const,
-      'Language Arts': 'heavy' as const
-    }
-  },
-  'Khalil': {
+    // Executive function support - needs structure and consistency
     maxBlockLength: 40, // shorter for executive function
     requiresTransitionBuffer: true, // 5-min between blocks
     preferredStructure: 'predictable' as const, // same subject same block each day when possible
+    recurringAssignmentPriority: true, // Predictable weekly patterns
+    maxConsecutiveHeavyBlocks: 1,
     subjectLoadOverrides: {}
+  },
+  'Khalil': {
+    // Dyslexia accommodation - reduce reading load
+    readingLoad: 'medium' as const, // dyslexia adjustment
+    preferredReadingBlocks: [2, 3, 4], // morning when fresh
+    maxReadingBlocksPerDay: 2,
+    avoidConsecutiveReading: true,
+    subjectLoadOverrides: {
+      'Reading': 'medium' as const,
+      'Language Arts': 'medium' as const, // Reduced from heavy
+      'Spanish (Preply)': 'medium' as const,
+      'Foreign Language': 'medium' as const
+    }
   }
 };
 
@@ -57,7 +74,7 @@ export const modalityTypes = {
 
 export interface Assignment {
   id: string;
-  canvas_id: string;
+  canvas_id?: string;
   student_name: string;
   subject: string;
   title: string;
@@ -70,6 +87,14 @@ export interface Assignment {
   scheduled_block?: number;
   scheduled_date?: string;
   scheduled_day?: string;
+  // Manual assignment fields
+  assignment_type?: 'academic' | 'life_skills' | 'tutoring' | 'recurring';
+  source?: 'canvas' | 'manual';
+  recurrence_pattern?: any;
+  notes?: string;
+  priority?: 'high' | 'medium' | 'low';
+  is_template?: boolean;
+  parent_assignment_id?: string;
 }
 
 export interface SchedulingResult {
@@ -150,16 +175,16 @@ function canScheduleInBlock(
     }
   }
   
-  // Abigail-specific reading constraints
-  if (studentName === 'Abigail' && assignment.subject === 'Reading') {
-    const abigailAccommodations = studentAccommodations['Abigail'];
-    // Prefer morning blocks for reading
-    if (!abigailAccommodations.preferredReadingBlocks.includes(blockNumber)) {
+  // Khalil-specific reading constraints (corrected accommodations)
+  if (studentName === 'Khalil' && assignment.subject === 'Reading') {
+    const khalilAccommodations = studentAccommodations['Khalil'];
+    // Prefer morning blocks for reading due to dyslexia
+    if (khalilAccommodations.preferredReadingBlocks && !khalilAccommodations.preferredReadingBlocks.includes(blockNumber)) {
       // Only allow if morning blocks are full
-      const morningReadingCount = abigailAccommodations.preferredReadingBlocks
+      const morningReadingCount = khalilAccommodations.preferredReadingBlocks
         .filter(block => existingSchedule[block]?.subject === 'Reading').length;
       
-      if (morningReadingCount < abigailAccommodations.maxReadingBlocksPerDay) {
+      if (khalilAccommodations.maxReadingBlocksPerDay && morningReadingCount < khalilAccommodations.maxReadingBlocksPerDay) {
         return false; // Wait for morning slot
       }
     }
