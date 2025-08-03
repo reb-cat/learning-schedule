@@ -7,13 +7,14 @@ interface TodaysTasksProps {
   assignments: any[];
   scheduledAssignments: {[key: string]: any};
   currentDay: string;
+  currentDate: Date;
   isLoading: boolean;
   error: string | null;
 }
 
-export function TodaysTasks({ assignments, scheduledAssignments, currentDay, isLoading, error }: TodaysTasksProps) {
+export function TodaysTasks({ assignments, scheduledAssignments, currentDay, currentDate, isLoading, error }: TodaysTasksProps) {
   // Get assignments due today or tomorrow (within 48 hours)
-  const today = new Date();
+  const today = currentDate;
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
   

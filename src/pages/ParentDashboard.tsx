@@ -6,15 +6,40 @@ import ParentTaskDashboard from '@/components/ParentTaskDashboard';
 import { SchedulingPreview } from '@/components/SchedulingPreview';
 import { EditableAssignment } from '@/components/EditableAssignment';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { Play } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 const ParentDashboard = () => {
   // Fetch assignments for both students
   const { assignments: abigailAssignments, loading: abigailLoading, refetch: refetchAbigail } = useAssignments('Abigail');
   const { assignments: khalilAssignments, loading: khalilLoading, refetch: refetchKhalil } = useAssignments('Khalil');
+  const [testingScheduler, setTestingScheduler] = useState(false);
 
   const handleAssignmentAdded = () => {
     refetchAbigail();
     refetchKhalil();
+  };
+
+  const handleTestAutoScheduler = async () => {
+    setTestingScheduler(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-scheduler', {
+        body: { testMode: true }
+      });
+      
+      if (error) throw error;
+      
+      toast.success("Auto-scheduler test completed successfully!");
+      handleAssignmentAdded(); // Refresh assignments to see changes
+    } catch (error) {
+      console.error('Auto-scheduler test failed:', error);
+      toast.error("Auto-scheduler test failed. Check console for details.");
+    } finally {
+      setTestingScheduler(false);
+    }
   };
 
   // Filter assignments to only show those due within next 48 hours
@@ -65,6 +90,28 @@ const ParentDashboard = () => {
             onAssignmentAdded={handleAssignmentAdded}
           />
         </div>
+
+        {/* Manual Auto-Scheduler Test */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Auto-Scheduler Control
+              <Button 
+                onClick={handleTestAutoScheduler}
+                disabled={testingScheduler}
+                className="flex items-center gap-2"
+              >
+                <Play size={16} />
+                {testingScheduler ? 'Running...' : 'Test Auto-Scheduler'}
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              Manually trigger the auto-scheduler to distribute unscheduled assignments across the next 5 days based on due dates and priorities.
+            </p>
+          </CardContent>
+        </Card>
 
         {/* Smart Scheduling Preview */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
