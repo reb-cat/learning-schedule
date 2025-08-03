@@ -10,7 +10,9 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const canvasBaseUrl = Deno.env.get('CANVAS_BASE_URL')!;
+const canvasBaseUrl2 = Deno.env.get('CANVAS_BASE_URL_2')!;
 const abigailToken = Deno.env.get('ABIGAIL_CANVAS_TOKEN')!;
+const abigailToken2 = Deno.env.get('ABIGAIL_CANVAS_TOKEN_2')!;
 const khalilToken = Deno.env.get('KHALIL_CANVAS_TOKEN')!;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
@@ -77,10 +79,10 @@ function extractAdministrativeRequirements(content: string, courseName: string):
 }
 
 // Function to fetch and parse course syllabi
-async function fetchCourseSyllabus(courseId: string, token: string): Promise<string> {
+async function fetchCourseSyllabus(courseId: string, token: string, baseUrl: string = canvasBaseUrl): Promise<string> {
   try {
     const response = await fetch(
-      `${canvasBaseUrl}/api/v1/courses/${courseId}?include[]=syllabus_body`,
+      `${baseUrl}/api/v1/courses/${courseId}?include[]=syllabus_body`,
       {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -103,10 +105,10 @@ async function fetchCourseSyllabus(courseId: string, token: string): Promise<str
 }
 
 // Function to fetch course announcements
-async function fetchCourseAnnouncements(courseId: string, token: string): Promise<string> {
+async function fetchCourseAnnouncements(courseId: string, token: string, baseUrl: string = canvasBaseUrl): Promise<string> {
   try {
     const response = await fetch(
-      `${canvasBaseUrl}/api/v1/announcements?context_codes[]=course_${courseId}&per_page=10&active_only=true`,
+      `${baseUrl}/api/v1/announcements?context_codes[]=course_${courseId}&per_page=10&active_only=true`,
       {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -129,10 +131,10 @@ async function fetchCourseAnnouncements(courseId: string, token: string): Promis
 }
 
 // Function to fetch course pages
-async function fetchCoursePages(courseId: string, token: string): Promise<string> {
+async function fetchCoursePages(courseId: string, token: string, baseUrl: string = canvasBaseUrl): Promise<string> {
   try {
     const response = await fetch(
-      `${canvasBaseUrl}/api/v1/courses/${courseId}/pages?per_page=20&published=true`,
+      `${baseUrl}/api/v1/courses/${courseId}/pages?per_page=20&published=true`,
       {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -157,7 +159,7 @@ async function fetchCoursePages(courseId: string, token: string): Promise<string
           page.title.toLowerCase().includes('fee')) {
         
         const pageResponse = await fetch(
-          `${canvasBaseUrl}/api/v1/courses/${courseId}/pages/${page.url}`,
+          `${baseUrl}/api/v1/courses/${courseId}/pages/${page.url}`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -180,8 +182,8 @@ async function fetchCoursePages(courseId: string, token: string): Promise<string
   }
 }
 
-async function syncStudentAssignments(studentName: string, token: string) {
-  console.log(`🔄 Starting sync for ${studentName}...`);
+async function syncStudentAssignments(studentName: string, token: string, baseUrl: string = canvasBaseUrl, accountLabel: string = '') {
+  console.log(`🔄 Starting sync for ${studentName}${accountLabel ? ` (${accountLabel})` : ''}...`);
   
   try {
     // 1) Fetch existing assignments from database
@@ -197,9 +199,9 @@ async function syncStudentAssignments(studentName: string, token: string) {
     console.log(`📋 Found ${existing.size} existing assignments for ${studentName}`);
 
     // 2) Fetch courses from Canvas
-    console.log(`📡 Fetching courses for ${studentName}...`);
+    console.log(`📡 Fetching courses for ${studentName}${accountLabel ? ` (${accountLabel})` : ''}...`);
     const coursesResponse = await fetch(
-      `${canvasBaseUrl}/api/v1/courses?enrollment_state=active&enrollment_type=student&state[]=available`,
+      `${baseUrl}/api/v1/courses?enrollment_state=active&enrollment_type=student&state[]=available`,
       {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -213,20 +215,20 @@ async function syncStudentAssignments(studentName: string, token: string) {
     }
 
     const courses = await coursesResponse.json();
-    console.log(`✅ Found ${courses.length} active courses`);
+    console.log(`✅ Found ${courses.length} active courses${accountLabel ? ` in ${accountLabel}` : ''}`);
 
     let newAssignments = 0;
 
     // 3) Process each course
     for (const course of courses) {
-      console.log(`📚 Processing course: ${course.name}`);
+      console.log(`📚 Processing course: ${course.name}${accountLabel ? ` (${accountLabel})` : ''}`);
       
       // Fetch additional course content for administrative requirements
       console.log(`   🔍 Fetching syllabi, announcements, and pages for ${course.name}...`);
       const [syllabusContent, announcementsContent, pagesContent] = await Promise.all([
-        fetchCourseSyllabus(course.id, token),
-        fetchCourseAnnouncements(course.id, token),
-        fetchCoursePages(course.id, token)
+        fetchCourseSyllabus(course.id, token, baseUrl),
+        fetchCourseAnnouncements(course.id, token, baseUrl),
+        fetchCoursePages(course.id, token, baseUrl)
       ]);
       
       // Extract fees from all content sources
@@ -258,7 +260,7 @@ async function syncStudentAssignments(studentName: string, token: string) {
               notification_type: req.type,
               priority: req.priority,
               course_name: course.name,
-              canvas_url: `${canvasBaseUrl}/courses/${course.id}/assignments/syllabus`,
+              canvas_url: `${baseUrl}/courses/${course.id}/assignments/syllabus`,
               amount: req.amount || null
             });
             
@@ -274,7 +276,7 @@ async function syncStudentAssignments(studentName: string, token: string) {
       
       // Fetch assignments for this course
       const assignmentsResponse = await fetch(
-        `${canvasBaseUrl}/api/v1/courses/${course.id}/assignments?order_by=due_at&per_page=100`,
+        `${baseUrl}/api/v1/courses/${course.id}/assignments?order_by=due_at&per_page=100`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -303,7 +305,7 @@ async function syncStudentAssignments(studentName: string, token: string) {
           continue;
         }
         
-        // Check if assignment already exists
+        // Check if assignment already exists (by canvas_id to handle duplicates across accounts)
         const existingAssignment = existingAssignments?.find(existing => 
           existing.canvas_id === assignment.id?.toString()
         );
@@ -357,17 +359,17 @@ async function syncStudentAssignments(studentName: string, token: string) {
         if (error) {
           console.error(`❌ Error inserting assignment "${assignment.name}":`, error);
         } else {
-          console.log(`  ✅ Added: ${studentName} | ${course.name} – ${assignment.name}`);
+          console.log(`  ✅ Added: ${studentName} | ${course.name} – ${assignment.name}${accountLabel ? ` (${accountLabel})` : ''}`);
           newAssignments++;
         }
       }
     }
 
-    console.log(`🎉 Sync complete for ${studentName}: ${newAssignments} new assignments added`);
+    console.log(`🎉 Sync complete for ${studentName}${accountLabel ? ` (${accountLabel})` : ''}: ${newAssignments} new assignments added`);
     return { success: true, newAssignments };
 
   } catch (error) {
-    console.error(`💥 Error syncing ${studentName}:`, error);
+    console.error(`💥 Error syncing ${studentName}${accountLabel ? ` (${accountLabel})` : ''}:`, error);
     throw error;
   }
 }
@@ -419,22 +421,36 @@ serve(async (req) => {
       try {
         await updateSyncStatus(student, 'pending', `Starting sync for ${student}`, 0, syncType);
         
-        const token = student === 'Abigail' ? abigailToken : khalilToken;
-        if (!token) {
-          throw new Error(`No Canvas token found for ${student}`);
+        let totalNewAssignments = 0;
+        
+        if (student === 'Abigail') {
+          // Sync from both Canvas accounts for Abigail
+          console.log(`🔄 Syncing Abigail from primary Canvas account...`);
+          const result1 = await syncStudentAssignments(student, abigailToken, canvasBaseUrl, 'Primary Canvas');
+          totalNewAssignments += result1.newAssignments;
+          
+          console.log(`🔄 Syncing Abigail from secondary Canvas account...`);
+          const result2 = await syncStudentAssignments(student, abigailToken2, canvasBaseUrl2, 'Secondary Canvas');
+          totalNewAssignments += result2.newAssignments;
+          
+          results[student] = { success: true, newAssignments: totalNewAssignments };
+        } else if (student === 'Khalil') {
+          // Sync from single Canvas account for Khalil
+          if (!khalilToken) {
+            throw new Error(`No Canvas token found for ${student}`);
+          }
+          const result = await syncStudentAssignments(student, khalilToken, canvasBaseUrl);
+          results[student] = result;
+          totalNewAssignments = result.newAssignments;
         }
-
-        const result = await syncStudentAssignments(student, token);
         
         await updateSyncStatus(
           student, 
           'success', 
           `Sync completed successfully`, 
-          result.newAssignments,
+          totalNewAssignments,
           syncType
         );
-        
-        results[student] = result;
 
       } catch (error) {
         console.error(`❌ Sync failed for ${student}:`, error);
