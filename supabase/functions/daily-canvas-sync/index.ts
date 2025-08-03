@@ -258,6 +258,7 @@ async function syncStudentAssignments(studentName: string, token: string) {
               notification_type: req.type,
               priority: req.priority,
               course_name: course.name,
+              canvas_url: `${canvasBaseUrl}/courses/${course.id}/assignments/syllabus`,
               amount: req.amount || null
             });
             
