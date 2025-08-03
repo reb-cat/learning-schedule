@@ -2,17 +2,19 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Home, Clock, BookOpen } from "lucide-react";
+import { Home, Calendar } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
 import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 import { useAssignments } from "@/hooks/useAssignments";
-
+import { useState, useEffect, useCallback } from "react";
+import { CoopChecklist } from "@/components/CoopChecklist";
+import { TodaysTasks } from "@/components/TodaysTasks";
 
 const KhalilDashboard = () => {
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
-  const { assignments, loading: assignmentsLoading, error: assignmentsError } = useAssignments('Khalil');
-  
+  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment } = useAssignments('Khalil');
+  const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
   
   // Use date parameter if provided and valid, otherwise use today
   let displayDate = new Date();
@@ -24,16 +26,32 @@ const KhalilDashboard = () => {
   }
   
   const dateDisplay = format(displayDate, "EEEE, MMMM d, yyyy");
+  const formattedDate = format(displayDate, 'yyyy-MM-dd');
   const currentDay = format(displayDate, "EEEE");
   const isWeekend = currentDay === "Saturday" || currentDay === "Sunday";
   const todaySchedule = getScheduleForStudentAndDay("Khalil", currentDay);
 
-  // Get today's assignments
-  const todayAssignments = assignments.filter(assignment => {
-    if (!assignment.due_date) return false;
-    const dueDate = new Date(assignment.due_date);
-    return format(dueDate, 'yyyy-MM-dd') === format(displayDate, 'yyyy-MM-dd');
-  });
+  // Load scheduled assignments for this date
+  const loadScheduledAssignments = useCallback(async () => {
+    if (!getScheduledAssignment) return;
+    
+    const assignmentMap: {[key: string]: any} = {};
+    
+    for (const block of todaySchedule) {
+      if (block.isAssignmentBlock && block.block) {
+        const assignment = await getScheduledAssignment(block.block, formattedDate);
+        if (assignment) {
+          assignmentMap[`${block.block}`] = assignment;
+        }
+      }
+    }
+    
+    setScheduledAssignments(assignmentMap);
+  }, [getScheduledAssignment, todaySchedule, formattedDate]);
+
+  useEffect(() => {
+    loadScheduledAssignments();
+  }, [loadScheduledAssignments]);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -52,111 +70,29 @@ const KhalilDashboard = () => {
         </div>
         
         <div className="space-y-6">
+          {/* Co-op Checklist - only shows on co-op days */}
+          <CoopChecklist 
+            studentName="Khalil" 
+            assignments={assignments} 
+            currentDay={currentDay} 
+          />
 
-          {/* Today's Assignments */}
+          {/* Today's Tasks - only urgent items */}
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-foreground">Today's Assignments</h2>
-            
-            {assignmentsLoading ? (
-              <Card className="bg-card border border-border">
-                <CardContent className="p-6 text-center">
-                  <p className="text-muted-foreground">Loading assignments...</p>
-                </CardContent>
-              </Card>
-            ) : assignmentsError ? (
-              <Card className="bg-card border border-border">
-                <CardContent className="p-6 text-center">
-                  <p className="text-destructive">Error loading assignments: {assignmentsError}</p>
-                </CardContent>
-              </Card>
-            ) : todayAssignments.length === 0 ? (
-              <Card className="bg-card border border-border">
-                <CardContent className="p-6 text-center">
-                  <BookOpen className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">No assignments due today!</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {todayAssignments.map((assignment) => (
-                  <Card key={assignment.id} className="bg-card border border-border">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <div className="font-semibold text-foreground">{assignment.title}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {assignment.course_name} • {assignment.subject}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {assignment.cognitive_load}
-                            </Badge>
-                            {assignment.estimated_time_minutes && (
-                              <Badge variant="secondary" className="text-xs">
-                                <Clock className="w-3 h-3 mr-1" />
-                                {assignment.estimated_time_minutes}m
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        <Badge variant={assignment.urgency === 'overdue' ? 'destructive' : 'default'}>
-                          {assignment.urgency?.replace('_', ' ')}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+            <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Today's Focus
+            </h2>
+            <TodaysTasks 
+              assignments={assignments}
+              scheduledAssignments={scheduledAssignments}
+              currentDay={currentDay}
+              isLoading={assignmentsLoading}
+              error={assignmentsError}
+            />
           </div>
 
-          {/* All Assignments */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-foreground">All Assignments ({assignments.length})</h2>
-            
-            {assignments.length === 0 ? (
-              <Card className="bg-card border border-border">
-                <CardContent className="p-6 text-center">
-                  <p className="text-muted-foreground">No assignments found. Try running a manual sync from the Admin page.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-3">
-                {assignments.slice(0, 10).map((assignment) => (
-                  <Card key={assignment.id} className="bg-card border border-border">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <div className="font-medium text-foreground">{assignment.title}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {assignment.course_name} • {assignment.subject}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Due: {assignment.due_date ? new Date(assignment.due_date).toLocaleDateString() : 'No due date'}
-                          </div>
-                        </div>
-                        <div className="text-right space-y-1">
-                          <Badge variant={assignment.urgency === 'overdue' ? 'destructive' : 'secondary'} className="text-xs">
-                            {assignment.urgency?.replace('_', ' ')}
-                          </Badge>
-                          <div className="text-xs text-muted-foreground">
-                            {assignment.cognitive_load}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                {assignments.length > 10 && (
-                  <p className="text-center text-muted-foreground text-sm">
-                    ... and {assignments.length - 10} more assignments
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Schedule */}
+          {/* Today's Schedule */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-foreground">Today's Schedule</h2>
             
@@ -184,7 +120,11 @@ const KhalilDashboard = () => {
                             {block.start} - {block.end}
                           </div>
                           <div className="font-semibold text-foreground">
-                            {block.subject}
+                            {block.isAssignmentBlock ? (
+                              scheduledAssignments[`${block.block}`]?.title || 'Open Study Block'
+                            ) : (
+                              block.subject
+                            )}
                           </div>
                           {block.block && (
                             <Badge variant="outline" className="text-xs">
@@ -193,7 +133,7 @@ const KhalilDashboard = () => {
                           )}
                         </div>
                         <Badge variant="secondary" className="text-xs">
-                          Not Started
+                          {block.isAssignmentBlock && scheduledAssignments[`${block.block}`] ? 'Scheduled' : 'Available'}
                         </Badge>
                       </div>
                     </CardContent>
