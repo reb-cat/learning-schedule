@@ -19,36 +19,68 @@ interface CoopChecklistProps {
 export function CoopChecklist({ studentName, assignments, currentDay }: CoopChecklistProps) {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
 
-  // Extract checklist items from assignments
+  // Extract and transform checklist items from assignments
   React.useEffect(() => {
-    const checklistKeywords = ['bring', 'pack', 'remember', 'take', 'wear', 'deliver', 'turn in'];
+    const actionKeywords = ['bring', 'pack', 'remember', 'take', 'wear', 'deliver', 'turn in', 'print', 'sign', 'complete', 'review'];
     
-    const items: ChecklistItem[] = assignments
-      .filter(assignment => {
-        // Only include assignments that contain checklist keywords
-        const title = assignment.title.toLowerCase();
-        return checklistKeywords.some(keyword => title.includes(keyword));
-      })
-      .map(assignment => ({
-        id: assignment.id,
-        text: assignment.title,
-        completed: false
-      }));
+    const items: ChecklistItem[] = [];
+    
+    // Process assignments into actionable checklist items
+    assignments.forEach(assignment => {
+      const title = assignment.title.toLowerCase();
+      let actionableText = assignment.title;
+      let isActionable = false;
+      
+      // Check if it's marked as quick_review or administrative
+      if (assignment.task_type === 'quick_review' || assignment.task_type === 'administrative') {
+        isActionable = true;
+        
+        // Transform vague titles into clear actions
+        if (title.includes('syllabus')) {
+          actionableText = `□ Review and sign ${assignment.course_name} syllabus`;
+        } else if (title.includes('recipe')) {
+          actionableText = `□ Check recipe for ${assignment.course_name}`;
+        } else if (title.includes('form')) {
+          actionableText = `□ Complete and submit form`;
+        } else if (title.includes('fee') || title.includes('payment')) {
+          actionableText = `□ Pay ${assignment.course_name} fee`;
+        } else {
+          actionableText = `□ ${assignment.title}`;
+        }
+      } else {
+        // Check for action keywords in other assignments
+        const hasKeyword = actionKeywords.some(keyword => title.includes(keyword));
+        if (hasKeyword) {
+          isActionable = true;
+          actionableText = `□ ${assignment.title}`;
+        }
+      }
+      
+      if (isActionable) {
+        items.push({
+          id: assignment.id,
+          text: actionableText,
+          completed: false
+        });
+      }
+    });
 
-    // Add default co-op items based on student
+    // Add student-specific co-op reminders
     if (studentName === 'Abigail' && (currentDay === 'Tuesday' || currentDay === 'Thursday')) {
       items.unshift(
-        { id: 'apron', text: 'Bring apron', completed: false },
-        { id: 'lunch', text: 'Pack lunch', completed: false },
-        { id: 'notebook', text: 'Baking notebook', completed: false }
+        { id: 'apron', text: '□ Bring clean apron for baking class', completed: false },
+        { id: 'lunch', text: '□ Pack lunch and water bottle', completed: false },
+        { id: 'notebook', text: '□ Bring baking notebook and pen', completed: false },
+        { id: 'ingredients', text: '□ Check today\'s recipe ingredients list', completed: false }
       );
     }
 
     if (studentName === 'Khalil' && (currentDay === 'Monday' || currentDay === 'Wednesday')) {
       items.unshift(
-        { id: 'tools', text: 'Bring workshop tools', completed: false },
-        { id: 'safety', text: 'Safety glasses', completed: false },
-        { id: 'project', text: 'Current project materials', completed: false }
+        { id: 'tools', text: '□ Bring workshop tools and materials', completed: false },
+        { id: 'safety', text: '□ Safety glasses and protective gear', completed: false },
+        { id: 'project', text: '□ Current project materials', completed: false },
+        { id: 'uniform', text: '□ Wear proper workshop attire', completed: false }
       );
     }
 

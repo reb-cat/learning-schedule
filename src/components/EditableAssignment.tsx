@@ -21,6 +21,7 @@ interface Assignment {
   cognitive_load: string;
   urgency: string;
   task_type: string;
+  notes?: string;
 }
 
 interface EditableAssignmentProps {
@@ -35,6 +36,18 @@ export function EditableAssignment({ assignment, onUpdate }: EditableAssignmentP
   const [studentInstructions, setStudentInstructions] = useState('');
   const [isChecklistItem, setIsChecklistItem] = useState(assignment.task_type === 'quick_review');
   const [estimatedMinutes, setEstimatedMinutes] = useState(assignment.estimated_time_minutes || 30);
+  
+  // Parse existing notes to separate parent notes and student instructions
+  React.useEffect(() => {
+    if (assignment.notes) {
+      const notes = assignment.notes;
+      const parentMatch = notes.match(/Parent Notes:\s*(.*?)(?=\nStudent Instructions:|$)/s);
+      const studentMatch = notes.match(/Student Instructions:\s*(.*?)$/s);
+      
+      if (parentMatch) setParentNotes(parentMatch[1].trim());
+      if (studentMatch) setStudentInstructions(studentMatch[1].trim());
+    }
+  }, [assignment.notes]);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
@@ -143,9 +156,12 @@ export function EditableAssignment({ assignment, onUpdate }: EditableAssignmentP
                     id="parent-notes"
                     value={parentNotes}
                     onChange={(e) => setParentNotes(e.target.value)}
-                    placeholder="Notes for parent reference..."
+                    placeholder="Private notes visible only to parent..."
                     rows={2}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    These notes are only visible to you, not the student.
+                  </p>
                 </div>
 
                 <div>
@@ -154,9 +170,12 @@ export function EditableAssignment({ assignment, onUpdate }: EditableAssignmentP
                     id="student-instructions"
                     value={studentInstructions}
                     onChange={(e) => setStudentInstructions(e.target.value)}
-                    placeholder="What the student actually needs to DO..."
-                    rows={2}
+                    placeholder="Clear, specific instructions for what the student needs to do..."
+                    rows={3}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Transform vague assignments into clear action steps for the student.
+                  </p>
                 </div>
 
                 <div>
