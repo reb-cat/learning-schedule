@@ -29,7 +29,7 @@ export const useAdministrativeNotifications = () => {
       setLoading(true);
       setError(null);
       
-      // Fetch from administrative_notifications table
+      // Fetch only from administrative_notifications table
       const { data: notificationsData, error: notificationsError } = await supabase
         .from('administrative_notifications')
         .select('*')
@@ -40,43 +40,7 @@ export const useAdministrativeNotifications = () => {
         throw notificationsError;
       }
 
-      // Fetch administrative assignments from assignments table
-      const { data: assignmentsData, error: assignmentsError } = await supabase
-        .from('assignments')
-        .select('*')
-        .eq('category', 'administrative')
-        .order('due_date', { ascending: true, nullsFirst: false });
-
-      if (assignmentsError) {
-        throw assignmentsError;
-      }
-
-      // Transform assignments to match notification interface
-      const transformedAssignments = (assignmentsData || []).map(assignment => ({
-        id: assignment.id,
-        student_name: assignment.student_name,
-        title: assignment.title,
-        description: `From ${assignment.course_name}`,
-        notification_type: assignment.title.toLowerCase().includes('fee') ? 'fees' : 'forms',
-        priority: 'high',
-        due_date: assignment.due_date,
-        amount: assignment.title.toLowerCase().includes('fee') ? null : undefined,
-        completed: false,
-        completed_at: undefined,
-        canvas_id: assignment.canvas_id,
-        canvas_url: assignment.canvas_url,
-        course_name: assignment.course_name,
-        created_at: assignment.created_at,
-        updated_at: assignment.updated_at
-      }));
-
-      // Combine both sources
-      const allNotifications = [
-        ...(notificationsData || []),
-        ...transformedAssignments
-      ];
-
-      setNotifications(allNotifications as AdministrativeNotification[]);
+      setNotifications(notificationsData as AdministrativeNotification[]);
     } catch (err) {
       console.error('Error fetching administrative notifications:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
@@ -87,14 +51,7 @@ export const useAdministrativeNotifications = () => {
 
   const markAsCompleted = async (id: string) => {
     try {
-      // First check if this is an administrative_notifications item or assignments item
-      const notification = notifications.find(n => n.id === id);
-      if (!notification) {
-        throw new Error('Notification not found');
-      }
-
-      // Try to update in administrative_notifications table first
-      const { error: adminError } = await supabase
+      const { error } = await supabase
         .from('administrative_notifications')
         .update({ 
           completed: true, 
@@ -102,12 +59,11 @@ export const useAdministrativeNotifications = () => {
         })
         .eq('id', id);
 
-      // If that fails (item might be from assignments table), don't throw error yet
-      if (adminError) {
-        console.log('Could not update in administrative_notifications, item might be from assignments table');
+      if (error) {
+        throw error;
       }
 
-      // Update local state regardless
+      // Update local state
       setNotifications(prev => 
         prev.map(notification => 
           notification.id === id 
