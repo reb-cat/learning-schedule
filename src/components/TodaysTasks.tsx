@@ -68,9 +68,15 @@ export function TodaysTasks({ assignments, scheduledAssignments, currentDay, cur
   const getDueDateBadge = (assignment: any) => {
     if (!assignment.due_date) return null;
     
-    const dueDate = new Date(assignment.due_date);
-    const diffTime = dueDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // Normalize both dates to midnight for accurate day comparison
+    const todayMidnight = new Date(today);
+    todayMidnight.setHours(0, 0, 0, 0);
+    
+    const dueDateMidnight = new Date(assignment.due_date);
+    dueDateMidnight.setHours(0, 0, 0, 0);
+    
+    const diffTime = dueDateMidnight.getTime() - todayMidnight.getTime();
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
 
     if (diffDays < 0) return <Badge variant="destructive">Overdue</Badge>;
     if (diffDays === 0) return <Badge variant="destructive">Due Today</Badge>;
