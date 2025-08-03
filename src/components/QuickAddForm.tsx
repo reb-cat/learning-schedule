@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus } from 'lucide-react';
+import { Plus, Calendar, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -22,10 +22,17 @@ export const QuickAddForm = ({ studentName, onSuccess }: QuickAddFormProps) => {
   const [formData, setFormData] = useState({
     title: '',
     subject: '',
-    assignment_type: 'academic' as 'academic' | 'life_skills' | 'tutoring',
+    assignment_type: 'academic' as string,
     due_date: '',
-    notes: ''
+    notes: '',
+    appointment_time: ''
   });
+
+  const quickTypes = [
+    { value: 'academic', label: 'Homework', type: 'assignment', icon: BookOpen },
+    { value: 'life_skills', label: 'Life Skill', type: 'assignment', icon: BookOpen },
+    { value: 'tutoring_session', label: 'Appointment', type: 'appointment', icon: Calendar }
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +60,7 @@ export const QuickAddForm = ({ studentName, onSuccess }: QuickAddFormProps) => {
         description: `Created "${formData.title}" for ${studentName}`,
       });
 
-      setFormData({ title: '', subject: '', assignment_type: 'academic', due_date: '', notes: '' });
+      setFormData({ title: '', subject: '', assignment_type: 'academic', due_date: '', notes: '', appointment_time: '' });
       setExpanded(false);
       onSuccess?.();
     } catch (error) {
@@ -104,43 +111,67 @@ export const QuickAddForm = ({ studentName, onSuccess }: QuickAddFormProps) => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label htmlFor="type" className="text-sm">Type</Label>
-              <Select value={formData.assignment_type} onValueChange={(value: any) => setFormData({ ...formData, assignment_type: value })}>
-                <SelectTrigger className="h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="academic">Academic</SelectItem>
-                  <SelectItem value="life_skills">Life Skills</SelectItem>
-                  <SelectItem value="tutoring">Tutoring</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label htmlFor="type" className="text-sm">Type</Label>
+            <Select value={formData.assignment_type} onValueChange={(value: any) => setFormData({ ...formData, assignment_type: value })}>
+              <SelectTrigger className="h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {quickTypes.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    <div className="flex items-center gap-2">
+                      {type.type === 'appointment' ? (
+                        <Calendar className="h-3 w-3 text-blue-600" />
+                      ) : (
+                        <BookOpen className="h-3 w-3 text-green-600" />
+                      )}
+                      {type.label}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
+          {/* Conditional date/time based on type */}
+          {quickTypes.find(t => t.value === formData.assignment_type)?.type === 'appointment' ? (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="appointment_date" className="text-sm">Date *</Label>
+                <Input
+                  id="appointment_date"
+                  type="date"
+                  value={formData.due_date}
+                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                  className="h-8"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="appointment_time" className="text-sm">Time *</Label>
+                <Input
+                  id="appointment_time"
+                  type="time"
+                  value={formData.appointment_time}
+                  onChange={(e) => setFormData({ ...formData, appointment_time: e.target.value })}
+                  className="h-8"
+                  required
+                />
+              </div>
+            </div>
+          ) : (
             <div>
-              <Label htmlFor="subject" className="text-sm">Subject</Label>
+              <Label htmlFor="due_date" className="text-sm">Due Date</Label>
               <Input
-                id="subject"
-                value={formData.subject}
-                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                placeholder="Subject"
+                id="due_date"
+                type="date"
+                value={formData.due_date}
+                onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
                 className="h-8"
               />
             </div>
-          </div>
-
-          <div>
-            <Label htmlFor="due_date" className="text-sm">Due Date</Label>
-            <Input
-              id="due_date"
-              type="date"
-              value={formData.due_date}
-              onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-              className="h-8"
-            />
-          </div>
+          )}
 
           <div>
             <Label htmlFor="notes" className="text-sm">Notes</Label>

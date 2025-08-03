@@ -13,7 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TimeEstimationSection } from '@/components/forms/TimeEstimationSection';
-import { Calendar, User, BookOpen, Target, AlertCircle, CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, User, BookOpen, Target, AlertCircle, CalendarDays, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { addDays, format, parseISO } from 'date-fns';
 
 interface ManualAssignmentFormProps {
@@ -44,23 +44,40 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
     volunteer_organization: '',
     schedule_specific_datetime: false,
     specific_scheduled_date: '',
-    specific_scheduled_block: 1
+    specific_scheduled_block: 1,
+    appointment_time: ''
   });
 
   const assignmentTypes = [
-    { value: 'academic', label: 'Academic', description: 'Traditional schoolwork' },
-    { value: 'life_skills', label: 'Life Skills', description: 'Driving, job applications, cooking' },
-    { value: 'tutoring', label: 'Tutoring', description: 'Preply Spanish, other 1-on-1 sessions' },
-    { value: 'recurring', label: 'Recurring', description: 'Same time each week' },
-    { value: 'volunteer_events', label: 'Volunteer Events', description: 'Community service and volunteer work' }
+    // Appointments (fixed time/place)
+    { value: 'tutoring_session', label: 'Tutoring Session', description: 'Scheduled 1-on-1 lessons', type: 'appointment', icon: Calendar },
+    { value: 'driving_lesson', label: 'Driving Lesson', description: 'With instructor', type: 'appointment', icon: Calendar },
+    { value: 'volunteer_event', label: 'Volunteer Event', description: 'Scheduled community service', type: 'appointment', icon: Calendar },
+    { value: 'job_interview', label: 'Job Interview', description: 'Scheduled meeting', type: 'appointment', icon: Calendar },
+    
+    // Assignments (flexible completion)
+    { value: 'academic', label: 'Academic Work', description: 'Homework and schoolwork', type: 'assignment', icon: BookOpen },
+    { value: 'tutoring_homework', label: 'Tutoring Homework', description: 'Work assigned by tutor', type: 'assignment', icon: BookOpen },
+    { value: 'driving_practice', label: 'Driving Practice', description: 'Flexible practice time', type: 'assignment', icon: BookOpen },
+    { value: 'volunteer_prep', label: 'Volunteer Prep', description: 'Applications, training materials', type: 'assignment', icon: BookOpen },
+    { value: 'job_applications', label: 'Job Applications', description: 'Resume, forms, paperwork', type: 'assignment', icon: BookOpen },
+    { value: 'life_skills', label: 'Life Skills', description: 'Banking, cooking, household tasks', type: 'assignment', icon: BookOpen }
   ];
 
   const subjectOptions = {
+    // Appointments
+    tutoring_session: ['Spanish (Preply)', 'Math Tutoring', 'Reading Support', 'Foreign Language'],
+    driving_lesson: ['Driving Instruction', 'Parallel Parking', 'Highway Driving', 'City Driving'],
+    volunteer_event: ['Food Bank', 'Environmental Cleanup', 'Senior Center', 'Animal Shelter', 'Special Events'],
+    job_interview: ['Interview Prep', 'Mock Interview', 'Follow-up Meeting'],
+    
+    // Assignments
     academic: ['Math', 'Language Arts', 'Science', 'History', 'Reading'],
-    life_skills: ['Driving', 'Job Applications', 'Cooking', 'Banking', 'Interview Prep', 'Resume Writing', 'Work/Volunteer', 'Household Management'],
-    tutoring: ['Spanish (Preply)', 'Foreign Language Tutoring', 'Math Tutoring', 'Reading Support'],
-    recurring: ['Weekly Review', 'Weekly Planning', 'Skill Practice'],
-    volunteer_events: ['Community Service', 'Food Bank', 'Environmental Cleanup', 'Tutoring Others', 'Animal Shelter', 'Senior Center', 'Hospital Volunteer', 'Special Events']
+    tutoring_homework: ['Spanish Homework', 'Math Practice', 'Reading Assignments', 'Language Practice'],
+    driving_practice: ['Practice Driving', 'Manual Study', 'Traffic Rules', 'Road Signs'],
+    volunteer_prep: ['Application Forms', 'Training Materials', 'Background Check', 'Orientation'],
+    job_applications: ['Resume Writing', 'Cover Letters', 'Application Forms', 'Portfolio'],
+    life_skills: ['Cooking', 'Banking', 'Household Management', 'Personal Finance', 'Organization']
   };
 
 
@@ -216,7 +233,8 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
         volunteer_organization: '',
         schedule_specific_datetime: false,
         specific_scheduled_date: '',
-        specific_scheduled_block: 1
+        specific_scheduled_block: 1,
+        appointment_time: ''
       });
 
       onSuccess?.();
@@ -284,24 +302,61 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
           {/* Assignment Type */}
           <div className="space-y-3">
             <Label className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              Assignment Type *
+              <Target className="h-4 w-4" />
+              Type *
             </Label>
-            <RadioGroup 
-              value={formData.assignment_type} 
-              onValueChange={(value) => setFormData(prev => ({ ...prev, assignment_type: value, subject: '' }))}
-              className="grid grid-cols-2 gap-4"
-            >
-              {assignmentTypes.map((type) => (
-                <div key={type.value} className="flex items-center space-x-2 p-3 border rounded-lg">
-                  <RadioGroupItem value={type.value} id={type.value} />
-                  <div className="flex-1">
-                    <Label htmlFor={type.value} className="font-medium">{type.label}</Label>
-                    <p className="text-sm text-muted-foreground">{type.description}</p>
+            
+            {/* Appointments Section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-blue-600">
+                <Calendar className="h-4 w-4" />
+                Appointments (fixed time & place)
+              </div>
+              <RadioGroup 
+                value={formData.assignment_type} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, assignment_type: value, subject: '' }))}
+                className="grid grid-cols-2 gap-3"
+              >
+                {assignmentTypes.filter(type => type.type === 'appointment').map((type) => (
+                  <div key={type.value} className="flex items-center space-x-2 p-3 border border-blue-200 bg-blue-50/50 rounded-lg hover:bg-blue-50">
+                    <RadioGroupItem value={type.value} id={type.value} />
+                    <div className="flex-1">
+                      <Label htmlFor={type.value} className="font-medium flex items-center gap-2">
+                        <Calendar className="h-3 w-3 text-blue-600" />
+                        {type.label}
+                      </Label>
+                      <p className="text-sm text-muted-foreground">{type.description}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </RadioGroup>
+                ))}
+              </RadioGroup>
+            </div>
+
+            {/* Assignments Section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-green-600">
+                <BookOpen className="h-4 w-4" />
+                Assignments (flexible completion)
+              </div>
+              <RadioGroup 
+                value={formData.assignment_type} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, assignment_type: value, subject: '' }))}
+                className="grid grid-cols-2 gap-3"
+              >
+                {assignmentTypes.filter(type => type.type === 'assignment').map((type) => (
+                  <div key={type.value} className="flex items-center space-x-2 p-3 border border-green-200 bg-green-50/50 rounded-lg hover:bg-green-50">
+                    <RadioGroupItem value={type.value} id={type.value} />
+                    <div className="flex-1">
+                      <Label htmlFor={type.value} className="font-medium flex items-center gap-2">
+                        <BookOpen className="h-3 w-3 text-green-600" />
+                        {type.label}
+                      </Label>
+                      <p className="text-sm text-muted-foreground">{type.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
           </div>
 
           {/* Title and Subject */}
@@ -330,6 +385,54 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Date and Time Section */}
+          <div className="space-y-4">
+            {/* Conditional date/time picker based on type */}
+            {assignmentTypes.find(t => t.value === formData.assignment_type)?.type === 'appointment' ? (
+              <div className="space-y-3 p-4 border border-blue-200 bg-blue-50/30 rounded-lg">
+                <Label className="flex items-center gap-2 text-blue-700 font-medium">
+                  <Calendar className="h-4 w-4" />
+                  When? (Required for appointments)
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="appointment_date" className="text-sm">Date *</Label>
+                    <Input
+                      id="appointment_date"
+                      type="date"
+                      value={formData.due_date}
+                      onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="appointment_time" className="text-sm">Time *</Label>
+                    <Input
+                      id="appointment_time"
+                      type="time"
+                      value={formData.appointment_time}
+                      onChange={(e) => setFormData(prev => ({ ...prev, appointment_time: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="due_date" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Due by? (Optional for assignments)
+                </Label>
+                <Input
+                  id="due_date"
+                  type="date"
+                  value={formData.due_date}
+                  onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
+                />
+              </div>
+            )}
           </div>
 
           {/* Time Estimation */}

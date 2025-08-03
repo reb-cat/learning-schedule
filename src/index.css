@@ -38,6 +38,15 @@ All colors MUST be HSL.
 
     --radius: 0.5rem;
 
+    /* Appointment vs Assignment colors */
+    --appointment: 217 91% 60%;
+    --appointment-foreground: 222.2 84% 4.9%;
+    --appointment-light: 217 91% 95%;
+    
+    --assignment: 142 76% 36%;
+    --assignment-foreground: 355.7 100% 97.3%;
+    --assignment-light: 142 76% 95%;
+
     --sidebar-background: 0 0% 98%;
 
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -83,6 +92,15 @@ All colors MUST be HSL.
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+
+    /* Appointment vs Assignment colors - dark mode */
+    --appointment: 217 91% 70%;
+    --appointment-foreground: 222.2 84% 4.9%;
+    --appointment-light: 217 91% 15%;
+    
+    --assignment: 142 76% 46%;
+    --assignment-foreground: 355.7 100% 97.3%;
+    --assignment-light: 142 76% 15%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
