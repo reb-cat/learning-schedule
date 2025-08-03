@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Clock, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
 import { Assignment } from '@/hooks/useAssignments';
 
 interface TodaysProgressProps {
@@ -64,6 +65,16 @@ export const TodaysProgress = ({ assignments, studentName }: TodaysProgressProps
               <div key={assignment.id} className="flex items-center justify-between text-sm">
                 <span className="truncate">{assignment.title}</span>
                 <div className="flex items-center gap-1">
+                  {assignment.canvas_url && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(assignment.canvas_url, '_blank')}
+                      className="h-6 w-6 p-0"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  )}
                   {assignment.urgency === 'overdue' ? (
                     <AlertCircle className="h-3 w-3 text-destructive" />
                   ) : (

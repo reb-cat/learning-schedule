@@ -106,15 +106,17 @@ const AlertsMonitoring: React.FC<AlertsMonitoringProps> = ({
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onViewAssignment?.(alert)}
-                    className="text-xs"
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    View
-                  </Button>
+                  {alert.canvas_url && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(alert.canvas_url, '_blank')}
+                      className="text-xs"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Canvas
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     onClick={() => onMarkResolved?.(alert.id)}
@@ -159,15 +161,17 @@ const AlertsMonitoring: React.FC<AlertsMonitoringProps> = ({
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onViewAssignment?.(alert)}
-                    className="text-xs"
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    View
-                  </Button>
+                  {alert.canvas_url && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(alert.canvas_url, '_blank')}
+                      className="text-xs"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Canvas
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="secondary"
