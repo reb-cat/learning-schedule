@@ -172,16 +172,22 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
       }
 
       // Use edge function to create assignment(s) with proper permissions
+      console.log('Sending assignments to edge function:', assignments);
+      
       const { data, error } = await supabase.functions.invoke('create-manual-assignment', {
         body: assignments
       });
 
+      console.log('Edge function response:', { data, error });
+
       if (error) {
-        throw error;
+        console.error('Edge function error:', error);
+        throw new Error(`Edge function error: ${error.message}`);
       }
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to create assignment');
+      if (!data?.success) {
+        console.error('Assignment creation failed:', data);
+        throw new Error(data?.error || 'Failed to create assignment');
       }
 
       toast({

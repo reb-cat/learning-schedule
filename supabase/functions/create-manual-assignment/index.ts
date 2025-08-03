@@ -22,13 +22,20 @@ serve(async (req) => {
     console.log('Creating manual assignment:', requestData);
 
     // Insert the assignment(s) using service role permissions
+    console.log('About to insert assignments:', JSON.stringify(requestData, null, 2));
+    
     const { data, error } = await supabase
       .from('assignments')
       .insert(requestData)
       .select();
 
     if (error) {
-      console.error('Error inserting assignment:', error);
+      console.error('Supabase error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       throw error;
     }
 
