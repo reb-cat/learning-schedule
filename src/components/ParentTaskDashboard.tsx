@@ -1,7 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAdministrativeNotifications } from '@/hooks/useAdministrativeNotifications';
@@ -56,9 +56,6 @@ const ParentTaskDashboard = () => {
     return new Date(dateString) < new Date();
   };
 
-  const activeNotifications = notifications.filter(n => !n.completed);
-  const completedNotifications = notifications.filter(n => n.completed);
-  
   // Calculate time-aware urgency indicators
   const getUrgencyLevel = (notification: any) => {
     if (!notification.due_date) return 'none';
@@ -73,6 +70,27 @@ const ParentTaskDashboard = () => {
     return 'future';                               // Due later
   };
 
+  const activeNotifications = notifications.filter(n => !n.completed);
+  
+  // Filter recently completed items (last 3 days)
+  const recentlyCompleted = notifications.filter(n => {
+    if (!n.completed || !n.completed_at) return false;
+    const completedDate = new Date(n.completed_at);
+    const daysSinceCompleted = Math.ceil((new Date().getTime() - completedDate.getTime()) / (1000 * 60 * 60 * 24));
+    return daysSinceCompleted <= 3;
+  });
+
+  // Combine and sort: pending first, then recently completed
+  const combinedNotifications = [
+    ...activeNotifications.sort((a, b) => {
+      const urgencyA = getUrgencyLevel(a);
+      const urgencyB = getUrgencyLevel(b);
+      const urgencyOrder = { overdue: 0, urgent: 1, upcoming: 2, future: 3, none: 4 };
+      return urgencyOrder[urgencyA] - urgencyOrder[urgencyB];
+    }),
+    ...recentlyCompleted.sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime())
+  ];
+
   const hasUrgentItems = activeNotifications.some(n => {
     const urgency = getUrgencyLevel(n);
     return urgency === 'overdue' || urgency === 'urgent';
@@ -85,6 +103,14 @@ const ParentTaskDashboard = () => {
       return urgency === 'upcoming' || (n.priority === 'medium' && urgency !== 'future');
     })) return 'default';
     return 'secondary';
+  };
+
+  const getDaysAgoText = (completedAt: string) => {
+    const completedDate = new Date(completedAt);
+    const daysSince = Math.ceil((new Date().getTime() - completedDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysSince === 0) return 'Today';
+    if (daysSince === 1) return 'Yesterday';
+    return `${daysSince} days ago`;
   };
 
   const renderContent = () => {
@@ -103,54 +129,73 @@ const ParentTaskDashboard = () => {
     }
 
     return (
-      <Tabs defaultValue="pending" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="pending">Pending ({activeNotifications.length})</TabsTrigger>
-          <TabsTrigger value="completed">Completed ({completedNotifications.length})</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="pending">
-          <div className="space-y-4">
-            {activeNotifications.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No pending administrative items
-              </div>
-            ) : (
-              activeNotifications.map((notification) => (
-                <Card key={notification.id} className={`border-l-4 ${isOverdue(notification.due_date) ? 'border-l-red-500' : 'border-l-blue-500'}`}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          {getTypeIcon(notification.notification_type)}
-                          <h3 className="font-semibold">{notification.title}</h3>
+      <div className="space-y-4">
+        {combinedNotifications.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No administrative items
+          </div>
+        ) : (
+          combinedNotifications.map((notification) => {
+            const isCompleted = notification.completed;
+            return (
+              <Card 
+                key={notification.id} 
+                className={`border-l-4 ${
+                  isCompleted 
+                    ? 'border-l-gray-300 opacity-60' 
+                    : isOverdue(notification.due_date) 
+                      ? 'border-l-red-500' 
+                      : 'border-l-blue-500'
+                }`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        {isCompleted ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : (
+                          getTypeIcon(notification.notification_type)
+                        )}
+                        <h3 className={`font-semibold ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>
+                          {notification.title}
+                        </h3>
+                        {!isCompleted && (
                           <Badge className={getPriorityColor(notification.priority)}>
                             {notification.priority}
                           </Badge>
-                          <Badge variant="outline">
-                            {notification.student_name}
-                          </Badge>
-                        </div>
-                        
-                        {notification.description && (
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {notification.description}
-                          </p>
                         )}
-                        
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>Due: {formatDate(notification.due_date)}</span>
-                          {notification.amount && (
-                            <span className="font-semibold text-green-600">
-                              ${notification.amount.toFixed(2)}
-                            </span>
-                          )}
-                          {notification.course_name && (
-                            <span>{notification.course_name}</span>
-                          )}
-                        </div>
+                        <Badge variant="outline" className={isCompleted ? 'text-muted-foreground' : ''}>
+                          {notification.student_name}
+                        </Badge>
                       </div>
                       
+                      {notification.description && !isCompleted && (
+                        <p className="text-sm text-muted-foreground mb-2">
+                          {notification.description}
+                        </p>
+                      )}
+                      
+                      <div className={`flex items-center gap-4 text-sm ${isCompleted ? 'text-muted-foreground' : 'text-muted-foreground'}`}>
+                        {isCompleted ? (
+                          <span>Completed {getDaysAgoText(notification.completed_at!)}</span>
+                        ) : (
+                          <>
+                            <span>Due: {formatDate(notification.due_date)}</span>
+                            {notification.amount && (
+                              <span className="font-semibold text-green-600">
+                                ${notification.amount.toFixed(2)}
+                              </span>
+                            )}
+                            {notification.course_name && (
+                              <span>{notification.course_name}</span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {!isCompleted && (
                       <div className="flex items-center gap-2">
                         {notification.canvas_url && (
                           <Button
@@ -170,44 +215,14 @@ const ParentTaskDashboard = () => {
                           Complete
                         </Button>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="completed">
-          <div className="space-y-4">
-            {completedNotifications.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No completed items
-              </div>
-            ) : (
-              completedNotifications.map((notification) => (
-                <Card key={notification.id} className="border-l-4 border-l-gray-300 opacity-75">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          <h3 className="font-semibold line-through">{notification.title}</h3>
-                          <Badge variant="outline">{notification.student_name}</Badge>
-                        </div>
-                        
-                        <div className="text-sm text-muted-foreground">
-                          Completed: {formatDate(notification.completed_at)}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
     );
   };
 
@@ -225,9 +240,11 @@ const ParentTaskDashboard = () => {
               <Badge variant={getPendingBadgeVariant()} className="text-xs">
                 {activeNotifications.length} Pending
               </Badge>
-              <Badge variant="secondary" className="text-xs">
-                {completedNotifications.length} Done
-              </Badge>
+              {recentlyCompleted.length > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {recentlyCompleted.length} Done
+                </Badge>
+              )}
             </div>
           </div>
         </AccordionTrigger>
