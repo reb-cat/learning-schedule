@@ -1,6 +1,13 @@
 import { Assignment } from '@/hooks/useAssignments';
 import { supabase } from '@/integrations/supabase/client';
 import { getScheduleForStudentAndDay } from '@/data/scheduleData';
+import { 
+  inferCognitiveLoad, 
+  inferDuration, 
+  getOptimalSchedulingTime,
+  updateLearningPattern,
+  inferSubjectFromTitle 
+} from './intelligentInference';
 
 export interface SchedulingDecision {
   assignment: Assignment;
@@ -248,7 +255,22 @@ class SmartScheduler {
     const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
     const today = new Date();
 
-    // Find optimal scheduling window
+    // Get student-specific energy-based scheduling preferences
+    const energyPreferences = getOptimalSchedulingTime(
+      assignment.student_name, 
+      cognitiveLoad, 
+      urgencyLevel
+    );
+
+    // Score blocks based on multiple factors
+    const scoredBlocks: Array<{
+      date: string;
+      block: number;
+      score: number;
+      reasoning: string[];
+    }> = [];
+
+    // Evaluate all available blocks
     for (const day of availabilityWindow) {
       const dayDate = new Date(day.date);
       
@@ -279,18 +301,78 @@ class SmartScheduler {
         // Check cognitive load limits
         if (!this.canAddCognitiveLoad(day, cognitiveLoad)) continue;
 
-        // Apply scheduling preferences
-        const reasoning = this.generateReasoning(assignment, day, block, urgencyLevel);
+        // Calculate score for this block
+        let score = 100; // Base score
+        const reasoningParts: string[] = [];
+
+        // Energy-based scoring
+        if (energyPreferences.preferredBlocks.includes(block)) {
+          score += 50;
+          reasoningParts.push(`Optimal energy window for ${cognitiveLoad} cognitive load`);
+        }
         
-        return {
+        if (energyPreferences.avoidBlocks.includes(block)) {
+          score -= 30;
+          reasoningParts.push(`Low energy period for student`);
+        }
+
+        // Urgency-based scoring
+        if (urgencyLevel === 'critical') {
+          score += 100;
+          reasoningParts.push('Critical urgency - scheduling immediately');
+        } else if (urgencyLevel === 'high') {
+          score += 50;
+          reasoningParts.push('High priority due to approaching deadline');
+        }
+
+        // Subject-specific preferences
+        if (assignment.subject === 'Math' && block === 2) {
+          score += 25;
+          reasoningParts.push('Math scheduled in preferred Block 2');
+        }
+
+        // Early week preference for complex tasks
+        if ((day.dayName === 'Monday' || day.dayName === 'Tuesday') && cognitiveLoad === 'heavy') {
+          score += 20;
+          reasoningParts.push('Early week scheduling for better focus');
+        }
+
+        // Avoid scheduling too many heavy tasks consecutively
+        if (cognitiveLoad === 'heavy' && day.cognitiveLoadUsed.heavy >= 1) {
+          score -= 15;
+          reasoningParts.push('Avoiding cognitive overload');
+        }
+
+        // Time proximity to due date (closer is better for urgent tasks)
+        if (dueDate) {
+          const daysUntilDue = Math.ceil((dueDate.getTime() - dayDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (urgencyLevel === 'critical' || urgencyLevel === 'high') {
+            score += Math.max(0, 10 - daysUntilDue); // Prefer earlier for urgent tasks
+          }
+        }
+
+        scoredBlocks.push({
           date: day.date,
           block,
-          reasoning
-        };
+          score,
+          reasoning: reasoningParts
+        });
       }
     }
 
-    return null;
+    // Sort by score (highest first) and return the best option
+    scoredBlocks.sort((a, b) => b.score - a.score);
+    
+    if (scoredBlocks.length === 0) {
+      return null;
+    }
+
+    const bestBlock = scoredBlocks[0];
+    return {
+      date: bestBlock.date,
+      block: bestBlock.block,
+      reasoning: bestBlock.reasoning.join('; ') || `Scheduled in available Block ${bestBlock.block}`
+    };
   }
 
   private calculateUrgency(
@@ -314,30 +396,8 @@ class SmartScheduler {
       return assignment.cognitive_load as 'light' | 'medium' | 'heavy';
     }
 
-    // Intelligent categorization based on title and type
-    const title = assignment.title.toLowerCase();
-    
-    // Administrative tasks should be checklist items, not scheduled blocks
-    if (this.isAdministrativeTask(title)) {
-      return 'light'; // These shouldn't be scheduled anyway
-    }
-    
-    // Review tasks are light cognitive load
-    if (this.isReviewTask(title)) {
-      return 'light';
-    }
-
-    // Default mapping based on subject
-    const subjectLoads: Record<string, 'light' | 'medium' | 'heavy'> = {
-      'Math': 'heavy',
-      'Science': 'heavy',
-      'English': 'medium',
-      'History': 'medium',
-      'Reading': 'light',
-      'Art': 'light'
-    };
-
-    return subjectLoads[assignment.subject || ''] || 'medium';
+    // Use the new intelligent inference system
+    return inferCognitiveLoad(assignment, assignment.student_name);
   }
 
   private isAdministrativeTask(title: string): boolean {
@@ -350,41 +410,9 @@ class SmartScheduler {
     return reviewKeywords.some(keyword => title.includes(keyword));
   }
 
-  private getIntelligentTimeEstimate(assignment: Assignment): number {
-    const title = assignment.title.toLowerCase();
-    
-    // Use existing estimate if reasonable
-    if (assignment.estimated_time_minutes && assignment.estimated_time_minutes > 0 && assignment.estimated_time_minutes <= 45) {
-      return assignment.estimated_time_minutes;
-    }
-
-    // Administrative tasks - should be checklist items (2-3 min)
-    if (this.isAdministrativeTask(title)) {
-      return 3;
-    }
-
-    // Quick review tasks (5-7 min)
-    if (title.includes('syllabus')) return 5;
-    if (title.includes('recipe')) return 7;
-    if (title.includes('check') || title.includes('verify')) return 5;
-
-    // Reading tasks based on complexity
-    if (title.includes('read')) {
-      if (title.length < 50) return 15;
-      return 25;
-    }
-
-    // Worksheets and assignments
-    if (title.includes('worksheet') || title.includes('assignment')) return 30;
-    
-    // Projects and essays
-    if (title.includes('project') || title.includes('essay')) return 45;
-
-    // Default based on title length and subject
-    if (assignment.subject === 'Math') return 35;
-    if (assignment.subject === 'Science') return 30;
-    
-    return title.length < 30 ? 20 : 30;
+  private async getIntelligentTimeEstimate(assignment: Assignment): Promise<number> {
+    // Use the new intelligent duration inference system
+    return await inferDuration(assignment, assignment.student_name);
   }
 
   private canAddCognitiveLoad(day: DayBlockAvailability, load: 'light' | 'medium' | 'heavy'): boolean {

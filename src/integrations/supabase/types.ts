@@ -221,6 +221,48 @@ export type Database = {
           },
         ]
       }
+      learning_patterns: {
+        Row: {
+          assignment_type: string
+          average_duration_factor: number | null
+          completion_count: number | null
+          created_at: string
+          id: string
+          last_updated: string
+          student_name: string
+          subject: string
+          total_actual_minutes: number | null
+          total_estimated_minutes: number | null
+          typical_cognitive_load: string | null
+        }
+        Insert: {
+          assignment_type: string
+          average_duration_factor?: number | null
+          completion_count?: number | null
+          created_at?: string
+          id?: string
+          last_updated?: string
+          student_name: string
+          subject: string
+          total_actual_minutes?: number | null
+          total_estimated_minutes?: number | null
+          typical_cognitive_load?: string | null
+        }
+        Update: {
+          assignment_type?: string
+          average_duration_factor?: number | null
+          completion_count?: number | null
+          created_at?: string
+          id?: string
+          last_updated?: string
+          student_name?: string
+          subject?: string
+          total_actual_minutes?: number | null
+          total_estimated_minutes?: number | null
+          typical_cognitive_load?: string | null
+        }
+        Relationships: []
+      }
       sync_status: {
         Row: {
           assignments_count: number | null
@@ -270,6 +312,17 @@ export type Database = {
       estimate_task_time: {
         Args: { title: string; estimated_minutes: number }
         Returns: number
+      }
+      update_learning_patterns: {
+        Args: {
+          p_student_name: string
+          p_subject: string
+          p_assignment_type: string
+          p_estimated_minutes: number
+          p_actual_minutes: number
+          p_cognitive_load: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
