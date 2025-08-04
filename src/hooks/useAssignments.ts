@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { stagingUtils, type StagingMode } from '@/utils/stagingUtils';
+import { useAssignmentCache } from './useAssignmentCache';
 
 export interface Assignment {
   id: string;
@@ -49,10 +50,23 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastFetch, setLastFetch] = useState<number>(0);
   const currentMode = mode || stagingUtils.getCurrentMode();
+  const cache = useAssignmentCache();
 
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async (forceRefresh = false) => {
     try {
+      // Check cache first unless forcing refresh
+      if (!forceRefresh) {
+        const cachedData = cache.get(studentName, currentMode);
+        if (cachedData) {
+          console.log(`📋 Using cached assignments for ${studentName} (${currentMode})`);
+          setAssignments(cachedData);
+          setLoading(false);
+          return;
+        }
+      }
+
       setLoading(true);
       setError(null);
       
@@ -77,8 +91,14 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
             throw new Error(error.message);
           }
 
-          console.log(`📚 Found ${data?.length || 0} assignments for ${studentName}`);
-          setAssignments((data || []) as Assignment[]);
+          const assignmentData = (data || []) as Assignment[];
+          console.log(`📚 Found ${assignmentData.length} assignments for ${studentName}`);
+          
+          // Update cache and state
+          cache.set(studentName, currentMode, assignmentData);
+          setAssignments(assignmentData);
+          setLastFetch(Date.now());
+          
           return;
         } catch (err) {
           lastError = err instanceof Error ? err : new Error('Unknown error');
@@ -99,7 +119,7 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [studentName, currentMode, cache]);
 
   const getScheduledAssignment = async (block: number, date: string) => {
     const tableName = currentMode === 'staging' ? 'assignments_staging' : 'assignments';
@@ -136,15 +156,33 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
     return null;
   };
 
+  // Smart refresh logic - only fetch if data is stale or dependencies changed
+  const shouldRefresh = useMemo(() => {
+    const now = Date.now();
+    const dataAge = now - lastFetch;
+    const isStale = dataAge > 2 * 60 * 1000; // 2 minutes
+    return isStale || lastFetch === 0;
+  }, [lastFetch]);
+
   useEffect(() => {
-    fetchAssignments();
-  }, [studentName, currentMode]);
+    if (shouldRefresh) {
+      fetchAssignments();
+    }
+  }, [fetchAssignments, shouldRefresh]);
+
+  // Invalidate cache when needed
+  const invalidateCache = useCallback(() => {
+    cache.invalidate(studentName, currentMode);
+  }, [cache, studentName, currentMode]);
 
   return {
     assignments,
     loading,
     error,
     refetch: fetchAssignments,
-    getScheduledAssignment
+    forceRefresh: () => fetchAssignments(true),
+    getScheduledAssignment,
+    invalidateCache,
+    cacheStats: cache.getStats()
   };
 };

@@ -6,7 +6,7 @@ import { Home, Calendar, TestTube } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
 import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 import { useAssignments } from "@/hooks/useAssignments";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { CoopChecklist } from "@/components/CoopChecklist";
 import { StudentBlockDisplay } from "@/components/StudentBlockDisplay";
 import { BackgroundScheduler } from "@/components/BackgroundScheduler";
@@ -42,27 +42,37 @@ const AbigailDashboard = () => {
     const isWeekend = currentDay === "Saturday" || currentDay === "Sunday";
     const todaySchedule = getScheduleForStudentAndDay("Abigail", currentDay);
 
+    // Memoize expensive calculations
+    const assignmentBlocks = useMemo(() => 
+      todaySchedule.filter(block => block.isAssignmentBlock && block.block),
+      [todaySchedule]
+    );
+
     // Load scheduled assignments for this date
     const loadScheduledAssignments = useCallback(async () => {
-      if (!getScheduledAssignment) return;
+      if (!getScheduledAssignment || assignmentBlocks.length === 0) return;
       
-      const assignmentMap: {[key: string]: any} = {};
-      
-      for (const block of todaySchedule) {
-        if (block.isAssignmentBlock && block.block) {
+      try {
+        const assignmentPromises = assignmentBlocks.map(async (block) => {
           try {
-            const assignment = await getScheduledAssignment(block.block, formattedDate);
-            if (assignment) {
-              assignmentMap[`${block.block}`] = assignment;
-            }
+            const assignment = await getScheduledAssignment(block.block!, formattedDate);
+            return assignment ? [`${block.block}`, assignment] : null;
           } catch (error) {
             console.warn('Error loading assignment for block:', block.block, error);
+            return null;
           }
-        }
+        });
+
+        const results = await Promise.all(assignmentPromises);
+        const assignmentMap = Object.fromEntries(
+          results.filter((result): result is [string, any] => result !== null)
+        );
+        
+        setScheduledAssignments(assignmentMap);
+      } catch (error) {
+        console.error('Error loading scheduled assignments:', error);
       }
-      
-      setScheduledAssignments(assignmentMap);
-    }, [getScheduledAssignment, formattedDate, todaySchedule]);
+    }, [getScheduledAssignment, formattedDate, assignmentBlocks]);
 
     useEffect(() => {
       loadScheduledAssignments();

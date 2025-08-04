@@ -49,10 +49,53 @@ export class BlockSharingScheduler {
   private static readonly BLOCK_DURATION = 45; // minutes
   private static readonly MIN_BUFFER_TIME = 5; // minutes
   private static readonly MAX_COGNITIVE_LOAD_PER_BLOCK = 2; // heavy = 2, medium = 1, light = 0.5
+  
+  private cache = new Map<string, { decision: SchedulingDecision; timestamp: number; inputHash: string }>();
+  private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+  private generateCacheKey(studentName: string, daysAhead: number, startDate?: Date): string {
+    const dateStr = startDate ? startDate.toISOString().split('T')[0] : 'today';
+    return `${studentName}-${daysAhead}-${dateStr}`;
+  }
+
+  private getCachedResult(cacheKey: string): SchedulingDecision | null {
+    const cached = this.cache.get(cacheKey);
+    if (!cached) return null;
+
+    const isExpired = Date.now() - cached.timestamp > this.CACHE_TTL;
+    if (isExpired) {
+      this.cache.delete(cacheKey);
+      return null;
+    }
+
+    return cached.decision;
+  }
+
+  private setCachedResult(cacheKey: string, decision: SchedulingDecision): void {
+    // Limit cache size
+    if (this.cache.size >= 5) {
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey) this.cache.delete(oldestKey);
+    }
+
+    this.cache.set(cacheKey, {
+      decision: JSON.parse(JSON.stringify(decision)), // Deep copy
+      timestamp: Date.now(),
+      inputHash: cacheKey
+    });
+  }
 
   async analyzeAndSchedule(studentName: string, daysAhead: number = 7, startDate?: Date): Promise<SchedulingDecision> {
     try {
-      console.log('Starting analyzeAndSchedule for:', studentName);
+      // Check cache first
+      const cacheKey = this.generateCacheKey(studentName, daysAhead, startDate);
+      const cached = this.getCachedResult(cacheKey);
+      if (cached) {
+        console.log('Using cached scheduling result for:', studentName);
+        return cached;
+      }
+
+      console.log('Starting fresh analyzeAndSchedule for:', studentName);
       
       // 1. Fetch all unscheduled tasks (filter to current timeframe)
       const allTasks = await this.getClassifiedTasks(studentName);
@@ -106,12 +149,17 @@ export class BlockSharingScheduler {
       
       const warnings = this.generateWarnings(unscheduledTasks, updatedBlocks);
       
-      return {
+      const result: SchedulingDecision = {
         academic_blocks: updatedBlocks,
         administrative_tasks: administrativeTasks,
         unscheduled_tasks: unscheduledTasks,
         warnings
       };
+
+      // Cache the result
+      this.setCachedResult(cacheKey, result);
+      
+      return result;
     } catch (error) {
       console.error('Error in analyzeAndSchedule:', error);
       throw error;
@@ -121,47 +169,63 @@ export class BlockSharingScheduler {
   async getClassifiedTasks(studentName: string): Promise<TaskClassification[]> {
     const currentMode = stagingUtils.getCurrentMode();
     
-    const { data, error } = currentMode === 'staging' 
-      ? await supabase
-          .from('assignments_staging')
-          .select('*')
-          .eq('student_name', studentName)
-          .is('scheduled_block', null)
-          .eq('eligible_for_scheduling', true)
-          .in('completion_status', ['not_started', 'in_progress', 'stuck'])
-          .order('due_date', { ascending: true, nullsFirst: false })
-      : await supabase
-          .from('assignments')
-          .select('*')
-          .eq('student_name', studentName)
-          .is('scheduled_block', null)
-          .eq('eligible_for_scheduling', true)
-          .in('completion_status', ['not_started', 'in_progress', 'stuck'])
-          .order('due_date', { ascending: true, nullsFirst: false });
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-    if (error) throw error;
-    
-    return data.map(assignment => ({
-      id: assignment.id,
-      title: assignment.title,
-      task_type: (assignment.task_type as 'academic' | 'administrative' | 'quick_review') || 'academic',
-      estimated_time: assignment.actual_estimated_minutes || this.estimateTime(assignment.title),
-      cognitive_load: assignment.cognitive_load || 'medium',
-      subject: assignment.subject || 'General',
-      course_name: assignment.course_name || '',
-      urgency: this.calculateUrgency(assignment),
-      due_date: assignment.due_date ? new Date(assignment.due_date) : null,
-      priority: assignment.priority || 'medium',
-      scheduled_block: assignment.scheduled_block,
-      scheduled_date: assignment.scheduled_date,
-      completion_status: (assignment.completion_status as 'not_started' | 'in_progress' | 'stuck' | 'completed') || 'not_started',
-      progress_percentage: assignment.progress_percentage || 0,
-      stuck_reason: assignment.stuck_reason
-    }));
+    try {
+      const { data, error } = currentMode === 'staging' 
+        ? await supabase
+            .from('assignments_staging')
+            .select('*')
+            .eq('student_name', studentName)
+            .is('scheduled_block', null)
+            .eq('eligible_for_scheduling', true)
+            .in('completion_status', ['not_started', 'in_progress', 'stuck'])
+            .order('due_date', { ascending: true, nullsFirst: false })
+            .abortSignal(controller.signal)
+        : await supabase
+            .from('assignments')
+            .select('*')
+            .eq('student_name', studentName)
+            .is('scheduled_block', null)
+            .eq('eligible_for_scheduling', true)
+            .in('completion_status', ['not_started', 'in_progress', 'stuck'])
+            .order('due_date', { ascending: true, nullsFirst: false })
+            .abortSignal(controller.signal);
+
+      clearTimeout(timeoutId);
+      if (error) throw error;
+      
+      return data.map(assignment => ({
+        id: assignment.id,
+        title: assignment.title,
+        task_type: (assignment.task_type as 'academic' | 'administrative' | 'quick_review') || 'academic',
+        estimated_time: assignment.actual_estimated_minutes || this.estimateTime(assignment.title),
+        cognitive_load: assignment.cognitive_load || 'medium',
+        subject: assignment.subject || 'General',
+        course_name: assignment.course_name || '',
+        urgency: this.calculateUrgency(assignment),
+        due_date: assignment.due_date ? new Date(assignment.due_date) : null,
+        priority: assignment.priority || 'medium',
+        scheduled_block: assignment.scheduled_block,
+        scheduled_date: assignment.scheduled_date,
+        completion_status: (assignment.completion_status as 'not_started' | 'in_progress' | 'stuck' | 'completed') || 'not_started',
+        progress_percentage: assignment.progress_percentage || 0,
+        stuck_reason: assignment.stuck_reason
+      }));
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout - please try again');
+      }
+      throw error;
+    }
   }
 
+  
   private estimateTime(title: string): number {
-    console.log(`🕒 Estimating time for: "${title}"`);
+    console.log(`🕒 Estimating time for: \"${title}\"`);
     
     // Remove the 45-minute cap to allow proper task splitting
     let estimate = 30; // default
@@ -176,7 +240,7 @@ export class BlockSharingScheduler {
     else if (title.toLowerCase().includes('homework')) estimate = 60; // Added
     else estimate = title.length < 30 ? 15 : 45;
     
-    console.log(`⏱️ Estimated ${estimate} minutes for: "${title}"`);
+    console.log(`⏱️ Estimated ${estimate} minutes for: \"${title}\"`);
     return estimate; // REMOVED THE 45-MINUTE CAP
   }
 
@@ -258,7 +322,7 @@ export class BlockSharingScheduler {
     });
 
     for (const task of sortedTasks) {
-      console.log(`\n📚 Processing task: "${task.title}" (${task.estimated_time} min, ${task.cognitive_load} load)`);
+      console.log(`\n📚 Processing task: \"${task.title}\" (${task.estimated_time} min, ${task.cognitive_load} load)`);
       
       if (task.estimated_time <= 45) {
         console.log(`  ✅ Task fits in one block (${task.estimated_time} <= 45 min)`);
@@ -290,7 +354,7 @@ export class BlockSharingScheduler {
     const totalTime = task.estimated_time;
     const numberOfParts = Math.ceil(totalTime / maxBlockTime);
     
-    console.log(`  🔄 Splitting task "${task.title}" (${totalTime} min) into ${numberOfParts} parts`);
+    console.log(`  🔄 Splitting task \"${task.title}\" (${totalTime} min) into ${numberOfParts} parts`);
     
     let remainingTime = totalTime;
     let partNumber = 1;
@@ -450,59 +514,86 @@ export class BlockSharingScheduler {
     else block.cognitive_balance = 'light';
   }
 
-  private generateWarnings(unscheduled: TaskClassification[], blocks: BlockComposition[]): string[] {
+  private generateWarnings(unscheduledTasks: TaskClassification[], blocks: BlockComposition[]): string[] {
     const warnings: string[] = [];
     
-    // Check for overdue unscheduled tasks
-    const overdueUnscheduled = unscheduled.filter(t => t.urgency === 'overdue');
-    if (overdueUnscheduled.length > 0) {
-      warnings.push(`${overdueUnscheduled.length} overdue tasks could not be scheduled`);
+    // Check for overdue assignments
+    const overdueTasks = unscheduledTasks.filter(task => task.urgency === 'overdue');
+    if (overdueTasks.length > 0) {
+      warnings.push(`${overdueTasks.length} overdue assignment(s) could not be scheduled`);
     }
     
-    // Check for heavy cognitive load days
-    const heavyDays = blocks.filter(b => b.cognitive_balance === 'heavy').length;
-    if (heavyDays > 2) {
-      warnings.push(`${heavyDays} days with heavy cognitive load - consider redistributing`);
+    // Check for cognitive load imbalance
+    const heavyBlocks = blocks.filter(block => block.cognitive_balance === 'heavy');
+    if (heavyBlocks.length > 2) {
+      warnings.push(`High cognitive load detected in ${heavyBlocks.length} blocks - consider redistributing`);
     }
     
-    // Check for insufficient buffer time
-    const lowBufferBlocks = blocks.filter(b => this.getRemainingMinutes(b) < 10).length;
-    if (lowBufferBlocks > 0) {
-      warnings.push(`${lowBufferBlocks} blocks have less than 10 minutes buffer time`);
+    // Check for time constraint issues
+    const fullyUtilizedBlocks = blocks.filter(block => 
+      this.getRemainingMinutes(block) < 10
+    );
+    if (fullyUtilizedBlocks.length > blocks.length * 0.8) {
+      warnings.push('Schedule is highly packed - consider extending timeframe');
     }
     
     return warnings;
   }
 
   async executeSchedule(decision: SchedulingDecision): Promise<void> {
-    console.log('Executing schedule decision:', decision);
     const currentMode = stagingUtils.getCurrentMode();
-    console.log('Current mode:', currentMode);
+    const tableName = currentMode === 'staging' ? 'assignments_staging' : 'assignments';
     
-    // Update database with scheduled blocks
-    for (const block of decision.academic_blocks) {
-      for (const task of block.tasks) {
-        const updateData = {
-          scheduled_block: block.block_number,
-          scheduled_date: block.date,
-          scheduled_day: block.day,
-          shared_block_id: task.shared_block_id,
-          block_position: task.position,
-          buffer_time_minutes: Math.floor(this.getRemainingMinutes(block) / block.tasks.length)
-        };
-
-        if (currentMode === 'staging') {
-          await supabase
-            .from('assignments_staging')
-            .update(updateData)
-            .eq('id', task.assignment.id);
-        } else {
-          await supabase
-            .from('assignments')
-            .update(updateData)
-            .eq('id', task.assignment.id);
+    try {
+      console.log('Executing schedule with decision:', decision);
+      
+      // Batch update all scheduled assignments
+      const updates: Promise<any>[] = [];
+      
+      for (const block of decision.academic_blocks) {
+        for (const taskAssignment of block.tasks) {
+          const assignment = taskAssignment.assignment;
+          
+          updates.push(
+            supabase
+              .from(tableName)
+              .update({
+                scheduled_block: block.block_number,
+                scheduled_date: block.date,
+                shared_block_id: taskAssignment.shared_block_id,
+                block_position: taskAssignment.position
+              })
+              .eq('id', assignment.id.split('_part_')[0])
+              .select()
+          );
         }
       }
+      
+      // Execute all updates in parallel for better performance
+      await Promise.all(updates);
+      
+      console.log('Schedule execution completed successfully');
+      
+      // Invalidate cache after execution
+      this.cache.clear();
+      
+    } catch (error) {
+      console.error('Error executing schedule:', error);
+      throw error;
+    }
+  }
+
+  // Cache invalidation method
+  invalidateCache(studentName?: string): void {
+    if (studentName) {
+      // Remove cache entries for specific student
+      for (const [key] of this.cache) {
+        if (key.startsWith(studentName)) {
+          this.cache.delete(key);
+        }
+      }
+    } else {
+      this.cache.clear();
     }
   }
 }
