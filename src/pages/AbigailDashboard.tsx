@@ -8,7 +8,7 @@ import { useAssignments } from "@/hooks/useAssignments";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { CoopChecklist } from "@/components/CoopChecklist";
 import { StudentBlockDisplay } from "@/components/StudentBlockDisplay";
-import { BackgroundScheduler } from "@/components/BackgroundScheduler";
+
 import { ErrorFallback } from "@/components/ErrorFallback";
 import { ErrorMonitoring } from "@/components/ErrorMonitoring";
 import { PerformanceMonitor } from "@/components/PerformanceMonitor";
@@ -16,6 +16,8 @@ import { SystemHealthDashboard } from "@/components/SystemHealthDashboard";
 import { StudentAnalyticsDashboard } from "@/components/StudentAnalyticsDashboard";
 import { SystemBenchmarkDashboard } from "@/components/SystemBenchmarkDashboard";
 import { TestScheduler } from "@/components/TestScheduler";
+import { ParentTasksSection } from "@/components/ParentTasksSection";
+import { supabase } from "@/integrations/supabase/client";
 
 const AbigailDashboard = () => {
   console.log('🏠 AbigailDashboard rendering...');
@@ -28,6 +30,7 @@ const AbigailDashboard = () => {
     const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
     const [criticalError, setCriticalError] = useState<string | null>(null);
     const [errorCount, setErrorCount] = useState(0);
+    const [parentTasks, setParentTasks] = useState<any[]>([]);
     
     // Use date parameter if provided and valid, otherwise use today
     let displayDate = new Date();
@@ -76,9 +79,37 @@ const AbigailDashboard = () => {
       }
     }, [getScheduledAssignment, formattedDate, assignmentBlocks]);
 
+    const loadParentTasks = useCallback(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('administrative_notifications')
+          .select('*')
+          .eq('student_name', 'Abigail')
+          .eq('completed', false)
+          .in('notification_type', ['fee', 'fees'])
+          .order('due_date', { ascending: true, nullsFirst: false });
+
+        if (error) throw error;
+
+        const tasks = data?.map(item => ({
+          id: item.id,
+          title: item.title,
+          amount: item.amount,
+          dueDate: item.due_date ? new Date(item.due_date) : undefined,
+          priority: item.priority as 'high' | 'medium' | 'low',
+          courseName: item.course_name
+        })) || [];
+
+        setParentTasks(tasks);
+      } catch (error) {
+        console.error('Error loading parent tasks:', error);
+      }
+    }, []);
+
     useEffect(() => {
       loadScheduledAssignments();
-    }, [loadScheduledAssignments]);
+      loadParentTasks();
+    }, [loadScheduledAssignments, loadParentTasks]);
 
     // Handle critical errors that would cause blank pages
     useEffect(() => {
@@ -154,16 +185,28 @@ const AbigailDashboard = () => {
           </div>
           
           <div className="space-y-6">
-            {/* Background scheduler - runs silently */}
-            <BackgroundScheduler 
-              studentName="Abigail" 
-              onSchedulingComplete={loadScheduledAssignments}
-            />
-            
-            {/* Test Scheduler */}
+            {/* Test Scheduler - Manual scheduling tool for testing */}
             <TestScheduler 
               studentName="Abigail"
               onSchedulingComplete={loadScheduledAssignments}
+            />
+            
+            {/* Background Scheduler - Temporarily disabled to avoid conflicts */}
+            {/* <BackgroundScheduler 
+              studentName="Abigail" 
+              onSchedulingComplete={loadScheduledAssignments}
+            /> */}
+
+            {/* Parent Tasks - fees and other parent actions */}
+            <ParentTasksSection 
+              tasks={parentTasks}
+              onTaskComplete={async (taskId) => {
+                await supabase
+                  .from('administrative_notifications')
+                  .update({ completed: true, completed_at: new Date().toISOString() })
+                  .eq('id', taskId);
+                loadParentTasks();
+              }}
             />
 
             {/* Co-op Checklist - only shows on co-op days */}

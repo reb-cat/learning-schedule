@@ -41,9 +41,10 @@ export function CoopChecklist({ studentName, assignments, currentDay }: CoopChec
         } else if (title.includes('recipe')) {
           actionableText = `□ Check recipe for ${assignment.course_name}`;
         } else if (title.includes('form')) {
-          actionableText = `□ Complete and submit form`;
+          const courseName = assignment.course_name || 'course';
+          actionableText = `□ Complete and submit ${courseName} form`;
         } else if (title.includes('fee') || title.includes('payment')) {
-          actionableText = `□ Pay ${assignment.course_name} fee`;
+          // Skip fee items - these should go to parent tasks
         } else {
           actionableText = `□ ${assignment.title}`;
         }
@@ -56,7 +57,8 @@ export function CoopChecklist({ studentName, assignments, currentDay }: CoopChec
         }
       }
       
-      if (isActionable) {
+      // Only add non-fee items to student checklist
+      if (isActionable && !title.includes('fee') && !title.includes('payment')) {
         items.push({
           id: assignment.id,
           text: actionableText,
