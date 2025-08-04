@@ -40,17 +40,23 @@ export function TimeEstimationSection({ value, onChange }: TimeEstimationSection
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {timeCategories.map((category) => (
-          <Button
+          <button
             key={category.id}
             type="button"
-            variant={selectedCategory?.id === category.id ? "default" : "outline"}
-            size="sm"
             onClick={() => onChange(category.value)}
-            className="flex flex-col h-auto py-3"
+            className={`
+              relative flex flex-col items-center justify-center px-3 py-2.5 rounded-md text-sm font-medium
+              transition-colors ring-offset-background focus-visible:outline-none focus-visible:ring-2 
+              focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50
+              ${selectedCategory?.id === category.id 
+                ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                : "border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+              }
+            `}
           >
-            <span className="font-medium">{category.label}</span>
-            <span className="text-xs opacity-70">{category.range}</span>
-          </Button>
+            <span className="font-medium leading-none">{category.label}</span>
+            <span className="text-xs text-muted-foreground mt-0.5 hidden sm:block">{category.range}</span>
+          </button>
         ))}
       </div>
 
