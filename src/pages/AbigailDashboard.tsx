@@ -14,6 +14,8 @@ import { ErrorFallback } from "@/components/ErrorFallback";
 import { ErrorMonitoring } from "@/components/ErrorMonitoring";
 import { PerformanceMonitor } from "@/components/PerformanceMonitor";
 import { SystemHealthDashboard } from "@/components/SystemHealthDashboard";
+import { StudentAnalyticsDashboard } from "@/components/StudentAnalyticsDashboard";
+import { SystemBenchmarkDashboard } from "@/components/SystemBenchmarkDashboard";
 
 import { stagingUtils, type StagingMode } from "@/utils/stagingUtils";
 
@@ -210,9 +212,15 @@ const AbigailDashboard = () => {
             </div>
 
             {/* System Health Dashboard */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-foreground">System Status</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <SystemHealthDashboard studentName="Abigail" />
+              <StudentAnalyticsDashboard studentName="Abigail" />
+            </div>
+
+            {/* Performance Benchmark */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-foreground">Performance Metrics</h2>
+              <SystemBenchmarkDashboard studentName="Abigail" />
             </div>
           </div>
         </div>
