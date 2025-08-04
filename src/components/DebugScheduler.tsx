@@ -32,16 +32,35 @@ export function DebugScheduler() {
 
     setIsRunning(true);
     try {
-      console.log('Manual scheduler run starting in staging mode...');
+      console.log('🚀 Manual scheduler run starting in staging mode...');
+      
+      // Get raw data for debugging
+      const rawTasks = await blockSharingScheduler.getClassifiedTasks('Abigail');
+      const rawBlocks = await blockSharingScheduler.getAvailableBlocks('Abigail', 7);
+      
+      console.log('📋 Raw Tasks Found:', rawTasks.length, rawTasks);
+      console.log('🕒 Raw Blocks Found:', rawBlocks.length, rawBlocks);
+      
       const decision = await blockSharingScheduler.analyzeAndSchedule('Abigail', 7);
-      console.log('Scheduler decision:', decision);
+      console.log('📊 Final Scheduler Decision:', decision);
+      
+      // Enhanced result with debug info
+      const enhancedResult = {
+        ...decision,
+        debug: {
+          rawTasksCount: rawTasks.length,
+          rawBlocksCount: rawBlocks.length,
+          rawTasks: rawTasks.slice(0, 3), // First 3 for brevity
+          rawBlocks: rawBlocks.slice(0, 3) // First 3 for brevity
+        }
+      };
       
       await blockSharingScheduler.executeSchedule(decision);
-      console.log('Scheduler executed successfully');
+      console.log('✅ Scheduler executed successfully');
       
-      setResult(decision);
+      setResult(enhancedResult);
     } catch (error) {
-      console.error('Scheduler failed:', error);
+      console.error('❌ Scheduler failed:', error);
       setResult({ error: error.message });
     } finally {
       setIsRunning(false);
@@ -92,11 +111,25 @@ export function DebugScheduler() {
         </Button>
         
         {result && (
-          <div className="mt-4 p-4 bg-muted rounded-lg">
-            <h3 className="font-semibold mb-2">Scheduler Result:</h3>
-            <pre className="text-sm overflow-auto max-h-96">
-              {JSON.stringify(result, null, 2)}
-            </pre>
+          <div className="mt-4 space-y-4">
+            {result.debug && (
+              <div className="p-4 bg-blue-50 rounded-lg border">
+                <h3 className="font-semibold mb-2 text-blue-800">🔍 Debug Info:</h3>
+                <div className="space-y-2 text-sm">
+                  <p><strong>Raw Tasks:</strong> {result.debug.rawTasksCount}</p>
+                  <p><strong>Raw Blocks:</strong> {result.debug.rawBlocksCount}</p>
+                  <p><strong>Scheduled Blocks:</strong> {result.scheduledBlocks?.length || 0}</p>
+                  <p><strong>Unscheduled Tasks:</strong> {result.unscheduledTasks?.length || 0}</p>
+                </div>
+              </div>
+            )}
+            
+            <div className="p-4 bg-muted rounded-lg">
+              <h3 className="font-semibold mb-2">Full Scheduler Result:</h3>
+              <pre className="text-sm overflow-auto max-h-96">
+                {JSON.stringify(result, null, 2)}
+              </pre>
+            </div>
           </div>
         )}
       </CardContent>
