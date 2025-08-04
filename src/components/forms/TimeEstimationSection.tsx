@@ -12,7 +12,7 @@ export function TimeEstimationSection({ value, onChange }: TimeEstimationSection
     { id: 'quick', label: 'Quick', range: '15-30min', value: 30 },
     { id: 'standard', label: 'Standard', range: '45-90min', value: 60 },
     { id: 'extended', label: 'Extended', range: '2-4hrs', value: 180 },
-    { id: 'full-day', label: 'Full/Multi-day', range: '24hrs', value: 1440 }
+    { id: 'full-day', label: 'Full Day', range: '24hrs', value: 1440 }
   ];
 
   const formatTime = (minutes: number) => {
@@ -45,7 +45,8 @@ export function TimeEstimationSection({ value, onChange }: TimeEstimationSection
             type="button"
             onClick={() => onChange(category.value)}
             className={`
-              relative flex flex-col items-center justify-center px-3 py-2.5 rounded-md text-sm font-medium
+              relative flex flex-col items-center justify-center min-h-[3.5rem] px-2 sm:px-3 py-2 rounded-md 
+              text-xs sm:text-sm font-medium text-center break-words overflow-hidden
               transition-colors ring-offset-background focus-visible:outline-none focus-visible:ring-2 
               focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50
               ${selectedCategory?.id === category.id 
