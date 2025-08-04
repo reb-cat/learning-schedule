@@ -14,7 +14,7 @@ interface EnhancedSchedulerProps {
 
 const TaskBlock = memo(({ block, getCognitiveLoadColor, getTaskTypeColor }: {
   block: BlockComposition;
-  getCognitiveLoadColor: (load: string) => string;
+  getCognitiveLoadColor: (load: string) => "default" | "destructive" | "outline" | "secondary";
   getTaskTypeColor: (taskType: string) => string;
 }) => (
   <Card className="bg-muted/50">

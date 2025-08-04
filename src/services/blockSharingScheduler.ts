@@ -547,30 +547,26 @@ export class BlockSharingScheduler {
     try {
       console.log('Executing schedule with decision:', decision);
       
-      // Batch update all scheduled assignments
-      const updates: Promise<any>[] = [];
-      
+      // Execute updates sequentially to avoid overwhelming the database
       for (const block of decision.academic_blocks) {
         for (const taskAssignment of block.tasks) {
           const assignment = taskAssignment.assignment;
           
-          updates.push(
-            supabase
-              .from(tableName)
-              .update({
-                scheduled_block: block.block_number,
-                scheduled_date: block.date,
-                shared_block_id: taskAssignment.shared_block_id,
-                block_position: taskAssignment.position
-              })
-              .eq('id', assignment.id.split('_part_')[0])
-              .select()
-          );
+          const { error } = await supabase
+            .from(tableName)
+            .update({
+              scheduled_block: block.block_number,
+              scheduled_date: block.date,
+              shared_block_id: taskAssignment.shared_block_id,
+              block_position: taskAssignment.position
+            })
+            .eq('id', assignment.id.split('_part_')[0]);
+          
+          if (error) {
+            throw new Error(`Database update failed: ${error.message}`);
+          }
         }
       }
-      
-      // Execute all updates in parallel for better performance
-      await Promise.all(updates);
       
       console.log('Schedule execution completed successfully');
       
