@@ -263,33 +263,34 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-xl">
-          <Plus className="h-5 w-5" />
+    <Card className="w-full max-w-2xl mx-auto shadow-sm">
+      <CardHeader className="pb-6 bg-gradient-to-r from-background to-muted/30">
+        <CardTitle className="flex items-center gap-3 text-2xl font-semibold">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+            <Plus className="h-5 w-5 text-primary" />
+          </div>
           Add Assignment
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-base mt-1">
           Create homework, appointments, and activities
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <CardContent className="p-6">
+        <form onSubmit={handleSubmit} className="space-y-8">
           {/* Quick Add Suggestions */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Quick Add</Label>
-            <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-4">
+            <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Quick Add</Label>
+            <div className="grid grid-cols-2 gap-3">
               {quickAddSuggestions.map((suggestion) => (
                 <Button
                   key={suggestion.title}
                   type="button"
                   variant="outline"
-                  size="sm"
                   onClick={() => handleQuickAdd(suggestion)}
-                  className="justify-start text-left h-auto py-2"
+                  className="justify-start text-left h-auto py-4 px-4 hover:shadow-md transition-all duration-200 group"
                 >
-                  <div>
-                    <div className="font-medium">{suggestion.title}</div>
+                  <div className="space-y-1">
+                    <div className="font-medium group-hover:text-primary transition-colors">{suggestion.title}</div>
                     <div className="text-xs text-muted-foreground">{suggestion.subject}</div>
                   </div>
                 </Button>
@@ -297,29 +298,31 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
             </div>
           </div>
 
+          <div className="h-px bg-border"></div>
+
           {/* Main Form Fields */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* Title (Google Calendar style) */}
             <div className="space-y-2">
               <Input
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                 placeholder="Add title"
-                className="text-lg font-medium border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary"
+                className="text-xl font-medium border-0 border-b-2 border-border rounded-none px-0 py-3 focus-visible:ring-0 focus-visible:border-primary bg-transparent"
               />
             </div>
 
             {/* Student & Type Row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2 text-sm font-medium">
+                  <User className="h-4 w-4 text-primary" />
                   Student
                 </Label>
                 <Select value={formData.student_name} onValueChange={(value) => 
                   setFormData(prev => ({ ...prev, student_name: value }))
                 }>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue placeholder="Choose student" />
                   </SelectTrigger>
                   <SelectContent>
@@ -329,34 +332,34 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm">Type</Label>
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Type</Label>
                 <Select value={formData.assignment_type} onValueChange={(value) => 
                   setFormData(prev => ({ ...prev, assignment_type: value, subject: '' }))
                 }>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Appointments</div>
+                    <div className="px-2 py-2 text-xs font-semibold text-blue-600 bg-blue-50 rounded-sm mx-1 mt-1">⏰ Appointments</div>
                     {Object.entries(assignmentTypes)
                       .filter(([_, config]) => config.group === 'appointment')
                       .map(([value, config]) => (
-                        <SelectItem key={value} value={value}>
-                          <span className="flex items-center gap-2">
-                            <span>{config.icon}</span>
-                            {config.label}
+                        <SelectItem key={value} value={value} className="py-3">
+                          <span className="flex items-center gap-3">
+                            <span className="text-lg">{config.icon}</span>
+                            <span>{config.label}</span>
                           </span>
                         </SelectItem>
                       ))}
-                    <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Assignments</div>
+                    <div className="px-2 py-2 text-xs font-semibold text-green-600 bg-green-50 rounded-sm mx-1 mt-2">📚 Assignments</div>
                     {Object.entries(assignmentTypes)
                       .filter(([_, config]) => config.group === 'assignment')
                       .map(([value, config]) => (
-                        <SelectItem key={value} value={value}>
-                          <span className="flex items-center gap-2">
-                            <span>{config.icon}</span>
-                            {config.label}
+                        <SelectItem key={value} value={value} className="py-3">
+                          <span className="flex items-center gap-3">
+                            <span className="text-lg">{config.icon}</span>
+                            <span>{config.label}</span>
                           </span>
                         </SelectItem>
                       ))}
@@ -366,13 +369,13 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
             </div>
 
             {/* Subject & Time Row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm">Subject</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Subject</Label>
                 <Select value={formData.subject} onValueChange={(value) => 
                   setFormData(prev => ({ ...prev, subject: value }))
                 }>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue placeholder="Choose subject" />
                   </SelectTrigger>
                   <SelectContent>
@@ -383,22 +386,24 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-sm">
-                  <Clock className="h-4 w-4" />
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2 text-sm font-medium">
+                  <Clock className="h-4 w-4 text-primary" />
                   Time Needed
                 </Label>
-                <TimeEstimationSection
-                  value={formData.estimated_time_minutes}
-                  onChange={(value) => setFormData(prev => ({ ...prev, estimated_time_minutes: value }))}
-                />
+                <div className="p-4 border rounded-lg bg-muted/30">
+                  <TimeEstimationSection
+                    value={formData.estimated_time_minutes}
+                    onChange={(value) => setFormData(prev => ({ ...prev, estimated_time_minutes: value }))}
+                  />
+                </div>
               </div>
             </div>
 
             {/* Date Section */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center space-x-2">
+            <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center space-x-3">
                   <Switch
                     id="all-day"
                     checked={formData.is_full_day_block}
@@ -408,22 +413,22 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                       estimated_time_minutes: checked ? 1440 : 60
                     }))}
                   />
-                  <Label htmlFor="all-day" className="text-sm">All day</Label>
+                  <Label htmlFor="all-day" className="text-sm font-medium">All day</Label>
                 </div>
                 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-3">
                   <Switch
                     id="multi-day"
                     checked={formData.is_multi_day_event}
                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_multi_day_event: checked }))}
                   />
-                  <Label htmlFor="multi-day" className="text-sm">Multi-day</Label>
+                  <Label htmlFor="multi-day" className="text-sm font-medium">Multi-day</Label>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm">
+                  <Label className="text-sm font-medium">
                     {isAppointment ? 'Date' : 'Due Date'}
                   </Label>
                   <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
@@ -431,7 +436,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                       <Button
                         variant="outline"
                         className={cn(
-                          "w-full justify-start text-left font-normal",
+                          "w-full justify-start text-left font-normal h-11",
                           !formData.due_date && "text-muted-foreground"
                         )}
                       >
@@ -459,13 +464,13 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
 
                 {formData.is_multi_day_event && (
                   <div className="space-y-2">
-                    <Label className="text-sm">End Date</Label>
+                    <Label className="text-sm font-medium">End Date</Label>
                     <Popover open={showEndDatePicker} onOpenChange={setShowEndDatePicker}>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full justify-start text-left font-normal",
+                            "w-full justify-start text-left font-normal h-11",
                             !formData.end_date && "text-muted-foreground"
                           )}
                         >
@@ -501,74 +506,109 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
           {/* Advanced Options */}
           <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
             <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="flex items-center gap-2 p-0 h-auto">
+              <Button variant="ghost" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
                 <Settings className="h-4 w-4" />
                 More options
                 <ChevronDown className={cn("h-4 w-4 transition-transform", showAdvanced && "rotate-180")} />
               </Button>
             </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-4 mt-4">
+            <CollapsibleContent className="space-y-4 mt-4 pt-4 border-t">
               {/* Notes */}
-              <div className="space-y-2">
-                <Label htmlFor="notes" className="text-sm">Notes</Label>
+              <div className="space-y-3">
+                <Label htmlFor="notes" className="text-sm font-medium">Notes</Label>
                 <Textarea
                   id="notes"
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   placeholder="Add notes..."
-                  className="min-h-[80px]"
+                  className="min-h-[100px] resize-none"
                 />
               </div>
 
               {/* Volunteer Organization (if volunteer event) */}
               {formData.assignment_type === 'volunteer_event' && (
-                <div className="space-y-2">
-                  <Label htmlFor="org" className="text-sm">Organization</Label>
+                <div className="space-y-3">
+                  <Label htmlFor="org" className="text-sm font-medium">Organization</Label>
                   <Input
                     id="org"
                     value={formData.volunteer_organization}
                     onChange={(e) => setFormData(prev => ({ ...prev, volunteer_organization: e.target.value }))}
                     placeholder="Organization name"
+                    className="h-11"
                   />
                 </div>
               )}
 
-              {/* Recurring */}
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="recurring"
-                  checked={formData.is_recurring}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_recurring: checked }))}
-                />
-                <Label htmlFor="recurring" className="flex items-center gap-2 text-sm">
-                  <Repeat className="h-4 w-4" />
-                  Recurring
-                </Label>
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Recurring */}
+                <div className="flex items-center space-x-3 p-3 border rounded-lg">
+                  <Switch
+                    id="recurring"
+                    checked={formData.is_recurring}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_recurring: checked }))}
+                  />
+                  <Label htmlFor="recurring" className="flex items-center gap-2 text-sm font-medium">
+                    <Repeat className="h-4 w-4" />
+                    Recurring
+                  </Label>
+                </div>
 
-              {/* Priority */}
-              <div className="space-y-2">
-                <Label className="text-sm">Priority</Label>
-                <Select value={formData.priority} onValueChange={(value) => 
-                  setFormData(prev => ({ ...prev, priority: value }))
-                }>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* Priority */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Priority</Label>
+                  <Select value={formData.priority} onValueChange={(value) => 
+                    setFormData(prev => ({ ...prev, priority: value }))
+                  }>
+                    <SelectTrigger className="h-11">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CollapsibleContent>
           </Collapsible>
 
           {/* Submit Button */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button type="submit" disabled={loading} className="px-8">
-              {loading ? 'Creating...' : 'Save'}
+          <div className="flex justify-end gap-3 pt-6 border-t">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                setFormData({
+                  student_name: '',
+                  title: '',
+                  subject: '',
+                  assignment_type: 'life_skills',
+                  estimated_time_minutes: 45,
+                  priority: 'medium',
+                  due_date: '',
+                  end_date: '',
+                  notes: '',
+                  is_recurring: false,
+                  recurrence_days: [],
+                  is_multi_day_event: false,
+                  is_full_day_block: false,
+                  blocks_scheduling: false,
+                  display_as_single_event: true,
+                  volunteer_hours: 0,
+                  volunteer_organization: '',
+                  schedule_specific_datetime: false,
+                  specific_scheduled_date: '',
+                  specific_scheduled_block: 1,
+                  appointment_time: ''
+                });
+              }}
+              className="px-6"
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading} className="px-8 bg-primary hover:bg-primary/90">
+              {loading ? 'Creating...' : 'Save Assignment'}
             </Button>
           </div>
         </form>
