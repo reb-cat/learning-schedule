@@ -272,10 +272,12 @@ export class BlockSharingScheduler {
 
   private canFitInBlock(task: TaskClassification, block: BlockComposition): boolean {
     const remainingMinutes = this.getRemainingMinutes(block);
-    const hasSpace = remainingMinutes >= task.actual_estimated_minutes + BlockSharingScheduler.MIN_BUFFER_TIME;
     const canAddCognitiveLoad = this.canAddCognitiveLoad(task, block);
     
-    return hasSpace && canAddCognitiveLoad;
+    // Allow flexible fitting - task can exceed block time and continue later
+    const canFitAtLeast15Minutes = remainingMinutes >= 15;
+    
+    return canFitAtLeast15Minutes && canAddCognitiveLoad;
   }
 
   private getRemainingMinutes(block: BlockComposition): number {

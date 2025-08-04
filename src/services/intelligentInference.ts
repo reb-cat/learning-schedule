@@ -33,7 +33,7 @@ export interface StudentAccommodation {
 export const subjectPatterns: Record<string, SubjectPattern> = {
   'Math': {
     defaultLoad: 'heavy',
-    defaultDuration: 45,
+    defaultDuration: 30,
     keywords: ['algebra', 'geometry', 'calculate', 'solve', 'equation', 'problem', 'worksheet'],
     durationPatterns: [
       { pattern: /(\d+)\s*problems?/i, multiplier: 3 }, // 3 min per problem
@@ -54,7 +54,7 @@ export const subjectPatterns: Record<string, SubjectPattern> = {
   },
   'Writing': {
     defaultLoad: 'heavy',
-    defaultDuration: 45,
+    defaultDuration: 35,
     keywords: ['essay', 'write', 'paragraph', 'composition', 'paper', 'report'],
     durationPatterns: [
       { pattern: /(\d+)[-\s]*paragraph/i, multiplier: 15 }, // 15 min per paragraph
@@ -247,9 +247,9 @@ export async function inferDuration(
   },
   studentName: string
 ): Promise<number> {
-  // If already provided and reasonable, use it
+  // If already provided and reasonable, use it but cap at 45 minutes
   if (assignment.estimated_time_minutes && assignment.estimated_time_minutes > 0) {
-    return assignment.estimated_time_minutes;
+    return Math.min(assignment.estimated_time_minutes, 45);
   }
 
   const subject = assignment.subject || inferSubjectFromTitle(assignment.title, assignment.course_name);
@@ -293,7 +293,8 @@ export async function inferDuration(
     estimatedDuration *= adjustmentRatio;
   }
 
-  return Math.round(estimatedDuration);
+  // Cap the final result at reasonable maximums for block scheduling
+  return Math.round(Math.min(estimatedDuration, 45));
 }
 
 /**

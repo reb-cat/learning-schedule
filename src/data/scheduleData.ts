@@ -12,7 +12,7 @@ export interface ScheduleBlock {
 export const scheduleData: ScheduleBlock[] = [
   // Abigail's Schedule
   { student: "Abigail", day: "Monday", block: 1, start: "9:00 AM", end: "9:20 AM", subject: "Bible", type: "Bible", isAssignmentBlock: false },
-  { student: "Abigail", day: "Monday", block: 2, start: "9:20 AM", end: "10:40 AM", subject: "", type: "Assignment", isAssignmentBlock: true },
+  { student: "Abigail", day: "Monday", block: 2, start: "9:20 AM", end: "10:00 AM", subject: "", type: "Assignment", isAssignmentBlock: true },
   { student: "Abigail", day: "Monday", start: "10:40 AM", end: "10:50 AM", subject: "Prep/Load", type: "Prep/Load", isAssignmentBlock: false },
   { student: "Abigail", day: "Monday", start: "10:50 AM", end: "11:20 AM", subject: "Travel to Co-op", type: "Travel", isAssignmentBlock: false },
   { student: "Abigail", day: "Monday", block: 4, start: "11:20 AM", end: "12:20 PM", subject: "Geometry (2x week) - L Cejas-Brown", type: "Co-op", isAssignmentBlock: false },
