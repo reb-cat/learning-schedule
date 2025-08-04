@@ -208,10 +208,10 @@ const AdminSetup = () => {
         return <Badge variant="secondary">{status}</Badge>;
     }
   };
-  return <div className="min-h-screen bg-gray-50 p-6">
+  return <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold text-gray-900">Technical Dashboard</h1>
+          <h1 className="text-4xl font-bold text-foreground">Technical Dashboard</h1>
           
         </div>
 
