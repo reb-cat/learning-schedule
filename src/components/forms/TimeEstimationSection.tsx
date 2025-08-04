@@ -1,6 +1,7 @@
-import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface TimeEstimationSectionProps {
   value: number;
@@ -8,27 +9,76 @@ interface TimeEstimationSectionProps {
 }
 
 export function TimeEstimationSection({ value, onChange }: TimeEstimationSectionProps) {
-  const timeCategories = [
-    { id: 'quick', label: 'Quick', range: '15-30min', value: 30 },
-    { id: 'standard', label: 'Standard', range: '45-90min', value: 60 },
-    { id: 'extended', label: 'Extended', range: '2-4hrs', value: 180 },
-    { id: 'full-day', label: 'Full Day', range: '24hrs', value: 1440 }
-  ];
+  const [timeInput, setTimeInput] = useState('');
+  const [isMultiDay, setIsMultiDay] = useState(value >= 1440);
 
   const formatTime = (minutes: number) => {
     if (minutes < 60) return `${minutes} min`;
-    if (minutes === 1440) return `1 day`;
+    if (minutes >= 1440) return `Multi-day task`;
     if (minutes < 480) return `${Math.round(minutes / 60 * 10) / 10} hours`;
-    if (minutes < 1440) return `${Math.round(minutes / 60)} hours`;
-    return `${Math.round(minutes / 1440)} days`;
+    return `${Math.round(minutes / 60)} hours`;
   };
 
-  const selectedCategory = timeCategories.find(cat => {
-    if (cat.id === 'quick') return value <= 30;
-    if (cat.id === 'standard') return value > 30 && value <= 120;
-    if (cat.id === 'extended') return value > 120 && value < 1440;
-    return value >= 1440;
-  });
+  const parseTimeInput = (input: string): number => {
+    const cleanInput = input.toLowerCase().trim();
+    
+    // Match patterns like "2h", "2 hours", "45min", "45 minutes", "1.5h", etc.
+    const hourMatch = cleanInput.match(/(\d+\.?\d*)\s*h(?:ours?)?/);
+    const minMatch = cleanInput.match(/(\d+)\s*m(?:in(?:utes?)?)?/);
+    
+    let totalMinutes = 0;
+    
+    if (hourMatch) {
+      totalMinutes += parseFloat(hourMatch[1]) * 60;
+    }
+    if (minMatch) {
+      totalMinutes += parseInt(minMatch[1]);
+    }
+    
+    // If no pattern matched, try to parse as just a number (assume hours)
+    if (totalMinutes === 0 && /^\d+\.?\d*$/.test(cleanInput)) {
+      totalMinutes = parseFloat(cleanInput) * 60;
+    }
+    
+    return Math.max(15, Math.round(totalMinutes / 15) * 15); // Round to nearest 15 minutes, min 15
+  };
+
+  const handleTimeInputChange = (input: string) => {
+    setTimeInput(input);
+    if (input.trim()) {
+      const minutes = parseTimeInput(input);
+      if (minutes > 0) {
+        onChange(minutes);
+      }
+    }
+  };
+
+  const handleMultiDayToggle = (checked: boolean) => {
+    setIsMultiDay(checked);
+    if (checked) {
+      onChange(1440); // 1 day minimum for multi-day
+      setTimeInput('');
+    } else {
+      onChange(60); // Default to 1 hour
+      setTimeInput('1 hour');
+    }
+  };
+
+  // Update timeInput when value changes externally
+  useEffect(() => {
+    if (value >= 1440) {
+      setIsMultiDay(true);
+      setTimeInput('');
+    } else {
+      setIsMultiDay(false);
+      if (value === 60) setTimeInput('1 hour');
+      else if (value === 30) setTimeInput('30 min');
+      else if (value === 90) setTimeInput('1.5 hours');
+      else if (value === 120) setTimeInput('2 hours');
+      else if (value === 180) setTimeInput('3 hours');
+      else setTimeInput(`${value} min`);
+    }
+  }, [value]);
 
   return (
     <div className="space-y-4">
@@ -38,42 +88,27 @@ export function TimeEstimationSection({ value, onChange }: TimeEstimationSection
         <span className="text-sm text-muted-foreground">({formatTime(value)})</span>
       </div>
       
-      <div className="flex flex-wrap justify-center gap-3">
-        {timeCategories.map((category) => (
-          <button
-            key={category.id}
-            type="button"
-            onClick={() => onChange(category.value)}
-            className={`
-              relative flex flex-col items-center justify-center min-h-[3.5rem] flex-1 max-w-[8rem]
-              px-4 sm:px-5 py-2 rounded-md text-xs sm:text-sm font-medium text-center break-words overflow-hidden
-              transition-colors ring-offset-background focus-visible:outline-none focus-visible:ring-2 
-              focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50
-              ${selectedCategory?.id === category.id 
-                ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-                : "border border-input bg-background hover:bg-accent hover:text-accent-foreground"
-              }
-            `}
-          >
-            <span className="font-medium leading-none">{category.label}</span>
-            <span className="text-xs text-muted-foreground mt-0.5 hidden sm:block">{category.range}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Custom time</span>
-          <span className="text-sm font-medium">{formatTime(value)}</span>
+          <span className="text-sm font-medium">Multi-day task</span>
+          <Switch
+            checked={isMultiDay}
+            onCheckedChange={handleMultiDayToggle}
+          />
         </div>
-        <Slider
-          value={[value]}
-          onValueChange={(values) => onChange(values[0])}
-          max={1440}
-          min={15}
-          step={15}
-          className="w-full"
-        />
+        
+        {!isMultiDay && (
+          <div className="space-y-2">
+            <label className="text-sm text-muted-foreground">
+              Enter time estimate
+            </label>
+            <Input
+              placeholder="e.g., 2 hours, 45 min, 1.5h"
+              value={timeInput}
+              onChange={(e) => handleTimeInputChange(e.target.value)}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
