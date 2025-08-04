@@ -47,7 +47,7 @@ export class BlockSharingScheduler {
   private static readonly MIN_BUFFER_TIME = 5; // minutes
   private static readonly MAX_COGNITIVE_LOAD_PER_BLOCK = 2; // heavy = 2, medium = 1, light = 0.5
 
-  async analyzeAndSchedule(studentName: string, daysAhead: number = 7): Promise<SchedulingDecision> {
+  async analyzeAndSchedule(studentName: string, daysAhead: number = 7, startDate?: Date): Promise<SchedulingDecision> {
     try {
       console.log('Starting analyzeAndSchedule for:', studentName);
       
@@ -55,13 +55,19 @@ export class BlockSharingScheduler {
       const allTasks = await this.getClassifiedTasks(studentName);
       console.log('All tasks fetched:', allTasks.length);
       
-      const today = new Date();
+      // Use provided startDate for testing, otherwise use current date
+      const today = startDate || new Date();
       const endDate = addDays(today, daysAhead);
       
       // Filter tasks to current scheduling window
       const tasks = allTasks.filter(task => {
-        const isInTimeframe = !task.due_date || task.due_date <= endDate || task.due_date >= today;
-        return isInTimeframe;
+        if (!task.due_date) return true; // Include tasks without due dates
+        
+        const taskDueDate = new Date(task.due_date);
+        const windowStart = addDays(today, -3); // Include tasks due 3 days before
+        const windowEnd = addDays(today, daysAhead + 7); // Extend window for better flexibility
+        
+        return taskDueDate >= windowStart && taskDueDate <= windowEnd;
       });
       
       console.log('Filtered tasks for timeframe:', tasks.length);
@@ -78,7 +84,7 @@ export class BlockSharingScheduler {
       });
       
       // 2. Get available time blocks
-      const availableBlocks = await this.getAvailableBlocks(studentName, daysAhead);
+      const availableBlocks = await this.getAvailableBlocks(studentName, daysAhead, today);
       console.log('Available blocks:', availableBlocks.length);
       
       // 3. Schedule academic tasks into available blocks
@@ -156,11 +162,11 @@ export class BlockSharingScheduler {
     return title.length < 30 ? 15 : 30;
   }
 
-  private async getAvailableBlocks(studentName: string, daysAhead: number): Promise<BlockComposition[]> {
+  private async getAvailableBlocks(studentName: string, daysAhead: number, startDate?: Date): Promise<BlockComposition[]> {
     // Use real schedule data instead of mock data
     const { getScheduleForStudentAndDay } = await import('../data/scheduleData');
     const blocks: BlockComposition[] = [];
-    const today = new Date();
+    const today = startDate || new Date();
     
     for (let day = 0; day < daysAhead; day++) {
       const date = addDays(today, day);

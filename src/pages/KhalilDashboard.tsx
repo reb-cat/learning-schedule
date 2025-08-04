@@ -8,6 +8,7 @@ import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 import { useAssignments } from "@/hooks/useAssignments";
 import { useState, useEffect, useCallback } from "react";
 import { CoopChecklist } from "@/components/CoopChecklist";
+import { EnhancedSchedulerWithDate } from "@/components/EnhancedSchedulerWithDate";
 
 import { stagingUtils, type StagingMode } from "@/utils/stagingUtils";
 
@@ -84,13 +85,21 @@ const KhalilDashboard = () => {
         </div>
         
         <div className="space-y-6">
+          {/* Enhanced Scheduler - shows for test dates */}
+          {dateParam && (
+            <EnhancedSchedulerWithDate 
+              studentName="Khalil"
+              testDate={displayDate}
+              onSchedulingComplete={loadScheduledAssignments}
+            />
+          )}
+
           {/* Co-op Checklist - only shows on co-op days */}
           <CoopChecklist 
             studentName="Khalil" 
             assignments={assignments} 
             currentDay={currentDay} 
           />
-
 
           {/* Today's Schedule */}
           <div className="space-y-4">
