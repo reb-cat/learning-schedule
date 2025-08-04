@@ -14,6 +14,7 @@ const queryClient = new QueryClient();
 
 const App = () => {
   console.log('🚀 App component is loading...');
+  console.log('🔍 Checking if components render...');
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
