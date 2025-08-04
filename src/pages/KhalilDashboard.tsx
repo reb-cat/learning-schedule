@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback } from "react";
 import { CoopChecklist } from "@/components/CoopChecklist";
 import { StudentBlockDisplay } from "@/components/StudentBlockDisplay";
 import { BackgroundScheduler } from "@/components/BackgroundScheduler";
+import { ErrorFallback } from "@/components/ErrorFallback";
 
 import { stagingUtils, type StagingMode } from "@/utils/stagingUtils";
 
@@ -22,8 +23,9 @@ const KhalilDashboard = () => {
   // Determine staging mode
   const stagingMode: StagingMode = stagingParam === 'true' ? 'staging' : 'production';
   
-  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment } = useAssignments('Khalil', stagingMode);
+  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch } = useAssignments('Khalil', stagingMode);
   const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
+  const [criticalError, setCriticalError] = useState<string | null>(null);
   
   // Use date parameter if provided and valid, otherwise use today
   let displayDate = new Date();
@@ -61,6 +63,36 @@ const KhalilDashboard = () => {
   useEffect(() => {
     loadScheduledAssignments();
   }, [loadScheduledAssignments]);
+
+  // Handle critical errors that would cause blank pages
+  useEffect(() => {
+    if (assignmentsError && !assignments.length && !assignmentsLoading) {
+      // Only show critical error if we have no data at all
+      const isCritical = assignmentsError.includes('timeout') || 
+                        assignmentsError.includes('network') || 
+                        assignmentsError.includes('connection') ||
+                        !assignmentsError.includes('cached');
+      
+      if (isCritical) {
+        setCriticalError(assignmentsError);
+      }
+    } else {
+      setCriticalError(null);
+    }
+  }, [assignmentsError, assignments.length, assignmentsLoading]);
+
+  // Show error fallback for critical errors
+  if (criticalError) {
+    return (
+      <ErrorFallback 
+        error={criticalError}
+        onRetry={() => {
+          setCriticalError(null);
+          refetch();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6">

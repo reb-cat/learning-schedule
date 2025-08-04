@@ -111,11 +111,30 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
         }
       }
       
-      // All retries failed
+      // All retries failed - use cached data if available instead of failing completely
+      const cachedData = cache.get(studentName, currentMode);
+      if (cachedData && cachedData.length > 0) {
+        console.warn('Using stale cached data due to fetch failure');
+        setAssignments(cachedData);
+        setError('Using cached data - connection issues detected');
+        return;
+      }
+      
       throw lastError || new Error('Failed to fetch assignments after retries');
     } catch (err) {
       console.error('Error fetching assignments:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch assignments');
+      
+      // Try to use cached data as fallback to prevent blank pages
+      const cachedData = cache.get(studentName, currentMode);
+      if (cachedData && cachedData.length > 0) {
+        console.warn('Using cached data as fallback after error');
+        setAssignments(cachedData);
+        setError('Using cached data - please refresh when connection improves');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to fetch assignments');
+        // Set empty array instead of leaving assignments undefined
+        setAssignments([]);
+      }
     } finally {
       setLoading(false);
     }

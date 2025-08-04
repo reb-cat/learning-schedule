@@ -548,35 +548,72 @@ export class BlockSharingScheduler {
       console.log('Executing schedule with decision:', decision);
       
       // Execute updates sequentially to avoid overwhelming the database
+      let successCount = 0;
+      let errorCount = 0;
+      
       for (const block of decision.academic_blocks) {
         for (const taskAssignment of block.tasks) {
           const assignment = taskAssignment.assignment;
           
-          const { error } = await supabase
-            .from(tableName)
-            .update({
-              scheduled_block: block.block_number,
-              scheduled_date: block.date,
-              shared_block_id: taskAssignment.shared_block_id,
-              block_position: taskAssignment.position
-            })
-            .eq('id', assignment.id.split('_part_')[0]);
+          // Extract base UUID and validate it
+          const baseId = this.extractBaseUUID(assignment.id);
+          if (!this.isValidUUID(baseId)) {
+            console.error(`Invalid UUID format: ${assignment.id} -> ${baseId}`);
+            errorCount++;
+            continue;
+          }
           
-          if (error) {
-            throw new Error(`Database update failed: ${error.message}`);
+          try {
+            const { error } = await supabase
+              .from(tableName)
+              .update({
+                scheduled_block: block.block_number,
+                scheduled_date: block.date,
+                shared_block_id: taskAssignment.shared_block_id,
+                block_position: taskAssignment.position
+              })
+              .eq('id', baseId);
+            
+            if (error) {
+              console.error(`Database update failed for ${baseId}:`, error.message);
+              errorCount++;
+            } else {
+              successCount++;
+            }
+          } catch (updateError) {
+            console.error(`Update error for ${baseId}:`, updateError);
+            errorCount++;
           }
         }
       }
       
-      console.log('Schedule execution completed successfully');
+      console.log(`Schedule execution completed: ${successCount} success, ${errorCount} errors`);
       
-      // Invalidate cache after execution
-      this.cache.clear();
+      // Only invalidate cache if we had at least some successes
+      if (successCount > 0) {
+        this.cache.clear();
+      }
+      
+      // Throw if all updates failed
+      if (errorCount > 0 && successCount === 0) {
+        throw new Error(`All database updates failed (${errorCount} errors)`);
+      }
       
     } catch (error) {
       console.error('Error executing schedule:', error);
       throw error;
     }
+  }
+
+  private extractBaseUUID(id: string): string {
+    // Handle split assignment IDs like "uuid_part_1"
+    const parts = id.split('_part_');
+    return parts[0];
+  }
+
+  private isValidUUID(uuid: string): boolean {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(uuid);
   }
 
   // Cache invalidation method
