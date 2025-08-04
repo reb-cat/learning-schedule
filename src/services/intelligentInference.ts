@@ -530,3 +530,76 @@ export async function updateLearningPattern(
     console.error('Failed to update learning patterns:', error);
   }
 }
+
+export class IntelligentInference {
+  static inferCognitiveLoad(assignment: { 
+    title: string; 
+    subject?: string; 
+    course_name?: string; 
+    urgency?: string; 
+    task_type?: string; 
+    estimated_time_minutes?: number;
+    actual_estimated_minutes?: number;
+  }): 'light' | 'medium' | 'heavy' {
+    const title = assignment.title?.toLowerCase() || '';
+    const estimatedMinutes = assignment.estimated_time_minutes || assignment.actual_estimated_minutes || 30;
+    const subject = assignment.subject?.toLowerCase() || '';
+    
+    // Light cognitive load patterns
+    if (title.includes('syllabus') || title.includes('recipe') || 
+        title.includes('check') || title.includes('review') ||
+        title.includes('attendance') || title.includes('bring') ||
+        subject.includes('lunch') || subject.includes('break') ||
+        estimatedMinutes <= 15) {
+      return 'light';
+    }
+    
+    // Heavy cognitive load patterns
+    if (title.includes('project') || title.includes('essay') || 
+        title.includes('research') || title.includes('analysis') ||
+        title.includes('exam') || title.includes('test') ||
+        title.includes('paper') || title.includes('presentation') ||
+        subject.includes('math') || subject.includes('science') ||
+        estimatedMinutes >= 60) {
+      return 'heavy';
+    }
+    
+    return 'medium';
+  }
+
+  static inferUrgency(assignment: { due_date?: string }): 'overdue' | 'due_today' | 'due_soon' | 'upcoming' {
+    if (!assignment.due_date) return 'upcoming';
+    
+    const dueDate = new Date(assignment.due_date);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Normalize to start of day
+    dueDate.setHours(0, 0, 0, 0);
+    
+    const daysDiff = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
+    
+    if (daysDiff < 0) return 'overdue';
+    if (daysDiff === 0) return 'due_today';
+    if (daysDiff <= 3) return 'due_soon';
+    
+    return 'upcoming';
+  }
+
+  static applyInferenceToAssignment(assignment: any): any {
+    const updatedAssignment = { ...assignment };
+    
+    // Apply inferences only if data is missing
+    if (!updatedAssignment.cognitive_load) {
+      updatedAssignment.cognitive_load = this.inferCognitiveLoad(assignment);
+    }
+    
+    if (!updatedAssignment.urgency) {
+      updatedAssignment.urgency = this.inferUrgency(assignment);
+    }
+    
+    if (!updatedAssignment.task_type) {
+      updatedAssignment.task_type = 'academic';
+    }
+    
+    return updatedAssignment;
+  }
+}

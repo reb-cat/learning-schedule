@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { stagingUtils, type StagingMode } from '@/utils/stagingUtils';
 import { useAssignmentCache } from './useAssignmentCache';
+import { DataCleanupService } from '@/services/dataCleanupService';
+import { IntelligentInference } from '@/services/intelligentInference';
 
 export interface Assignment {
   id: string;
@@ -91,8 +93,13 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
             throw new Error(error.message);
           }
 
-          const assignmentData = (data || []) as Assignment[];
+          let assignmentData = (data || []) as Assignment[];
           console.log(`📚 Found ${assignmentData.length} assignments for ${studentName}`);
+          
+          // Apply intelligent inference to fill missing data
+          assignmentData = assignmentData.map(assignment => 
+            IntelligentInference.applyInferenceToAssignment(assignment)
+          );
           
           // Update cache and state
           cache.set(studentName, currentMode, assignmentData);
@@ -194,6 +201,21 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
     cache.invalidate(studentName, currentMode);
   }, [cache, studentName, currentMode]);
 
+  // Data cleanup utilities
+  const cleanupData = useCallback(async () => {
+    try {
+      await DataCleanupService.cleanupAssignmentData(studentName, currentMode);
+      // Refresh data after cleanup
+      await fetchAssignments(true);
+    } catch (error) {
+      console.error('Data cleanup failed:', error);
+    }
+  }, [studentName, currentMode, fetchAssignments]);
+
+  const validateData = useCallback(async () => {
+    return await DataCleanupService.validateAssignmentData(studentName, currentMode);
+  }, [studentName, currentMode]);
+
   return {
     assignments,
     loading,
@@ -202,6 +224,8 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
     forceRefresh: () => fetchAssignments(true),
     getScheduledAssignment,
     invalidateCache,
+    cleanupData,
+    validateData,
     cacheStats: cache.getStats()
   };
 };
