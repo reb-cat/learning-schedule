@@ -38,15 +38,15 @@ export function TimeEstimationSection({ value, onChange }: TimeEstimationSection
         <span className="text-sm text-muted-foreground">({formatTime(value)})</span>
       </div>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {timeCategories.map((category) => (
           <button
             key={category.id}
             type="button"
             onClick={() => onChange(category.value)}
             className={`
-              relative flex flex-col items-center justify-center min-h-[3.5rem] px-2 sm:px-3 py-2 rounded-md 
-              text-xs sm:text-sm font-medium text-center break-words overflow-hidden
+              relative flex flex-col items-center justify-center min-h-[3.5rem] min-w-[5rem] sm:min-w-[6rem] 
+              px-4 sm:px-5 py-2 rounded-md text-xs sm:text-sm font-medium text-center break-words overflow-hidden
               transition-colors ring-offset-background focus-visible:outline-none focus-visible:ring-2 
               focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50
               ${selectedCategory?.id === category.id 
