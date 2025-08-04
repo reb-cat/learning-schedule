@@ -92,10 +92,14 @@ export type Database = {
           is_full_day_block: boolean | null
           is_split_assignment: boolean | null
           is_template: boolean | null
+          item_type: string | null
+          module_id: string | null
+          module_position: number | null
           notes: string | null
           original_assignment_id: string | null
           parent_assignment_id: string | null
           priority: string | null
+          quiz_type: string | null
           recurrence_pattern: Json | null
           scheduled_block: number | null
           scheduled_date: string | null
@@ -137,10 +141,14 @@ export type Database = {
           is_full_day_block?: boolean | null
           is_split_assignment?: boolean | null
           is_template?: boolean | null
+          item_type?: string | null
+          module_id?: string | null
+          module_position?: number | null
           notes?: string | null
           original_assignment_id?: string | null
           parent_assignment_id?: string | null
           priority?: string | null
+          quiz_type?: string | null
           recurrence_pattern?: Json | null
           scheduled_block?: number | null
           scheduled_date?: string | null
@@ -182,10 +190,14 @@ export type Database = {
           is_full_day_block?: boolean | null
           is_split_assignment?: boolean | null
           is_template?: boolean | null
+          item_type?: string | null
+          module_id?: string | null
+          module_position?: number | null
           notes?: string | null
           original_assignment_id?: string | null
           parent_assignment_id?: string | null
           priority?: string | null
+          quiz_type?: string | null
           recurrence_pattern?: Json | null
           scheduled_block?: number | null
           scheduled_date?: string | null

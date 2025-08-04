@@ -182,6 +182,125 @@ async function fetchCoursePages(courseId: string, token: string, baseUrl: string
   }
 }
 
+// Function to fetch course modules
+async function fetchCourseModules(courseId: string, token: string, baseUrl: string = canvasBaseUrl): Promise<any[]> {
+  try {
+    const response = await fetch(
+      `${baseUrl}/api/v1/courses/${courseId}/modules?include[]=items&per_page=50`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch modules for course ${courseId}: ${response.status}`);
+      return [];
+    }
+    
+    const modules = await response.json();
+    console.log(`   📚 Found ${modules.length} modules`);
+    return modules;
+  } catch (error) {
+    console.error(`Error fetching modules for course ${courseId}:`, error);
+    return [];
+  }
+}
+
+// Function to fetch course quizzes
+async function fetchCourseQuizzes(courseId: string, token: string, baseUrl: string = canvasBaseUrl): Promise<any[]> {
+  try {
+    const response = await fetch(
+      `${baseUrl}/api/v1/courses/${courseId}/quizzes?per_page=50`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch quizzes for course ${courseId}: ${response.status}`);
+      return [];
+    }
+    
+    const quizzes = await response.json();
+    console.log(`   🧩 Found ${quizzes.length} quizzes`);
+    return quizzes;
+  } catch (error) {
+    console.error(`Error fetching quizzes for course ${courseId}:`, error);
+    return [];
+  }
+}
+
+// Function to process module items and convert to assignments
+function processModuleItems(modules: any[], courseName: string, courseId: string, baseUrl: string): any[] {
+  const moduleAssignments: any[] = [];
+  
+  for (const module of modules) {
+    if (!module.items) continue;
+    
+    for (const item of module.items) {
+      // Skip if already an assignment (will be fetched separately)
+      if (item.type === 'Assignment') continue;
+      
+      // Process actionable items
+      const isActionable = item.type === 'Quiz' || 
+                          item.type === 'Discussion' ||
+                          item.type === 'ExternalTool' ||
+                          (item.type === 'Page' && item.title && isActionableTitle(item.title));
+      
+      if (isActionable && item.title) {
+        const assignment = {
+          id: `module_${module.id}_${item.id}`,
+          name: item.title,
+          type: item.type,
+          module_id: module.id.toString(),
+          module_name: module.name,
+          module_position: item.position || 1,
+          html_url: item.html_url || `${baseUrl}/courses/${courseId}/modules/${module.id}/items/${item.id}`,
+          due_at: item.due_at || null,
+          // Set a reasonable due date for orientation items
+          calculated_due_date: item.due_at || calculateModuleDueDate(module, item)
+        };
+        
+        moduleAssignments.push(assignment);
+      }
+    }
+  }
+  
+  return moduleAssignments;
+}
+
+// Helper function to determine if a module item title is actionable
+function isActionableTitle(title: string): boolean {
+  const actionableKeywords = [
+    'complete', 'submit', 'read', 'review', 'watch', 'attend', 'post', 'quiz',
+    'assignment', 'discussion', 'orientation', 'introduce', 'syllabus'
+  ];
+  
+  const titleLower = title.toLowerCase();
+  return actionableKeywords.some(keyword => titleLower.includes(keyword));
+}
+
+// Helper function to calculate due dates for module items without explicit due dates
+function calculateModuleDueDate(module: any, item: any): string | null {
+  // For orientation modules, set due date to first week of class
+  if (module.name && module.name.toLowerCase().includes('orientation')) {
+    return '2025-08-19T23:59:59Z'; // Week of August 12th
+  }
+  
+  // For welcome/first week modules
+  if (module.name && (module.name.toLowerCase().includes('welcome') || module.name.toLowerCase().includes('week 1'))) {
+    return '2025-08-26T23:59:59Z'; // End of first week
+  }
+  
+  return null;
+}
+
 async function syncStudentAssignments(studentName: string, token: string, baseUrl: string = canvasBaseUrl, accountLabel: string = '') {
   console.log(`🔄 Starting sync for ${studentName}${accountLabel ? ` (${accountLabel})` : ''}...`);
   
@@ -223,12 +342,14 @@ async function syncStudentAssignments(studentName: string, token: string, baseUr
     for (const course of courses) {
       console.log(`📚 Processing course: ${course.name}${accountLabel ? ` (${accountLabel})` : ''}`);
       
-      // Fetch additional course content for administrative requirements
-      console.log(`   🔍 Fetching syllabi, announcements, and pages for ${course.name}...`);
-      const [syllabusContent, announcementsContent, pagesContent] = await Promise.all([
+      // Fetch additional course content for administrative requirements and modules/quizzes
+      console.log(`   🔍 Fetching syllabi, announcements, pages, modules, and quizzes for ${course.name}...`);
+      const [syllabusContent, announcementsContent, pagesContent, modules, quizzes] = await Promise.all([
         fetchCourseSyllabus(course.id, token, baseUrl),
         fetchCourseAnnouncements(course.id, token, baseUrl),
-        fetchCoursePages(course.id, token, baseUrl)
+        fetchCoursePages(course.id, token, baseUrl),
+        fetchCourseModules(course.id, token, baseUrl),
+        fetchCourseQuizzes(course.id, token, baseUrl)
       ]);
       
       // Extract fees from all content sources
@@ -293,7 +414,7 @@ async function syncStudentAssignments(studentName: string, token: string, baseUr
       const assignments = await assignmentsResponse.json();
       console.log(`   📝 Found ${assignments.length} assignments`);
 
-      // 4) Process each assignment
+      // 4) Process regular assignments
       for (const assignment of assignments) {
         if (!assignment.due_at) continue; // Skip assignments without due dates
         
@@ -352,14 +473,117 @@ async function syncStudentAssignments(studentName: string, token: string, baseUr
             due_date: dueDateISO,
             canvas_id: assignment.id?.toString(),
             canvas_url: assignment.html_url,
-            eligible_for_scheduling: category === 'academic', // Only academic assignments are eligible for scheduling
-            category: category
+            eligible_for_scheduling: category === 'academic',
+            category: category,
+            item_type: 'assignment'
           });
 
         if (error) {
           console.error(`❌ Error inserting assignment "${assignment.name}":`, error);
         } else {
           console.log(`  ✅ Added: ${studentName} | ${course.name} – ${assignment.name}${accountLabel ? ` (${accountLabel})` : ''}`);
+          newAssignments++;
+        }
+      }
+      
+      // 5) Process module items
+      const moduleAssignments = processModuleItems(modules, course.name, course.id, baseUrl);
+      console.log(`   📚 Processing ${moduleAssignments.length} module items`);
+      
+      for (const moduleItem of moduleAssignments) {
+        // Check if module item already exists
+        const existingModuleItem = existingAssignments?.find(existing => 
+          existing.canvas_id === moduleItem.id
+        );
+        
+        if (existingModuleItem) {
+          console.log(`  ✅ Module item already exists: ${moduleItem.name}`);
+          continue;
+        }
+        
+        // Use calculated due date if available
+        const dueDate = moduleItem.calculated_due_date;
+        if (!dueDate) continue;
+        
+        // Skip if due date is before cutoff
+        const dueDateObj = new Date(dueDate);
+        const cutoffDate = new Date(ACADEMIC_YEAR_CUTOFF);
+        if (dueDateObj < cutoffDate) continue;
+        
+        // Categorize module item
+        const category = categorizeAssignment(moduleItem.name);
+        console.log(`  📂 Categorized module item "${moduleItem.name}" as: ${category}`);
+        
+        // Insert module item as assignment
+        const { error } = await supabase
+          .from('assignments')
+          .insert({
+            student_name: studentName,
+            title: moduleItem.name,
+            course_name: course.name,
+            due_date: dueDate,
+            canvas_id: moduleItem.id,
+            canvas_url: moduleItem.html_url,
+            eligible_for_scheduling: category === 'academic',
+            category: category,
+            item_type: 'module_item',
+            module_id: moduleItem.module_id,
+            module_position: moduleItem.module_position
+          });
+
+        if (error) {
+          console.error(`❌ Error inserting module item "${moduleItem.name}":`, error);
+        } else {
+          console.log(`  ✅ Added module item: ${studentName} | ${course.name} – ${moduleItem.name}${accountLabel ? ` (${accountLabel})` : ''}`);
+          newAssignments++;
+        }
+      }
+      
+      // 6) Process quizzes with due dates
+      console.log(`   🧩 Processing ${quizzes.length} quizzes`);
+      
+      for (const quiz of quizzes) {
+        if (!quiz.due_at) continue; // Skip quizzes without due dates
+        
+        // Skip quizzes due before the academic year cutoff
+        const dueDate = new Date(quiz.due_at);
+        const cutoffDate = new Date(ACADEMIC_YEAR_CUTOFF);
+        if (dueDate < cutoffDate) continue;
+        
+        // Check if quiz already exists
+        const existingQuiz = existingAssignments?.find(existing => 
+          existing.canvas_id === `quiz_${quiz.id}`
+        );
+        
+        if (existingQuiz) {
+          console.log(`  ✅ Quiz already exists: ${quiz.title}`);
+          continue;
+        }
+        
+        // Categorize quiz
+        const category = categorizeAssignment(quiz.title);
+        console.log(`  📂 Categorized quiz "${quiz.title}" as: ${category}`);
+        
+        // Insert quiz as assignment
+        const { error } = await supabase
+          .from('assignments')
+          .insert({
+            student_name: studentName,
+            title: quiz.title,
+            course_name: course.name,
+            due_date: dueDate.toISOString(),
+            canvas_id: `quiz_${quiz.id}`,
+            canvas_url: quiz.html_url,
+            eligible_for_scheduling: category === 'academic',
+            category: category,
+            item_type: 'quiz',
+            quiz_type: quiz.quiz_type || 'assignment'
+          });
+
+        if (error) {
+          console.error(`❌ Error inserting quiz "${quiz.title}":`, error);
+        } else {
+          console.log(`  ✅ Added quiz: ${studentName} | ${course.name} – ${quiz.title}${accountLabel ? ` (${accountLabel})` : ''}`);
           newAssignments++;
         }
       }
