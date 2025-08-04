@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { stagingUtils, type StagingMode } from '@/utils/stagingUtils';
 import { useAssignmentCache } from './useAssignmentCache';
+import { useMemoryManager } from './useMemoryManager';
+import { useDataValidator } from './useDataValidator';
 import { DataCleanupService } from '@/services/dataCleanupService';
 import { IntelligentInference } from '@/services/intelligentInference';
 
@@ -55,6 +57,8 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
   const [lastFetch, setLastFetch] = useState<number>(0);
   const currentMode = mode || stagingUtils.getCurrentMode();
   const cache = useAssignmentCache();
+  const memoryManager = useMemoryManager({ maxCacheSize: 25, gcThreshold: 75 });
+  const dataValidator = useDataValidator();
 
   const fetchAssignments = useCallback(async (forceRefresh = false) => {
     try {
@@ -213,8 +217,27 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
   }, [studentName, currentMode, fetchAssignments]);
 
   const validateData = useCallback(async () => {
-    return await DataCleanupService.validateAssignmentData(studentName, currentMode);
-  }, [studentName, currentMode]);
+    return await dataValidator.validateAssignmentData(studentName, currentMode);
+  }, [studentName, currentMode, dataValidator]);
+
+  const repairData = useCallback(async () => {
+    const result = await dataValidator.validateAndRepairData(studentName, currentMode);
+    if (result.repaired > 0) {
+      // Refresh data after repair
+      await fetchAssignments(true);
+    }
+    return result;
+  }, [studentName, currentMode, dataValidator, fetchAssignments]);
+
+  // Periodic memory management
+  const handleMemoryOptimization = useCallback(() => {
+    const memoryStats = memoryManager.getMemoryStats();
+    if (memoryStats && memoryStats.used > 50) {
+      console.log('🧹 Optimizing memory usage...', memoryStats);
+      cache.invalidate(); // Clear old cache entries
+      memoryManager.forceCleanup();
+    }
+  }, [cache, memoryManager]);
 
   return {
     assignments,
@@ -226,6 +249,9 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
     invalidateCache,
     cleanupData,
     validateData,
-    cacheStats: cache.getStats()
+    repairData,
+    optimizeMemory: handleMemoryOptimization,
+    cacheStats: cache.getStats(),
+    memoryStats: memoryManager.getMemoryStats
   };
 };
