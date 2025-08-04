@@ -1,8 +1,7 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Home, Calendar } from "lucide-react";
+import { Home } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
 import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 import { useAssignments } from "@/hooks/useAssignments";
