@@ -14,6 +14,7 @@ import { BackgroundScheduler } from "@/components/BackgroundScheduler";
 import { stagingUtils, type StagingMode } from "@/utils/stagingUtils";
 
 const AbigailDashboard = () => {
+  console.log('🏠 AbigailDashboard rendering...');
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
   const stagingParam = searchParams.get('staging');
