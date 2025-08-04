@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { stagingUtils, type StagingMode } from '@/utils/stagingUtils';
 import { useAssignmentCache } from './useAssignmentCache';
 import { useMemoryManager } from './useMemoryManager';
 import { useDataValidator } from './useDataValidator';
@@ -50,12 +49,11 @@ export interface Assignment {
   total_split_parts?: number;
 }
 
-export const useAssignments = (studentName: string, mode?: StagingMode) => {
+export const useAssignments = (studentName: string) => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<number>(0);
-  const currentMode = mode || stagingUtils.getCurrentMode();
   const cache = useAssignmentCache();
   const memoryManager = useMemoryManager({ maxCacheSize: 25, gcThreshold: 75 });
   const dataValidator = useDataValidator();
@@ -64,9 +62,9 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
     try {
       // Check cache first unless forcing refresh
       if (!forceRefresh) {
-        const cachedData = cache.get(studentName, currentMode);
+        const cachedData = cache.get(studentName);
         if (cachedData) {
-          console.log(`📋 Using cached assignments for ${studentName} (${currentMode})`);
+          console.log(`📋 Using cached assignments for ${studentName}`);
           setAssignments(cachedData);
           setLoading(false);
           return;
@@ -76,8 +74,7 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
       setLoading(true);
       setError(null);
       
-      const tableName = currentMode === 'staging' ? 'assignments_staging' : 'assignments';
-      console.log(`🔍 Fetching assignments from ${tableName} for ${studentName}`);
+      console.log(`🔍 Fetching assignments from assignments table for ${studentName}`);
       
       // Add retry logic for network issues
       const maxRetries = 3;
@@ -86,7 +83,7 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           const query = supabase
-            .from(tableName)
+            .from('assignments')
             .select('*')
             .eq('student_name', studentName)
             .order('due_date', { ascending: true, nullsFirst: false });
@@ -106,7 +103,7 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
           );
           
           // Update cache and state
-          cache.set(studentName, currentMode, assignmentData);
+          cache.set(studentName, assignmentData);
           setAssignments(assignmentData);
           setLastFetch(Date.now());
           
@@ -123,7 +120,7 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
       }
       
       // All retries failed - use cached data if available instead of failing completely
-      const cachedData = cache.get(studentName, currentMode);
+      const cachedData = cache.get(studentName);
       if (cachedData && cachedData.length > 0) {
         console.warn('Using stale cached data due to fetch failure');
         setAssignments(cachedData);
@@ -136,7 +133,7 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
       console.error('Error fetching assignments:', err);
       
       // Try to use cached data as fallback to prevent blank pages
-      const cachedData = cache.get(studentName, currentMode);
+      const cachedData = cache.get(studentName);
       if (cachedData && cachedData.length > 0) {
         console.warn('Using cached data as fallback after error');
         setAssignments(cachedData);
@@ -149,18 +146,16 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
     } finally {
       setLoading(false);
     }
-  }, [studentName, currentMode, cache]);
+  }, [studentName, cache]);
 
   const getScheduledAssignment = async (block: number, date: string) => {
-    const tableName = currentMode === 'staging' ? 'assignments_staging' : 'assignments';
-    
     // Add retry logic for scheduled assignments too
     const maxRetries = 2;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const { data, error } = await supabase
-          .from(tableName)
+          .from('assignments')
           .select('*')
           .eq('student_name', studentName)
           .eq('scheduled_block', block)
@@ -202,32 +197,32 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
 
   // Invalidate cache when needed
   const invalidateCache = useCallback(() => {
-    cache.invalidate(studentName, currentMode);
-  }, [cache, studentName, currentMode]);
+    cache.invalidate(studentName);
+  }, [cache, studentName]);
 
   // Data cleanup utilities
   const cleanupData = useCallback(async () => {
     try {
-      await DataCleanupService.cleanupAssignmentData(studentName, currentMode);
+      await DataCleanupService.cleanupAssignmentData(studentName);
       // Refresh data after cleanup
       await fetchAssignments(true);
     } catch (error) {
       console.error('Data cleanup failed:', error);
     }
-  }, [studentName, currentMode, fetchAssignments]);
+  }, [studentName, fetchAssignments]);
 
   const validateData = useCallback(async () => {
-    return await dataValidator.validateAssignmentData(studentName, currentMode);
-  }, [studentName, currentMode, dataValidator]);
+    return await dataValidator.validateAssignmentData(studentName);
+  }, [studentName, dataValidator]);
 
   const repairData = useCallback(async () => {
-    const result = await dataValidator.validateAndRepairData(studentName, currentMode);
+    const result = await dataValidator.validateAndRepairData(studentName);
     if (result.repaired > 0) {
       // Refresh data after repair
       await fetchAssignments(true);
     }
     return result;
-  }, [studentName, currentMode, dataValidator, fetchAssignments]);
+  }, [studentName, dataValidator, fetchAssignments]);
 
   // Periodic memory management
   const handleMemoryOptimization = useCallback(() => {

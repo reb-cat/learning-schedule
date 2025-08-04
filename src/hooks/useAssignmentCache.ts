@@ -22,12 +22,8 @@ export const useAssignmentCache = (options: CacheOptions = {}) => {
     return btoa(hashData).slice(0, 16);
   }, []);
 
-  const getCacheKey = useCallback((studentName: string, mode: string): string => {
-    return `${studentName}-${mode}`;
-  }, []);
-
-  const get = useCallback((studentName: string, mode: string): Assignment[] | null => {
-    const key = getCacheKey(studentName, mode);
+  const get = useCallback((studentName: string): Assignment[] | null => {
+    const key = studentName;
     const entry = cache.current.get(key);
     
     if (!entry) {
@@ -44,10 +40,10 @@ export const useAssignmentCache = (options: CacheOptions = {}) => {
 
     setCacheStats(prev => ({ ...prev, hits: prev.hits + 1 }));
     return entry.data;
-  }, [getCacheKey, ttl]);
+  }, [ttl]);
 
-  const set = useCallback((studentName: string, mode: string, data: Assignment[]): void => {
-    const key = getCacheKey(studentName, mode);
+  const set = useCallback((studentName: string, data: Assignment[]): void => {
+    const key = studentName;
     const hash = generateHash(data);
     
     // Check if data has actually changed
@@ -69,16 +65,16 @@ export const useAssignmentCache = (options: CacheOptions = {}) => {
       timestamp: Date.now(),
       hash
     });
-  }, [getCacheKey, generateHash, maxSize]);
+  }, [generateHash, maxSize]);
 
-  const invalidate = useCallback((studentName?: string, mode?: string): void => {
-    if (studentName && mode) {
-      const key = getCacheKey(studentName, mode);
+  const invalidate = useCallback((studentName?: string): void => {
+    if (studentName) {
+      const key = studentName;
       cache.current.delete(key);
     } else {
       cache.current.clear();
     }
-  }, [getCacheKey]);
+  }, []);
 
   const getStats = useCallback(() => ({
     ...cacheStats,

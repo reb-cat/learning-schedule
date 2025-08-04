@@ -1,6 +1,5 @@
 import { useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { stagingUtils, type StagingMode } from '@/utils/stagingUtils';
 
 interface ValidationResult {
   isValid: boolean;
@@ -17,11 +16,9 @@ export function useDataValidator() {
   const validationCache = useRef<Map<string, ValidationResult>>(new Map());
 
   const validateAssignmentData = useCallback(async (
-    studentName: string, 
-    mode?: StagingMode
+    studentName: string
   ): Promise<ValidationResult> => {
-    const currentMode = mode || stagingUtils.getCurrentMode();
-    const cacheKey = `${studentName}-${currentMode}`;
+    const cacheKey = studentName;
     
     // Check cache first
     const cached = validationCache.current.get(cacheKey);
@@ -29,7 +26,6 @@ export function useDataValidator() {
       return cached;
     }
 
-    const tableName = currentMode === 'staging' ? 'assignments_staging' : 'assignments';
     const errors: string[] = [];
     const warnings: string[] = [];
     let totalChecked = 0;
@@ -37,7 +33,7 @@ export function useDataValidator() {
     try {
       // Fetch all assignments for validation
       const { data: assignments, error } = await supabase
-        .from(tableName)
+        .from('assignments')
         .select('*')
         .eq('student_name', studentName);
 
@@ -125,18 +121,15 @@ export function useDataValidator() {
   }, []);
 
   const validateAndRepairData = useCallback(async (
-    studentName: string,
-    mode?: StagingMode
+    studentName: string
   ): Promise<{ repaired: number; failed: number }> => {
-    const currentMode = mode || stagingUtils.getCurrentMode();
-    const tableName = currentMode === 'staging' ? 'assignments_staging' : 'assignments';
     let repaired = 0;
     let failed = 0;
 
     try {
       // Find assignments with malformed IDs
       const { data: malformedAssignments, error } = await supabase
-        .from(tableName)
+        .from('assignments')
         .select('id, original_assignment_id')
         .eq('student_name', studentName)
         .like('id', '%_part_%');
@@ -156,7 +149,7 @@ export function useDataValidator() {
           const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
           if (uuidRegex.test(baseId)) {
             await supabase
-              .from(tableName)
+              .from('assignments')
               .update({ 
                 original_assignment_id: assignment.id, // Preserve the original for reference
                 id: baseId // Fix to proper UUID

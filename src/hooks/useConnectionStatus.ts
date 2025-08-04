@@ -10,7 +10,7 @@ export function useConnectionStatus() {
       try {
         // Simple health check query
         const { error } = await supabase
-          .from('assignments_staging')
+          .from('assignments')
           .select('id')
           .limit(1);
         

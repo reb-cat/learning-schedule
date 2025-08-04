@@ -1,6 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays } from "date-fns";
-import { stagingUtils } from "@/utils/stagingUtils";
 
 export interface TaskClassification {
   id: string;
@@ -167,32 +166,20 @@ export class BlockSharingScheduler {
   }
 
   async getClassifiedTasks(studentName: string): Promise<TaskClassification[]> {
-    const currentMode = stagingUtils.getCurrentMode();
-    
     // Add timeout to prevent hanging requests
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
     try {
-      const { data, error } = currentMode === 'staging' 
-        ? await supabase
-            .from('assignments_staging')
-            .select('*')
-            .eq('student_name', studentName)
-            .is('scheduled_block', null)
-            .eq('eligible_for_scheduling', true)
-            .in('completion_status', ['not_started', 'in_progress', 'stuck'])
-            .order('due_date', { ascending: true, nullsFirst: false })
-            .abortSignal(controller.signal)
-        : await supabase
-            .from('assignments')
-            .select('*')
-            .eq('student_name', studentName)
-            .is('scheduled_block', null)
-            .eq('eligible_for_scheduling', true)
-            .in('completion_status', ['not_started', 'in_progress', 'stuck'])
-            .order('due_date', { ascending: true, nullsFirst: false })
-            .abortSignal(controller.signal);
+      const { data, error } = await supabase
+        .from('assignments')
+        .select('*')
+        .eq('student_name', studentName)
+        .is('scheduled_block', null)
+        .eq('eligible_for_scheduling', true)
+        .in('completion_status', ['not_started', 'in_progress', 'stuck'])
+        .order('due_date', { ascending: true, nullsFirst: false })
+        .abortSignal(controller.signal);
 
       clearTimeout(timeoutId);
       if (error) throw error;
@@ -541,8 +528,6 @@ export class BlockSharingScheduler {
   }
 
   async executeSchedule(decision: SchedulingDecision): Promise<void> {
-    const currentMode = stagingUtils.getCurrentMode();
-    const tableName = currentMode === 'staging' ? 'assignments_staging' : 'assignments';
     
     try {
       console.log('Executing schedule with decision:', decision);
@@ -565,7 +550,7 @@ export class BlockSharingScheduler {
           
           try {
             const { error } = await supabase
-              .from(tableName)
+              .from('assignments')
               .update({
                 scheduled_block: block.block_number,
                 scheduled_date: block.date,
