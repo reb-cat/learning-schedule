@@ -79,54 +79,67 @@ export const stagingUtils = {
 
   // Seed staging data with test assignments for August 2025
   async seedTestData(): Promise<void> {
+    // Check if test data already exists to prevent duplicates
+    const { data: existing } = await supabase
+      .from('assignments_staging')
+      .select('id')
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      console.log('Test data already exists, skipping seed');
+      return;
+    }
+
     const testAssignments = [
       {
-        student_name: 'Khalil',
+        student_name: 'Abigail',
         title: 'Math Chapter 12 Review',
-        course_name: 'Advanced Mathematics',
+        course_name: 'Algebra II',
         subject: 'Math',
-        due_date: '2025-08-18T23:59:00Z',
+        due_date: '2024-01-15T23:59:00Z',
         estimated_time_minutes: 45,
-        task_type: 'academic',
-        source: 'staging'
-      },
-      {
-        student_name: 'Khalil', 
-        title: 'Science Lab Report - Chemical Reactions',
-        course_name: 'Chemistry',
-        subject: 'Science',
-        due_date: '2025-08-20T23:59:00Z',
-        estimated_time_minutes: 60,
-        task_type: 'academic',
-        source: 'staging'
-      },
-      {
-        student_name: 'Khalil',
-        title: 'History Essay - World War II',
-        course_name: 'World History',
-        subject: 'History', 
-        due_date: '2025-08-21T23:59:00Z',
-        estimated_time_minutes: 90,
-        task_type: 'academic',
-        source: 'staging'
-      },
-      {
-        student_name: 'Khalil',
-        title: 'English Literature Analysis',
-        course_name: 'AP English',
-        subject: 'English',
-        due_date: '2025-08-19T23:59:00Z',
-        estimated_time_minutes: 75,
+        cognitive_load: 'medium',
+        urgency: 'medium',
+        completion_status: 'not_started',
         task_type: 'academic',
         source: 'staging'
       },
       {
         student_name: 'Abigail',
-        title: 'Baking Project - Chocolate Cake',
-        course_name: 'Culinary Arts',
-        subject: 'Baking',
-        due_date: '2025-08-19T23:59:00Z',
-        estimated_time_minutes: 120,
+        title: 'Science Lab Report - Chemical Reactions',
+        course_name: 'Chemistry',
+        subject: 'Science',
+        due_date: '2024-01-16T23:59:00Z',
+        estimated_time_minutes: 60,
+        cognitive_load: 'high',
+        urgency: 'high',
+        completion_status: 'not_started',
+        task_type: 'academic',
+        source: 'staging'
+      },
+      {
+        student_name: 'Abigail',
+        title: 'English Literature Analysis',
+        course_name: 'AP English',
+        subject: 'English',
+        due_date: '2024-01-18T23:59:00Z',
+        estimated_time_minutes: 75,
+        cognitive_load: 'high',
+        urgency: 'medium',
+        completion_status: 'not_started',
+        task_type: 'academic',
+        source: 'staging'
+      },
+      {
+        student_name: 'Abigail',
+        title: 'History Essay - World War II',
+        course_name: 'AP History',
+        subject: 'History',
+        due_date: '2024-01-20T23:59:00Z',
+        estimated_time_minutes: 90,
+        cognitive_load: 'high',
+        urgency: 'low',
+        completion_status: 'not_started',
         task_type: 'academic',
         source: 'staging'
       },
@@ -135,13 +148,38 @@ export const stagingUtils = {
         title: 'Forensics Case Study Analysis',
         course_name: 'Forensic Science',
         subject: 'Science',
-        due_date: '2025-08-20T23:59:00Z',
+        due_date: '2024-01-22T23:59:00Z',
         estimated_time_minutes: 90,
+        cognitive_load: 'high',
+        urgency: 'low',
+        completion_status: 'not_started',
+        task_type: 'academic',
+        source: 'staging'
+      },
+      {
+        student_name: 'Abigail',
+        title: 'Baking Project - Chocolate Cake',
+        course_name: 'Life Skills',
+        subject: 'Life Skills',
+        due_date: '2024-01-25T23:59:00Z',
+        estimated_time_minutes: 120,
+        cognitive_load: 'low',
+        urgency: 'low',
+        completion_status: 'not_started',
         task_type: 'academic',
         source: 'staging'
       }
     ];
 
-    await supabase.from('assignments_staging').insert(testAssignments);
+    const { error } = await supabase
+      .from('assignments_staging')
+      .insert(testAssignments);
+
+    if (error) {
+      console.error('Error seeding test data:', error);
+      throw error;
+    }
+
+    console.log('Test data seeded successfully');
   }
 };

@@ -6,7 +6,7 @@ export interface TaskClassification {
   id: string;
   title: string;
   task_type: 'academic' | 'administrative' | 'quick_review';
-  actual_estimated_minutes: number;
+  estimated_time: number;
   cognitive_load: string;
   subject: string;
   course_name: string;
@@ -145,7 +145,7 @@ export class BlockSharingScheduler {
       id: assignment.id,
       title: assignment.title,
       task_type: (assignment.task_type as 'academic' | 'administrative' | 'quick_review') || 'academic',
-      actual_estimated_minutes: assignment.actual_estimated_minutes || this.estimateTime(assignment.title),
+      estimated_time: assignment.actual_estimated_minutes || this.estimateTime(assignment.title),
       cognitive_load: assignment.cognitive_load || 'medium',
       subject: assignment.subject || 'General',
       course_name: assignment.course_name || '',
@@ -235,40 +235,66 @@ export class BlockSharingScheduler {
   ): Promise<BlockComposition[]> {
     const updatedBlocks = [...blocks];
     
-    // Sort tasks by priority (stuck first, then in_progress, then by urgency/due date)
+    // Sort tasks by priority: stuck > in_progress > overdue > upcoming
     const sortedTasks = tasks.sort((a, b) => {
-      // Stuck tasks get highest priority
-      if (a.completion_status === 'stuck' && b.completion_status !== 'stuck') return -1;
-      if (b.completion_status === 'stuck' && a.completion_status !== 'stuck') return 1;
+      const priorityOrder = { 'stuck': 0, 'critical': 1, 'in_progress': 2, 'overdue': 3, 'high': 4, 'medium': 5, 'low': 6 };
+      const aPriority = priorityOrder[a.urgency as keyof typeof priorityOrder] ?? 7;
+      const bPriority = priorityOrder[b.urgency as keyof typeof priorityOrder] ?? 7;
       
-      // In-progress tasks get second priority
-      if (a.completion_status === 'in_progress' && b.completion_status !== 'in_progress') return -1;
-      if (b.completion_status === 'in_progress' && a.completion_status !== 'in_progress') return 1;
+      if (aPriority !== bPriority) return aPriority - bPriority;
       
-      // Then by urgency
-      if (a.urgency === 'overdue' && b.urgency !== 'overdue') return -1;
-      if (b.urgency === 'overdue' && a.urgency !== 'overdue') return 1;
-      
-      if (a.urgency === 'critical' && b.urgency !== 'critical') return -1;
-      if (b.urgency === 'critical' && a.urgency !== 'critical') return 1;
-      
-      // Finally by due date
+      // Secondary sort by due date
       if (a.due_date && b.due_date) {
-        return a.due_date.getTime() - b.due_date.getTime();
+        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
       }
       
       return 0;
     });
 
     for (const task of sortedTasks) {
-      const availableBlock = this.findBestBlockForTask(task, updatedBlocks);
-      
-      if (availableBlock && this.canFitInBlock(task, availableBlock)) {
-        this.addTaskToBlock(task, availableBlock);
+      if (task.estimated_time <= 45) {
+        // Task fits in one block
+        const bestBlock = this.findBestBlockForTask(task, updatedBlocks);
+        if (bestBlock && this.canFitInBlock(task, bestBlock)) {
+          this.addTaskToBlock(task, bestBlock);
+        }
+      } else {
+        // Task needs to be split across multiple blocks
+        this.splitAndScheduleTask(task, updatedBlocks);
       }
     }
     
     return updatedBlocks;
+  }
+
+  private splitAndScheduleTask(task: TaskClassification, blocks: BlockComposition[]): void {
+    const maxBlockTime = 45;
+    const totalTime = task.estimated_time;
+    const numberOfParts = Math.ceil(totalTime / maxBlockTime);
+    
+    let remainingTime = totalTime;
+    let partNumber = 1;
+    
+    for (let i = 0; i < numberOfParts && remainingTime > 0; i++) {
+      const timeForThisPart = Math.min(remainingTime, maxBlockTime);
+      
+      const taskPart: TaskClassification = {
+        ...task,
+        id: `${task.id}_part_${partNumber}`,
+        title: `${task.title} (Part ${partNumber}/${numberOfParts})`,
+        estimated_time: timeForThisPart
+      };
+      
+      const bestBlock = this.findBestBlockForTask(taskPart, blocks);
+      if (bestBlock && this.canFitInBlock(taskPart, bestBlock)) {
+        this.addTaskToBlock(taskPart, bestBlock);
+        remainingTime -= timeForThisPart;
+        partNumber++;
+      } else {
+        // If we can't fit this part, stop splitting
+        break;
+      }
+    }
   }
 
   private async addQuickReviewTasks(
@@ -282,13 +308,13 @@ export class BlockSharingScheduler {
       if (a.due_date && b.due_date) {
         return a.due_date.getTime() - b.due_date.getTime();
       }
-      return a.actual_estimated_minutes - b.actual_estimated_minutes;
+      return a.estimated_time - b.estimated_time;
     });
 
     for (const task of sortedTasks) {
       // Try to add to existing blocks with space
       const availableBlock = updatedBlocks.find(block => 
-        this.getRemainingMinutes(block) >= task.actual_estimated_minutes + BlockSharingScheduler.MIN_BUFFER_TIME &&
+        this.getRemainingMinutes(block) >= task.estimated_time + BlockSharingScheduler.MIN_BUFFER_TIME &&
         this.canAddCognitiveLoad(task, block)
       );
       
@@ -301,23 +327,43 @@ export class BlockSharingScheduler {
   }
 
   private findBestBlockForTask(task: TaskClassification, blocks: BlockComposition[]): BlockComposition | null {
-    // Find blocks that can fit this task
-    const suitableBlocks = blocks.filter(block => this.canFitInBlock(task, block));
+    // Filter available blocks (with remaining time)
+    const availableBlocks = blocks.filter(block => 
+      block.total_minutes - block.used_minutes >= Math.min(task.estimated_time, 15) // At least 15 minutes
+    );
     
-    if (suitableBlocks.length === 0) return null;
+    if (availableBlocks.length === 0) return null;
     
-    // Prefer blocks with similar subjects or empty blocks
-    return suitableBlocks.sort((a, b) => {
-      // Prefer blocks with same subject
-      const aHasSameSubject = a.tasks.some(t => t.assignment.subject === task.subject);
-      const bHasSameSubject = b.tasks.some(t => t.assignment.subject === task.subject);
+    // For Math assignments, prefer Block 2
+    if (task.subject === 'Math' || task.course_name?.toLowerCase().includes('math')) {
+      const mathBlock = availableBlocks.find(block => block.block_number === 2);
+      if (mathBlock && this.canFitInBlock(task, mathBlock)) {
+        return mathBlock;
+      }
+    }
+    
+    // Avoid consecutive heavy cognitive loads and same subjects
+    const preferredBlocks = availableBlocks.filter(block => {
+      const lastTask = block.tasks[block.tasks.length - 1];
+      if (!lastTask) return true;
       
-      if (aHasSameSubject && !bHasSameSubject) return -1;
-      if (!aHasSameSubject && bHasSameSubject) return 1;
+      // If last task was high cognitive load, prefer medium/low for this task
+      if (lastTask.assignment.cognitive_load === 'high' && task.cognitive_load === 'high') {
+        return false;
+      }
       
-      // Prefer earlier blocks
-      return a.block_number - b.block_number;
-    })[0];
+      // Avoid same subject in consecutive tasks
+      if (lastTask.assignment.subject === task.subject) {
+        return false;
+      }
+      
+      return true;
+    });
+    
+    const targetBlocks = preferredBlocks.length > 0 ? preferredBlocks : availableBlocks;
+    
+    // Find block with best cognitive load balance
+    return targetBlocks.find(block => this.canAddCognitiveLoad(task, block)) || targetBlocks[0];
   }
 
   private canFitInBlock(task: TaskClassification, block: BlockComposition): boolean {
@@ -363,12 +409,12 @@ export class BlockSharingScheduler {
     const taskAssignment: TaskAssignment = {
       assignment: task,
       position,
-      allocated_minutes: task.actual_estimated_minutes,
+      allocated_minutes: task.estimated_time,
       shared_block_id: sharedBlockId
     };
     
     block.tasks.push(taskAssignment);
-    block.used_minutes += task.actual_estimated_minutes;
+    block.used_minutes += task.estimated_time;
     
     // Update cognitive balance
     const totalLoad = this.calculateBlockCognitiveLoad(block);

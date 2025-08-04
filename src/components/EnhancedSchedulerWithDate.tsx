@@ -218,7 +218,7 @@ export function EnhancedSchedulerWithDate({
                         <div>
                           <span className="font-medium">{task.title}</span>
                           <div className="text-sm text-gray-600">
-                            {task.subject} • {task.actual_estimated_minutes} min • Due: {task.due_date?.toLocaleDateString() || 'No due date'}
+                            {task.subject} • {task.estimated_time} min • Due: {task.due_date?.toLocaleDateString() || 'No due date'}
                           </div>
                         </div>
                         <div className="flex gap-2">
