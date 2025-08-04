@@ -389,6 +389,27 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
 
           {/* Date and Time Section */}
           <div className="space-y-4">
+            {/* Multi-Day Event Toggle (for all types) */}
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="multi_day"
+                  checked={formData.is_multi_day_event}
+                  onCheckedChange={(checked) => setFormData(prev => ({ 
+                    ...prev, 
+                    is_multi_day_event: checked as boolean
+                  }))}
+                />
+                <Label htmlFor="multi_day" className="flex items-center gap-2 font-medium">
+                  <CalendarDays className="h-4 w-4" />
+                  Multi-Day Event
+                </Label>
+              </div>
+              <p className="text-sm text-muted-foreground ml-6">
+                Check this for events spanning multiple days (e.g., volunteer trips, conferences, training programs)
+              </p>
+            </div>
+
             {/* Conditional date/time picker based on type */}
             {assignmentTypes.find(t => t.value === formData.assignment_type)?.type === 'appointment' ? (
               <div className="space-y-3 p-4 border border-blue-200 bg-blue-50/30 rounded-lg">
@@ -396,41 +417,102 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                   <Calendar className="h-4 w-4" />
                   When? (Required for appointments)
                 </Label>
-                <div className="grid grid-cols-2 gap-3">
+                
+                {formData.is_multi_day_event ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="start_date" className="text-sm">Start Date *</Label>
+                      <Input
+                        id="start_date"
+                        type="date"
+                        value={formData.due_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="end_date" className="text-sm">End Date *</Label>
+                      <Input
+                        id="end_date"
+                        type="date"
+                        value={formData.end_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
+                        min={formData.due_date}
+                        required
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="appointment_date" className="text-sm">Date *</Label>
+                      <Input
+                        id="appointment_date"
+                        type="date"
+                        value={formData.due_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="appointment_time" className="text-sm">Time *</Label>
+                      <Input
+                        id="appointment_time"
+                        type="time"
+                        value={formData.appointment_time}
+                        onChange={(e) => setFormData(prev => ({ ...prev, appointment_time: e.target.value }))}
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {formData.is_multi_day_event ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="start_date" className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Start Date *
+                      </Label>
+                      <Input
+                        id="start_date"
+                        type="date"
+                        value={formData.due_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="end_date" className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        End Date *
+                      </Label>
+                      <Input
+                        id="end_date"
+                        type="date"
+                        value={formData.end_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
+                        min={formData.due_date}
+                        required
+                      />
+                    </div>
+                  </div>
+                ) : (
                   <div className="space-y-2">
-                    <Label htmlFor="appointment_date" className="text-sm">Date *</Label>
+                    <Label htmlFor="due_date" className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Due by? (Optional for assignments)
+                    </Label>
                     <Input
-                      id="appointment_date"
+                      id="due_date"
                       type="date"
                       value={formData.due_date}
                       onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
-                      required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="appointment_time" className="text-sm">Time *</Label>
-                    <Input
-                      id="appointment_time"
-                      type="time"
-                      value={formData.appointment_time}
-                      onChange={(e) => setFormData(prev => ({ ...prev, appointment_time: e.target.value }))}
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="due_date" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Due by? (Optional for assignments)
-                </Label>
-                <Input
-                  id="due_date"
-                  type="date"
-                  value={formData.due_date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
-                />
+                )}
               </div>
             )}
           </div>
@@ -460,28 +542,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-6 pt-4">
 
-            {/* Multi-Day Event Toggle */}
-            {formData.assignment_type === 'volunteer_events' && (
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="multi_day"
-                  checked={formData.is_multi_day_event}
-                  onCheckedChange={(checked) => setFormData(prev => ({ 
-                    ...prev, 
-                    is_multi_day_event: checked as boolean
-                  }))}
-                />
-                <Label htmlFor="multi_day" className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4" />
-                  Multi-Day Event (e.g., weekend volunteer trip)
-                </Label>
-                </div>
-              </div>
-            )}
-
-            {/* Date Range for Multi-Day Events or Single Date */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Priority Setting */}
             <div className="space-y-2">
               <Label htmlFor="priority">Priority</Label>
               <Select value={formData.priority} onValueChange={(value) => 
@@ -497,36 +558,6 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="due_date" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                {formData.is_multi_day_event ? 'Start Date *' : 'Due Date'}
-              </Label>
-              <Input
-                id="due_date"
-                type="date"
-                value={formData.due_date}
-                onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
-              />
-              </div>
-            </div>
-
-            {/* End Date for Multi-Day Events */}
-            {formData.is_multi_day_event && (
-            <div className="space-y-2">
-              <Label htmlFor="end_date" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                End Date *
-              </Label>
-              <Input
-                id="end_date"
-                type="date"
-                value={formData.end_date}
-                onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-                min={formData.due_date}
-                />
-              </div>
-            )}
 
             {/* Volunteer-Specific Fields */}
             {formData.assignment_type === 'volunteer_events' && (
