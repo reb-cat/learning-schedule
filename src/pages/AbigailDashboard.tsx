@@ -8,7 +8,8 @@ import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 import { useAssignments } from "@/hooks/useAssignments";
 import { useState, useEffect, useCallback } from "react";
 import { CoopChecklist } from "@/components/CoopChecklist";
-import { EnhancedSchedulerWithDate } from "@/components/EnhancedSchedulerWithDate";
+import { StudentBlockDisplay } from "@/components/StudentBlockDisplay";
+import { BackgroundScheduler } from "@/components/BackgroundScheduler";
 
 import { stagingUtils, type StagingMode } from "@/utils/stagingUtils";
 
@@ -85,15 +86,12 @@ const AbigailDashboard = () => {
         </div>
         
         <div className="space-y-6">
-          {/* Enhanced Scheduler - shows for test dates */}
-          {dateParam && (
-            <EnhancedSchedulerWithDate 
-              studentName="Abigail"
-              testDate={displayDate}
-              onSchedulingComplete={loadScheduledAssignments}
-            />
-          )}
-
+          {/* Background scheduler - runs silently */}
+          <BackgroundScheduler 
+            studentName="Abigail" 
+            onSchedulingComplete={loadScheduledAssignments}
+          />
+          
           {/* Co-op Checklist - only shows on co-op days */}
           <CoopChecklist 
             studentName="Abigail" 
@@ -121,32 +119,13 @@ const AbigailDashboard = () => {
             ) : (
               <div className="space-y-3">
                 {todaySchedule.map((block, index) => (
-                  <Card key={index} className={`${block.isAssignmentBlock ? 'bg-card' : 'bg-muted'} border border-border`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="font-medium text-sm text-muted-foreground min-w-0">
-                            {block.start} - {block.end}
-                          </div>
-                         <div className="font-semibold text-foreground">
-                            {block.isAssignmentBlock ? (
-                              scheduledAssignments[`${block.block}`]?.title || 'Open Study Block'
-                            ) : (
-                              block.subject
-                            )}
-                          </div>
-                          {block.block && (
-                            <Badge variant="outline" className="text-xs">
-                              Block {block.block}
-                            </Badge>
-                          )}
-                        </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {block.isAssignmentBlock && scheduledAssignments[`${block.block}`] ? 'Scheduled' : 'Available'}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <StudentBlockDisplay
+                    key={index}
+                    block={block}
+                    assignment={block.isAssignmentBlock ? scheduledAssignments[`${block.block}`] : undefined}
+                    studentName="Abigail"
+                    onAssignmentUpdate={loadScheduledAssignments}
+                  />
                 ))}
               </div>
             )}
