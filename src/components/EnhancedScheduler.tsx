@@ -24,7 +24,9 @@ export const EnhancedScheduler: React.FC<EnhancedSchedulerProps> = ({
   const handleAutoSchedule = async () => {
     setIsAnalyzing(true);
     try {
+      console.log('Starting auto-schedule for:', studentName);
       const result = await blockSharingScheduler.analyzeAndSchedule(studentName);
+      console.log('Scheduling result:', result);
       setDecision(result);
       
       // Auto-execute if there are no critical warnings
@@ -32,7 +34,10 @@ export const EnhancedScheduler: React.FC<EnhancedSchedulerProps> = ({
         w.includes('overdue') || w.includes('heavy cognitive load')
       );
       
+      console.log('Has critical warnings:', hasCriticalWarnings);
+      
       if (!hasCriticalWarnings) {
+        console.log('No critical warnings, executing schedule...');
         await executeSchedule(result);
       } else {
         toast({
@@ -56,9 +61,11 @@ export const EnhancedScheduler: React.FC<EnhancedSchedulerProps> = ({
     const targetDecision = scheduleDecision || decision;
     if (!targetDecision) return;
 
+    console.log('Executing schedule decision:', targetDecision);
     setIsExecuting(true);
     try {
       await blockSharingScheduler.executeSchedule(targetDecision);
+      console.log('Schedule execution completed successfully');
       
       toast({
         title: "Schedule Applied Successfully!",

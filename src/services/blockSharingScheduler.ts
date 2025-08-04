@@ -49,8 +49,12 @@ export class BlockSharingScheduler {
 
   async analyzeAndSchedule(studentName: string, daysAhead: number = 7): Promise<SchedulingDecision> {
     try {
+      console.log('Starting analyzeAndSchedule for:', studentName);
+      
       // 1. Fetch all unscheduled tasks (filter to current timeframe)
       const allTasks = await this.getClassifiedTasks(studentName);
+      console.log('All tasks fetched:', allTasks.length);
+      
       const today = new Date();
       const endDate = addDays(today, daysAhead);
       
@@ -60,19 +64,30 @@ export class BlockSharingScheduler {
         return isInTimeframe;
       });
       
+      console.log('Filtered tasks for timeframe:', tasks.length);
+      
       // Separate by task type
       const academicTasks = tasks.filter(t => t.task_type === 'academic');
       const quickReviewTasks = tasks.filter(t => t.task_type === 'quick_review');
       const administrativeTasks = tasks.filter(t => t.task_type === 'administrative');
       
+      console.log('Task breakdown:', {
+        academic: academicTasks.length,
+        quickReview: quickReviewTasks.length,
+        administrative: administrativeTasks.length
+      });
+      
       // 2. Get available time blocks
       const availableBlocks = await this.getAvailableBlocks(studentName, daysAhead);
+      console.log('Available blocks:', availableBlocks.length);
       
       // 3. Schedule academic tasks into available blocks
       const scheduledBlocks = await this.scheduleAcademicTasks(academicTasks, availableBlocks);
+      console.log('After academic scheduling, blocks with tasks:', scheduledBlocks.filter(b => b.tasks.length > 0).length);
       
       // 4. Fill remaining space with quick review tasks
       const updatedBlocks = await this.addQuickReviewTasks(quickReviewTasks, scheduledBlocks);
+      console.log('After quick review scheduling, blocks with tasks:', updatedBlocks.filter(b => b.tasks.length > 0).length);
       
       // 5. Identify unscheduled tasks and warnings
       const allScheduledTaskIds = updatedBlocks.flatMap(b => b.tasks.map(t => t.assignment.id));
@@ -335,7 +350,9 @@ export class BlockSharingScheduler {
   }
 
   async executeSchedule(decision: SchedulingDecision): Promise<void> {
+    console.log('Executing schedule decision:', decision);
     const currentMode = stagingUtils.getCurrentMode();
+    console.log('Current mode:', currentMode);
     
     // Update database with scheduled blocks
     for (const block of decision.academic_blocks) {
