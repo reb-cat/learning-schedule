@@ -53,8 +53,8 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
 
   const quickAddSuggestions = [
     { title: 'Driving Lesson', type: 'driving_lesson', subject: 'Driving Instruction', time: 60 },
-    { title: 'Spanish Tutoring', type: 'tutoring_session', subject: 'Spanish (Preply)', time: 60 },
-    { title: 'Food Bank Volunteer', type: 'volunteer_event', subject: 'Food Bank', time: 180 },
+    { title: 'Tutoring Session', type: 'tutoring_session', subject: 'Math Tutoring', time: 60 },
+    { title: 'Volunteer Event', type: 'volunteer_event', subject: 'Community Service', time: 480 },
     { title: 'Math Homework', type: 'academic', subject: 'Math', time: 45 },
   ];
 
@@ -76,9 +76,9 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
 
   const subjectOptions = {
     // Appointments
-    tutoring_session: ['Spanish (Preply)', 'Math Tutoring', 'Reading Support', 'Foreign Language'],
+    tutoring_session: ['Spanish Tutoring', 'Math Tutoring', 'Reading Support', 'Foreign Language', 'Test Prep'],
     driving_lesson: ['Driving Instruction', 'Parallel Parking', 'Highway Driving', 'City Driving'],
-    volunteer_event: ['Food Bank', 'Environmental Cleanup', 'Senior Center', 'Animal Shelter', 'Special Events'],
+    volunteer_event: ['Community Service', 'Environmental Cleanup', 'Senior Center', 'Animal Shelter', 'Youth Mentoring', 'Special Events'],
     job_interview: ['Interview Prep', 'Mock Interview', 'Follow-up Meeting'],
     
     // Assignments
@@ -263,34 +263,27 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto shadow-sm">
-      <CardHeader className="pb-6 bg-gradient-to-r from-background to-muted/30">
-        <CardTitle className="flex items-center gap-3 text-2xl font-semibold">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-            <Plus className="h-5 w-5 text-primary" />
-          </div>
-          Add Assignment
-        </CardTitle>
-        <CardDescription className="text-base mt-1">
-          Create homework, appointments, and activities
-        </CardDescription>
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-xl font-semibold">Add Assignment</CardTitle>
+        <CardDescription>Create homework, appointments, and activities</CardDescription>
       </CardHeader>
-      <CardContent className="p-6">
-        <form onSubmit={handleSubmit} className="space-y-8">
+      <CardContent className="pt-0">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Quick Add Suggestions */}
-          <div className="space-y-4">
-            <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Quick Add</Label>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-muted-foreground">Quick Add</Label>
+            <div className="grid grid-cols-2 gap-2">
               {quickAddSuggestions.map((suggestion) => (
                 <Button
                   key={suggestion.title}
                   type="button"
                   variant="outline"
                   onClick={() => handleQuickAdd(suggestion)}
-                  className="justify-start text-left h-auto py-4 px-4 hover:shadow-md transition-all duration-200 group"
+                  className="justify-start text-left h-auto py-2 px-3 hover:bg-accent"
                 >
-                  <div className="space-y-1">
-                    <div className="font-medium group-hover:text-primary transition-colors">{suggestion.title}</div>
+                  <div>
+                    <div className="font-medium text-sm">{suggestion.title}</div>
                     <div className="text-xs text-muted-foreground">{suggestion.subject}</div>
                   </div>
                 </Button>
@@ -298,31 +291,29 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
             </div>
           </div>
 
-          <div className="h-px bg-border"></div>
-
           {/* Main Form Fields */}
-          <div className="space-y-6">
-            {/* Title (Google Calendar style) */}
-            <div className="space-y-2">
+          <div className="space-y-4">
+            {/* Title */}
+            <div>
               <Input
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                 placeholder="Add title"
-                className="text-xl font-medium border-0 border-b-2 border-border rounded-none px-0 py-3 focus-visible:ring-0 focus-visible:border-primary bg-transparent"
+                className="text-lg font-medium border-0 border-b border-border rounded-none px-0 py-2 focus-visible:ring-0 focus-visible:border-primary bg-transparent"
               />
             </div>
 
             {/* Student & Type Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-sm font-medium">
-                  <User className="h-4 w-4 text-primary" />
+                  <User className="h-4 w-4" />
                   Student
                 </Label>
                 <Select value={formData.student_name} onValueChange={(value) => 
                   setFormData(prev => ({ ...prev, student_name: value }))
                 }>
-                  <SelectTrigger className="h-11">
+                  <SelectTrigger>
                     <SelectValue placeholder="Choose student" />
                   </SelectTrigger>
                   <SelectContent>
@@ -332,33 +323,33 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                 </Select>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <Label className="text-sm font-medium">Type</Label>
                 <Select value={formData.assignment_type} onValueChange={(value) => 
                   setFormData(prev => ({ ...prev, assignment_type: value, subject: '' }))
                 }>
-                  <SelectTrigger className="h-11">
+                  <SelectTrigger>
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <div className="px-2 py-2 text-xs font-semibold text-blue-600 bg-blue-50 rounded-sm mx-1 mt-1">⏰ Appointments</div>
+                    <div className="px-2 py-1 text-xs font-medium text-muted-foreground">⏰ Appointments</div>
                     {Object.entries(assignmentTypes)
                       .filter(([_, config]) => config.group === 'appointment')
                       .map(([value, config]) => (
-                        <SelectItem key={value} value={value} className="py-3">
-                          <span className="flex items-center gap-3">
-                            <span className="text-lg">{config.icon}</span>
+                        <SelectItem key={value} value={value}>
+                          <span className="flex items-center gap-2">
+                            <span>{config.icon}</span>
                             <span>{config.label}</span>
                           </span>
                         </SelectItem>
                       ))}
-                    <div className="px-2 py-2 text-xs font-semibold text-green-600 bg-green-50 rounded-sm mx-1 mt-2">📚 Assignments</div>
+                    <div className="px-2 py-1 text-xs font-medium text-muted-foreground mt-1">📚 Assignments</div>
                     {Object.entries(assignmentTypes)
                       .filter(([_, config]) => config.group === 'assignment')
                       .map(([value, config]) => (
-                        <SelectItem key={value} value={value} className="py-3">
-                          <span className="flex items-center gap-3">
-                            <span className="text-lg">{config.icon}</span>
+                        <SelectItem key={value} value={value}>
+                          <span className="flex items-center gap-2">
+                            <span>{config.icon}</span>
                             <span>{config.label}</span>
                           </span>
                         </SelectItem>
