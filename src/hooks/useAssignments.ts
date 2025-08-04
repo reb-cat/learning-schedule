@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { stagingUtils, type StagingMode } from '@/utils/stagingUtils';
 
 export interface Assignment {
   id: string;
@@ -44,21 +45,35 @@ export interface Assignment {
   total_split_parts?: number;
 }
 
-export const useAssignments = (studentName: string) => {
+export const useAssignments = (studentName: string, mode?: StagingMode) => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const currentMode = mode || stagingUtils.getCurrentMode();
 
   const fetchAssignments = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const { data, error } = await supabase
-        .from('assignments')
-        .select('*')
-        .eq('student_name', studentName)
-        .order('due_date', { ascending: true, nullsFirst: false });
+      let data, error;
+      if (currentMode === 'staging') {
+        const result = await supabase
+          .from('assignments_staging')
+          .select('*')
+          .eq('student_name', studentName)
+          .order('due_date', { ascending: true, nullsFirst: false });
+        data = result.data;
+        error = result.error;
+      } else {
+        const result = await supabase
+          .from('assignments')
+          .select('*')
+          .eq('student_name', studentName)
+          .order('due_date', { ascending: true, nullsFirst: false });
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) {
         throw error;
@@ -75,13 +90,28 @@ export const useAssignments = (studentName: string) => {
 
   const getScheduledAssignment = async (block: number, date: string) => {
     try {
-      const { data, error } = await supabase
-        .from('assignments')
-        .select('*')
-        .eq('student_name', studentName)
-        .eq('scheduled_block', block)
-        .eq('scheduled_date', date)
-        .maybeSingle();
+      let data, error;
+      if (currentMode === 'staging') {
+        const result = await supabase
+          .from('assignments_staging')
+          .select('*')
+          .eq('student_name', studentName)
+          .eq('scheduled_block', block)
+          .eq('scheduled_date', date)
+          .maybeSingle();
+        data = result.data;
+        error = result.error;
+      } else {
+        const result = await supabase
+          .from('assignments')
+          .select('*')
+          .eq('student_name', studentName)
+          .eq('scheduled_block', block)
+          .eq('scheduled_date', date)
+          .maybeSingle();
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) {
         console.error('Error fetching scheduled assignment:', error);
@@ -97,7 +127,7 @@ export const useAssignments = (studentName: string) => {
 
   useEffect(() => {
     fetchAssignments();
-  }, [studentName]);
+  }, [studentName, currentMode]);
 
   return {
     assignments,

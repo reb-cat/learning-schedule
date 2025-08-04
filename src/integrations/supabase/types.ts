@@ -68,6 +68,60 @@ export type Database = {
         }
         Relationships: []
       }
+      administrative_notifications_staging: {
+        Row: {
+          amount: number | null
+          canvas_id: string | null
+          canvas_url: string | null
+          completed: boolean
+          completed_at: string | null
+          course_name: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          notification_type: string
+          priority: string
+          student_name: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          canvas_id?: string | null
+          canvas_url?: string | null
+          completed?: boolean
+          completed_at?: string | null
+          course_name?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          notification_type?: string
+          priority?: string
+          student_name: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          canvas_id?: string | null
+          canvas_url?: string | null
+          completed?: boolean
+          completed_at?: string | null
+          course_name?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          notification_type?: string
+          priority?: string
+          student_name?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       assignments: {
         Row: {
           academic_year: string | null
@@ -233,7 +287,199 @@ export type Database = {
           },
         ]
       }
+      assignments_staging: {
+        Row: {
+          academic_year: string | null
+          actual_estimated_minutes: number | null
+          assignment_type: string | null
+          block_position: number | null
+          blocks_scheduling: boolean | null
+          buffer_time_minutes: number | null
+          canvas_id: string | null
+          canvas_url: string | null
+          category: string | null
+          cognitive_load: string | null
+          course_name: string | null
+          created_at: string
+          display_as_single_event: boolean | null
+          due_date: string | null
+          eligible_for_scheduling: boolean
+          estimated_blocks_needed: number | null
+          estimated_time_minutes: number | null
+          event_group_id: string | null
+          id: string
+          is_full_day_block: boolean | null
+          is_split_assignment: boolean | null
+          is_template: boolean | null
+          item_type: string | null
+          module_id: string | null
+          module_position: number | null
+          notes: string | null
+          original_assignment_id: string | null
+          parent_assignment_id: string | null
+          priority: string | null
+          quiz_type: string | null
+          recurrence_pattern: Json | null
+          scheduled_block: number | null
+          scheduled_date: string | null
+          scheduled_day: string | null
+          scheduling_priority: number | null
+          shared_block_id: string | null
+          source: string | null
+          split_part_number: number | null
+          student_name: string
+          subject: string | null
+          task_type: string | null
+          title: string
+          total_split_parts: number | null
+          updated_at: string
+          urgency: string | null
+          volunteer_hours: number | null
+          volunteer_organization: string | null
+        }
+        Insert: {
+          academic_year?: string | null
+          actual_estimated_minutes?: number | null
+          assignment_type?: string | null
+          block_position?: number | null
+          blocks_scheduling?: boolean | null
+          buffer_time_minutes?: number | null
+          canvas_id?: string | null
+          canvas_url?: string | null
+          category?: string | null
+          cognitive_load?: string | null
+          course_name?: string | null
+          created_at?: string
+          display_as_single_event?: boolean | null
+          due_date?: string | null
+          eligible_for_scheduling?: boolean
+          estimated_blocks_needed?: number | null
+          estimated_time_minutes?: number | null
+          event_group_id?: string | null
+          id?: string
+          is_full_day_block?: boolean | null
+          is_split_assignment?: boolean | null
+          is_template?: boolean | null
+          item_type?: string | null
+          module_id?: string | null
+          module_position?: number | null
+          notes?: string | null
+          original_assignment_id?: string | null
+          parent_assignment_id?: string | null
+          priority?: string | null
+          quiz_type?: string | null
+          recurrence_pattern?: Json | null
+          scheduled_block?: number | null
+          scheduled_date?: string | null
+          scheduled_day?: string | null
+          scheduling_priority?: number | null
+          shared_block_id?: string | null
+          source?: string | null
+          split_part_number?: number | null
+          student_name: string
+          subject?: string | null
+          task_type?: string | null
+          title: string
+          total_split_parts?: number | null
+          updated_at?: string
+          urgency?: string | null
+          volunteer_hours?: number | null
+          volunteer_organization?: string | null
+        }
+        Update: {
+          academic_year?: string | null
+          actual_estimated_minutes?: number | null
+          assignment_type?: string | null
+          block_position?: number | null
+          blocks_scheduling?: boolean | null
+          buffer_time_minutes?: number | null
+          canvas_id?: string | null
+          canvas_url?: string | null
+          category?: string | null
+          cognitive_load?: string | null
+          course_name?: string | null
+          created_at?: string
+          display_as_single_event?: boolean | null
+          due_date?: string | null
+          eligible_for_scheduling?: boolean
+          estimated_blocks_needed?: number | null
+          estimated_time_minutes?: number | null
+          event_group_id?: string | null
+          id?: string
+          is_full_day_block?: boolean | null
+          is_split_assignment?: boolean | null
+          is_template?: boolean | null
+          item_type?: string | null
+          module_id?: string | null
+          module_position?: number | null
+          notes?: string | null
+          original_assignment_id?: string | null
+          parent_assignment_id?: string | null
+          priority?: string | null
+          quiz_type?: string | null
+          recurrence_pattern?: Json | null
+          scheduled_block?: number | null
+          scheduled_date?: string | null
+          scheduled_day?: string | null
+          scheduling_priority?: number | null
+          shared_block_id?: string | null
+          source?: string | null
+          split_part_number?: number | null
+          student_name?: string
+          subject?: string | null
+          task_type?: string | null
+          title?: string
+          total_split_parts?: number | null
+          updated_at?: string
+          urgency?: string | null
+          volunteer_hours?: number | null
+          volunteer_organization?: string | null
+        }
+        Relationships: []
+      }
       learning_patterns: {
+        Row: {
+          assignment_type: string
+          average_duration_factor: number | null
+          completion_count: number | null
+          created_at: string
+          id: string
+          last_updated: string
+          student_name: string
+          subject: string
+          total_actual_minutes: number | null
+          total_estimated_minutes: number | null
+          typical_cognitive_load: string | null
+        }
+        Insert: {
+          assignment_type: string
+          average_duration_factor?: number | null
+          completion_count?: number | null
+          created_at?: string
+          id?: string
+          last_updated?: string
+          student_name: string
+          subject: string
+          total_actual_minutes?: number | null
+          total_estimated_minutes?: number | null
+          typical_cognitive_load?: string | null
+        }
+        Update: {
+          assignment_type?: string
+          average_duration_factor?: number | null
+          completion_count?: number | null
+          created_at?: string
+          id?: string
+          last_updated?: string
+          student_name?: string
+          subject?: string
+          total_actual_minutes?: number | null
+          total_estimated_minutes?: number | null
+          typical_cognitive_load?: string | null
+        }
+        Relationships: []
+      }
+      learning_patterns_staging: {
         Row: {
           assignment_type: string
           average_duration_factor: number | null
@@ -308,7 +554,73 @@ export type Database = {
         }
         Relationships: []
       }
+      student_energy_patterns_staging: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          data_points_count: number | null
+          energy_data: Json
+          id: string
+          last_updated: string
+          pattern_type: string
+          student_name: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          data_points_count?: number | null
+          energy_data: Json
+          id?: string
+          last_updated?: string
+          pattern_type: string
+          student_name: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          data_points_count?: number | null
+          energy_data?: Json
+          id?: string
+          last_updated?: string
+          pattern_type?: string
+          student_name?: string
+        }
+        Relationships: []
+      }
       sync_status: {
+        Row: {
+          assignments_count: number | null
+          created_at: string
+          id: string
+          message: string | null
+          status: string
+          student_name: string
+          sync_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          assignments_count?: number | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          status: string
+          student_name: string
+          sync_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assignments_count?: number | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          status?: string
+          student_name?: string
+          sync_type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sync_status_staging: {
         Row: {
           assignments_count: number | null
           created_at: string

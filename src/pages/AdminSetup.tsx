@@ -4,10 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { RefreshCw, Calendar, ChevronDown, ChevronUp, Database, Zap, Settings, CheckCircle, XCircle, AlertCircle, Clock, Plus, BookOpen, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Calendar, ChevronDown, ChevronUp, Database, Zap, Settings, CheckCircle, XCircle, AlertCircle, Clock, Plus, BookOpen, AlertTriangle, TestTube, Trash, Copy } from 'lucide-react';
+import { stagingUtils, type StagingMode } from '@/utils/stagingUtils';
 const AdminSetup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState<any>(null);
@@ -15,9 +18,9 @@ const AdminSetup = () => {
   const [syncHistory, setSyncHistory] = useState<any[]>([]);
   const [studentSyncStatus, setStudentSyncStatus] = useState<any[]>([]);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
-  const {
-    toast
-  } = useToast();
+  const [stagingMode, setStagingMode] = useState<StagingMode>(stagingUtils.getCurrentMode());
+  const [stagingLoading, setStagingLoading] = useState(false);
+  const { toast } = useToast();
   const handleManualSync = async () => {
     setIsLoading(true);
     try {
@@ -123,6 +126,73 @@ const AdminSetup = () => {
     getDiagnostics().then(setDiagnostics);
     getStudentSyncStatus().then(setStudentSyncStatus);
   }, []);
+  const handleStagingToggle = (checked: boolean) => {
+    const newMode: StagingMode = checked ? 'staging' : 'production';
+    setStagingMode(newMode);
+    stagingUtils.setMode(newMode);
+    toast({
+      title: `Switched to ${newMode} mode`,
+      description: `All data operations will now use ${newMode} tables.`
+    });
+  };
+
+  const handleClearStaging = async () => {
+    setStagingLoading(true);
+    try {
+      await stagingUtils.clearStagingData();
+      toast({
+        title: "Staging data cleared",
+        description: "All staging tables have been emptied."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error clearing staging data",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setStagingLoading(false);
+    }
+  };
+
+  const handleCopyToStaging = async () => {
+    setStagingLoading(true);
+    try {
+      await stagingUtils.copyProductionToStaging();
+      toast({
+        title: "Production data copied to staging",
+        description: "All production data has been copied to staging tables."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error copying to staging",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setStagingLoading(false);
+    }
+  };
+
+  const handleSeedTestData = async () => {
+    setStagingLoading(true);
+    try {
+      await stagingUtils.seedTestData();
+      toast({
+        title: "Test data seeded",
+        description: "Sample assignments for August 2025 have been added to staging."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error seeding test data",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setStagingLoading(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'success':
@@ -145,10 +215,14 @@ const AdminSetup = () => {
         
 
         <Tabs defaultValue="sync" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="sync" className="flex items-center gap-2">
               <RefreshCw className="h-4 w-4" />
               Canvas Sync
+            </TabsTrigger>
+            <TabsTrigger value="staging" className="flex items-center gap-2">
+              <TestTube className="h-4 w-4" />
+              Staging Environment
             </TabsTrigger>
             <TabsTrigger value="diagnostics" className="flex items-center gap-2">
               <Database className="h-4 w-4" />
@@ -258,6 +332,156 @@ const AdminSetup = () => {
                         </DropdownMenuItem>)}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="staging" className="space-y-6">
+            {/* Staging Environment Controls */}
+            <Card className="border-2 border-orange-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <TestTube className="h-6 w-6" />
+                  Staging Environment
+                </CardTitle>
+                <CardDescription className="text-base">
+                  Safe testing environment with isolated data. Use this to test scheduling scenarios without affecting real assignments.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Current Mode Indicator */}
+                <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg border border-orange-200">
+                  <div className="flex items-center gap-3">
+                    <Label htmlFor="staging-mode" className="text-sm font-medium">
+                      Current Mode:
+                    </Label>
+                    <Badge variant={stagingMode === 'staging' ? 'default' : 'secondary'} className="text-sm">
+                      {stagingMode === 'staging' ? '🧪 Staging' : '🏢 Production'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="staging-mode" className="text-sm">
+                      Enable Staging Mode
+                    </Label>
+                    <Switch
+                      id="staging-mode"
+                      checked={stagingMode === 'staging'}
+                      onCheckedChange={handleStagingToggle}
+                    />
+                  </div>
+                </div>
+
+                {/* Staging Actions */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Trash className="h-5 w-5" />
+                        Clear Staging
+                      </CardTitle>
+                      <CardDescription className="text-sm">
+                        Remove all data from staging tables
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button 
+                        onClick={handleClearStaging} 
+                        disabled={stagingLoading}
+                        variant="destructive"
+                        className="w-full"
+                      >
+                        {stagingLoading ? 'Clearing...' : 'Clear All Staging Data'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Copy className="h-5 w-5" />
+                        Copy Production
+                      </CardTitle>
+                      <CardDescription className="text-sm">
+                        Copy all production data to staging
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button 
+                        onClick={handleCopyToStaging} 
+                        disabled={stagingLoading}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        {stagingLoading ? 'Copying...' : 'Copy to Staging'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Plus className="h-5 w-5" />
+                        Seed Test Data
+                      </CardTitle>
+                      <CardDescription className="text-sm">
+                        Add sample assignments for August 2025
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button 
+                        onClick={handleSeedTestData} 
+                        disabled={stagingLoading}
+                        className="w-full"
+                      >
+                        {stagingLoading ? 'Seeding...' : 'Add Test Data'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Instructions */}
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h4 className="font-medium text-blue-900 mb-2">How to use staging:</h4>
+                  <ol className="text-sm text-blue-800 space-y-1">
+                    <li>1. Toggle staging mode on above</li>
+                    <li>2. Seed test data or copy production data</li>
+                    <li>3. Visit student dashboards with <code className="bg-blue-100 px-1 rounded">?staging=true</code></li>
+                    <li>4. Test scheduling scenarios like <code className="bg-blue-100 px-1 rounded">/khalil?date=2025-08-19&staging=true</code></li>
+                    <li>5. Clear staging data when finished testing</li>
+                  </ol>
+                </div>
+
+                {/* Quick Links */}
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => window.open('/khalil?staging=true&date=2025-08-19', '_blank')}
+                  >
+                    Test Khalil Aug 19, 2025
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => window.open('/abigail?staging=true&date=2025-08-19', '_blank')}
+                  >
+                    Test Abigail Aug 19, 2025
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => window.open('/khalil?staging=true', '_blank')}
+                  >
+                    Khalil Staging
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => window.open('/abigail?staging=true', '_blank')}
+                  >
+                    Abigail Staging
+                  </Button>
                 </div>
               </CardContent>
             </Card>

@@ -2,18 +2,24 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Home, Calendar } from "lucide-react";
+import { Home, Calendar, TestTube } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
 import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 import { useAssignments } from "@/hooks/useAssignments";
 import { useState, useEffect, useCallback } from "react";
 import { CoopChecklist } from "@/components/CoopChecklist";
 import { TodaysTasks } from "@/components/TodaysTasks";
+import { stagingUtils, type StagingMode } from "@/utils/stagingUtils";
 
 const KhalilDashboard = () => {
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
-  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment } = useAssignments('Khalil');
+  const stagingParam = searchParams.get('staging');
+  
+  // Determine staging mode
+  const stagingMode: StagingMode = stagingParam === 'true' ? 'staging' : 'production';
+  
+  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment } = useAssignments('Khalil', stagingMode);
   const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
   
   // Use date parameter if provided and valid, otherwise use today
@@ -58,7 +64,15 @@ const KhalilDashboard = () => {
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Welcome, Khalil!</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-foreground">Welcome, Khalil!</h1>
+              {stagingMode === 'staging' && (
+                <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+                  <TestTube className="w-3 h-3 mr-1" />
+                  Staging Mode
+                </Badge>
+              )}
+            </div>
             <p className="text-lg text-muted-foreground mt-1">{dateDisplay}</p>
           </div>
           <Link to="/">
