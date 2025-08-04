@@ -161,17 +161,23 @@ export class BlockSharingScheduler {
   }
 
   private estimateTime(title: string): number {
-    // Cap all tasks at 45 minutes max (one block)
+    console.log(`🕒 Estimating time for: "${title}"`);
+    
+    // Remove the 45-minute cap to allow proper task splitting
     let estimate = 30; // default
     
     if (title.toLowerCase().includes('syllabus')) estimate = 10;
     else if (title.toLowerCase().includes('recipe')) estimate = 8;
     else if (title.toLowerCase().includes('review') && title.length < 40) estimate = 5;
     else if (title.toLowerCase().includes('check')) estimate = 5;
-    else if (title.toLowerCase().includes('worksheet')) estimate = 30;
-    else estimate = title.length < 30 ? 15 : 30;
+    else if (title.toLowerCase().includes('worksheet')) estimate = 60; // Increased
+    else if (title.toLowerCase().includes('assignment')) estimate = 90; // Added
+    else if (title.toLowerCase().includes('project')) estimate = 120; // Added
+    else if (title.toLowerCase().includes('homework')) estimate = 60; // Added
+    else estimate = title.length < 30 ? 15 : 45;
     
-    return Math.min(estimate, 45); // Cap at one block
+    console.log(`⏱️ Estimated ${estimate} minutes for: "${title}"`);
+    return estimate; // REMOVED THE 45-MINUTE CAP
   }
 
   private calculateUrgency(assignment: any): string {
@@ -252,14 +258,26 @@ export class BlockSharingScheduler {
     });
 
     for (const task of sortedTasks) {
+      console.log(`\n📚 Processing task: "${task.title}" (${task.estimated_time} min, ${task.cognitive_load} load)`);
+      
       if (task.estimated_time <= 45) {
-        // Task fits in one block
+        console.log(`  ✅ Task fits in one block (${task.estimated_time} <= 45 min)`);
         const bestBlock = this.findBestBlockForTask(task, updatedBlocks);
-        if (bestBlock && this.canFitInBlock(task, bestBlock)) {
-          this.addTaskToBlock(task, bestBlock);
+        
+        if (bestBlock) {
+          console.log(`  🎯 Found best block: Block ${bestBlock.block_number} on ${bestBlock.day} (${this.getRemainingMinutes(bestBlock)} min remaining)`);
+          
+          if (this.canFitInBlock(task, bestBlock)) {
+            console.log(`  ✅ Task can fit in block - adding to schedule`);
+            this.addTaskToBlock(task, bestBlock);
+          } else {
+            console.log(`  ❌ Task cannot fit in block due to cognitive load or time constraints`);
+          }
+        } else {
+          console.log(`  ❌ No suitable block found for task`);
         }
       } else {
-        // Task needs to be split across multiple blocks
+        console.log(`  🔄 Task too large (${task.estimated_time} > 45 min) - splitting across multiple blocks`);
         this.splitAndScheduleTask(task, updatedBlocks);
       }
     }
@@ -272,8 +290,11 @@ export class BlockSharingScheduler {
     const totalTime = task.estimated_time;
     const numberOfParts = Math.ceil(totalTime / maxBlockTime);
     
+    console.log(`  🔄 Splitting task "${task.title}" (${totalTime} min) into ${numberOfParts} parts`);
+    
     let remainingTime = totalTime;
     let partNumber = 1;
+    let scheduledParts = 0;
     
     for (let i = 0; i < numberOfParts && remainingTime > 0; i++) {
       const timeForThisPart = Math.min(remainingTime, maxBlockTime);
@@ -285,16 +306,22 @@ export class BlockSharingScheduler {
         estimated_time: timeForThisPart
       };
       
+      console.log(`    📝 Creating part ${partNumber}: ${timeForThisPart} min`);
+      
       const bestBlock = this.findBestBlockForTask(taskPart, blocks);
       if (bestBlock && this.canFitInBlock(taskPart, bestBlock)) {
+        console.log(`    ✅ Scheduled part ${partNumber} in Block ${bestBlock.block_number} on ${bestBlock.day}`);
         this.addTaskToBlock(taskPart, bestBlock);
         remainingTime -= timeForThisPart;
         partNumber++;
+        scheduledParts++;
       } else {
-        // If we can't fit this part, stop splitting
+        console.log(`    ❌ Could not schedule part ${partNumber} - no suitable block found`);
         break;
       }
     }
+    
+    console.log(`  📊 Split task result: ${scheduledParts}/${numberOfParts} parts scheduled, ${remainingTime} min remaining`);
   }
 
   private async addQuickReviewTasks(
