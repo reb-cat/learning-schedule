@@ -13,8 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { Play, Database, Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { ParentTasksSection } from '@/components/ParentTasksSection';
 
 const ParentDashboard = () => {
   // Fetch assignments for both students
@@ -22,10 +23,39 @@ const ParentDashboard = () => {
   const { assignments: khalilAssignments, loading: khalilLoading, refetch: refetchKhalil } = useAssignments('Khalil');
   const [testingScheduler, setTestingScheduler] = useState(false);
   const [migrating, setMigrating] = useState(false);
+  const [parentTasks, setParentTasks] = useState<any[]>([]);
 
   const handleAssignmentAdded = () => {
     refetchAbigail();
     refetchKhalil();
+    loadParentTasks();
+  };
+
+  const loadParentTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('administrative_notifications')
+        .select('*')
+        .eq('completed', false)
+        .in('notification_type', ['fee', 'fees'])
+        .order('due_date', { ascending: true, nullsFirst: false });
+
+      if (error) throw error;
+
+      const tasks = data?.map(item => ({
+        id: item.id,
+        title: item.title,
+        amount: item.amount,
+        dueDate: item.due_date ? new Date(item.due_date) : undefined,
+        priority: item.priority as 'high' | 'medium' | 'low',
+        courseName: item.course_name,
+        studentName: item.student_name
+      })) || [];
+
+      setParentTasks(tasks);
+    } catch (error) {
+      console.error('Error loading parent tasks:', error);
+    }
   };
 
   const handleTestAutoScheduler = async () => {
@@ -109,6 +139,10 @@ const ParentDashboard = () => {
 
   const abigailWeeklyData = getWeeklyAssignments(abigailAssignments);
   const khalilWeeklyData = getWeeklyAssignments(khalilAssignments);
+
+  useEffect(() => {
+    loadParentTasks();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -300,6 +334,18 @@ const ParentDashboard = () => {
             </CardContent>
           </Card>
         </div>
+            {/* Parent Tasks - fees and other parent actions */}
+            <ParentTasksSection 
+              tasks={parentTasks}
+              onTaskComplete={async (taskId) => {
+                await supabase
+                  .from('administrative_notifications')
+                  .update({ completed: true, completed_at: new Date().toISOString() })
+                  .eq('id', taskId);
+                loadParentTasks();
+              }}
+            />
+
             {/* Co-op Administrative Checklists */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <CoopAdministrativeChecklist studentName="Abigail" />

@@ -10,14 +10,6 @@ import { CoopChecklist } from "@/components/CoopChecklist";
 import { StudentBlockDisplay } from "@/components/StudentBlockDisplay";
 
 import { ErrorFallback } from "@/components/ErrorFallback";
-import { ErrorMonitoring } from "@/components/ErrorMonitoring";
-import { PerformanceMonitor } from "@/components/PerformanceMonitor";
-import { SystemHealthDashboard } from "@/components/SystemHealthDashboard";
-import { StudentAnalyticsDashboard } from "@/components/StudentAnalyticsDashboard";
-import { SystemBenchmarkDashboard } from "@/components/SystemBenchmarkDashboard";
-import { TestScheduler } from "@/components/TestScheduler";
-import { ParentTasksSection } from "@/components/ParentTasksSection";
-import { supabase } from "@/integrations/supabase/client";
 
 const AbigailDashboard = () => {
   console.log('🏠 AbigailDashboard rendering...');
@@ -29,8 +21,6 @@ const AbigailDashboard = () => {
     const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch, cacheStats, cleanupData } = useAssignments('Abigail');
     const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
     const [criticalError, setCriticalError] = useState<string | null>(null);
-    const [errorCount, setErrorCount] = useState(0);
-    const [parentTasks, setParentTasks] = useState<any[]>([]);
     
     // Use date parameter if provided and valid, otherwise use today
     let displayDate = new Date();
@@ -79,37 +69,10 @@ const AbigailDashboard = () => {
       }
     }, [getScheduledAssignment, formattedDate, assignmentBlocks]);
 
-    const loadParentTasks = useCallback(async () => {
-      try {
-        const { data, error } = await supabase
-          .from('administrative_notifications')
-          .select('*')
-          .eq('student_name', 'Abigail')
-          .eq('completed', false)
-          .in('notification_type', ['fee', 'fees'])
-          .order('due_date', { ascending: true, nullsFirst: false });
-
-        if (error) throw error;
-
-        const tasks = data?.map(item => ({
-          id: item.id,
-          title: item.title,
-          amount: item.amount,
-          dueDate: item.due_date ? new Date(item.due_date) : undefined,
-          priority: item.priority as 'high' | 'medium' | 'low',
-          courseName: item.course_name
-        })) || [];
-
-        setParentTasks(tasks);
-      } catch (error) {
-        console.error('Error loading parent tasks:', error);
-      }
-    }, []);
 
     useEffect(() => {
       loadScheduledAssignments();
-      loadParentTasks();
-    }, [loadScheduledAssignments, loadParentTasks]);
+    }, [loadScheduledAssignments]);
 
     // Handle critical errors that would cause blank pages
     useEffect(() => {
@@ -143,13 +106,6 @@ const AbigailDashboard = () => {
 
     return (
       <div className="min-h-screen bg-background p-6">
-        <ErrorMonitoring 
-          studentName="Abigail" 
-          onError={(error, context) => {
-            setErrorCount(prev => prev + 1);
-            console.warn('Dashboard Error:', { error, context });
-          }} 
-        />
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -159,22 +115,6 @@ const AbigailDashboard = () => {
               <p className="text-lg text-muted-foreground mt-1">{dateDisplay}</p>
             </div>
             <div className="flex items-center gap-2">
-              <PerformanceMonitor 
-                studentName="Abigail" 
-                metrics={{
-                  cacheHits: cacheStats.hits,
-                  cacheMisses: cacheStats.misses,
-                  hitRate: cacheStats.hitRate,
-                  dataFreshness: Date.now(),
-                  lastRefresh: Date.now(),
-                  errorCount,
-                  avgResponseTime: 0
-                }}
-                onOptimize={async () => {
-                  await cleanupData();
-                  await refetch();
-                }}
-              />
               <Link to="/">
                 <Button variant="outline" size="sm" className="flex items-center gap-2">
                   <Home size={16} />
@@ -185,30 +125,6 @@ const AbigailDashboard = () => {
           </div>
           
           <div className="space-y-6">
-            {/* Test Scheduler - Manual scheduling tool for testing */}
-            <TestScheduler 
-              studentName="Abigail"
-              onSchedulingComplete={loadScheduledAssignments}
-            />
-            
-            {/* Background Scheduler - Temporarily disabled to avoid conflicts */}
-            {/* <BackgroundScheduler 
-              studentName="Abigail" 
-              onSchedulingComplete={loadScheduledAssignments}
-            /> */}
-
-            {/* Parent Tasks - fees and other parent actions */}
-            <ParentTasksSection 
-              tasks={parentTasks}
-              onTaskComplete={async (taskId) => {
-                await supabase
-                  .from('administrative_notifications')
-                  .update({ completed: true, completed_at: new Date().toISOString() })
-                  .eq('id', taskId);
-                loadParentTasks();
-              }}
-            />
-
             {/* Co-op Checklist - only shows on co-op days */}
             <CoopChecklist 
               studentName="Abigail" 
@@ -248,17 +164,6 @@ const AbigailDashboard = () => {
               )}
             </div>
 
-            {/* System Health Dashboard */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SystemHealthDashboard studentName="Abigail" />
-              <StudentAnalyticsDashboard studentName="Abigail" />
-            </div>
-
-            {/* Performance Benchmark */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-foreground">Performance Metrics</h2>
-              <SystemBenchmarkDashboard studentName="Abigail" />
-            </div>
           </div>
         </div>
       </div>

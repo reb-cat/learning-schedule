@@ -10,6 +10,7 @@ import { RefreshCw, Calendar, ChevronDown, Database, Settings, CheckCircle, Aler
 import { RunScheduler } from '@/components/RunScheduler';
 import { EnhancedScheduler } from '@/components/EnhancedScheduler';
 import { DebugScheduler } from '@/components/DebugScheduler';
+import { TestScheduler } from '@/components/TestScheduler';
 
 const AdminSetup = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -311,20 +312,45 @@ const AdminSetup = () => {
               </Card>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />
-                  Debug Scheduler
-                </CardTitle>
-                <CardDescription>
-                  Debug scheduler operations with detailed logging
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DebugScheduler />
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" />
+                    Debug Scheduler
+                  </CardTitle>
+                  <CardDescription>
+                    Debug scheduler operations with detailed logging
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <DebugScheduler />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Test Scheduler
+                  </CardTitle>
+                  <CardDescription>
+                    Simple manual scheduling tool for testing assignment placement
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <TestScheduler 
+                    studentName="Abigail"
+                    onSchedulingComplete={() => {
+                      toast({
+                        title: "Schedule updated",
+                        description: "Test scheduler has updated the assignments."
+                      });
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="diagnostics" className="space-y-6">
