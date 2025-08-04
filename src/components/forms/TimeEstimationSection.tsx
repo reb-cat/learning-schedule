@@ -12,11 +12,12 @@ export function TimeEstimationSection({ value, onChange }: TimeEstimationSection
     { id: 'quick', label: 'Quick', range: '15-30min', value: 30 },
     { id: 'standard', label: 'Standard', range: '45-90min', value: 60 },
     { id: 'extended', label: 'Extended', range: '2-4hrs', value: 180 },
-    { id: 'full-day', label: 'Full/Multi-day', range: '4+ hrs', value: 480 }
+    { id: 'full-day', label: 'Full/Multi-day', range: '24hrs', value: 1440 }
   ];
 
   const formatTime = (minutes: number) => {
     if (minutes < 60) return `${minutes} min`;
+    if (minutes === 1440) return `1 day`;
     if (minutes < 480) return `${Math.round(minutes / 60 * 10) / 10} hours`;
     if (minutes < 1440) return `${Math.round(minutes / 60)} hours`;
     return `${Math.round(minutes / 1440)} days`;
@@ -25,8 +26,8 @@ export function TimeEstimationSection({ value, onChange }: TimeEstimationSection
   const selectedCategory = timeCategories.find(cat => {
     if (cat.id === 'quick') return value <= 30;
     if (cat.id === 'standard') return value > 30 && value <= 120;
-    if (cat.id === 'extended') return value > 120 && value <= 480;
-    return value > 480;
+    if (cat.id === 'extended') return value > 120 && value < 1440;
+    return value >= 1440;
   });
 
   return (
