@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { blockSharingScheduler, type SchedulingDecision } from '@/services/blockSharingScheduler';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Calendar, Play, CheckCircle } from 'lucide-react';
-import { blockSharingScheduler } from '@/services/blockSharingScheduler';
-import { useToast } from '@/hooks/use-toast';
-import type { SchedulingDecision } from '@/services/blockSharingScheduler';
+import { AlertTriangle, Clock, Users, CheckCircle, Loader2 } from 'lucide-react';
 
 interface EnhancedSchedulerWithDateProps {
   studentName: string;
@@ -19,66 +16,42 @@ export function EnhancedSchedulerWithDate({
   testDate,
   onSchedulingComplete 
 }: EnhancedSchedulerWithDateProps) {
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isExecuting, setIsExecuting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [decision, setDecision] = useState<SchedulingDecision | null>(null);
-  const { toast } = useToast();
+  const [hasScheduled, setHasScheduled] = useState(false);
 
-  const handleAutoSchedule = async () => {
-    setIsAnalyzing(true);
-    try {
-      console.log('Auto-scheduling for', studentName, 'with test date:', testDate);
-      const result = await blockSharingScheduler.analyzeAndSchedule(studentName, 7, testDate);
-      setDecision(result);
+  // Auto-schedule when component mounts
+  useEffect(() => {
+    const autoSchedule = async () => {
+      if (hasScheduled) return; // Prevent re-scheduling
       
-      toast({
-        title: "Analysis Complete",
-        description: `Found ${result.academic_blocks.filter(b => b.tasks.length > 0).length} blocks with assignments to schedule.`,
-      });
-
-      // Auto-execute if no critical warnings
-      const hasCriticalWarnings = result.warnings.some(w => 
-        w.includes('overdue') || w.includes('could not be scheduled')
-      );
-      
-      if (!hasCriticalWarnings && result.academic_blocks.some(b => b.tasks.length > 0)) {
-        setTimeout(() => executeSchedule(result), 1000);
-      }
-    } catch (error) {
-      console.error('Auto-schedule error:', error);
-      toast({
-        title: "Scheduling Error",
-        description: "Failed to analyze assignments. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const executeSchedule = async (scheduleDecision: SchedulingDecision) => {
-    setIsExecuting(true);
-    try {
-      await blockSharingScheduler.executeSchedule(scheduleDecision);
-      
-      toast({
-        title: "Schedule Executed Successfully",
-        description: "Assignments have been scheduled to available blocks.",
-      });
-      
+      setIsLoading(true);
       setDecision(null);
-      onSchedulingComplete?.();
-    } catch (error) {
-      console.error('Execute schedule error:', error);
-      toast({
-        title: "Execution Error",
-        description: "Failed to save schedule. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsExecuting(false);
-    }
-  };
+      
+      try {
+        console.log('Auto-scheduling for:', studentName, 'testDate:', testDate);
+        const result = await blockSharingScheduler.analyzeAndSchedule(
+          studentName, 
+          7, // 7 days ahead
+          testDate
+        );
+        
+        // Auto-execute the schedule
+        await blockSharingScheduler.executeSchedule(result);
+        setDecision(result);
+        setHasScheduled(true);
+        
+        console.log('Auto-scheduling completed:', result);
+        onSchedulingComplete?.();
+      } catch (error) {
+        console.error('Error during auto-scheduling:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    autoSchedule();
+  }, [studentName, testDate, onSchedulingComplete, hasScheduled]);
 
   const getTaskTypeColor = (type: string) => {
     switch (type) {
@@ -98,50 +71,49 @@ export function EnhancedSchedulerWithDate({
     }
   };
 
+  const getStatusBadge = (status?: string) => {
+    switch (status) {
+      case 'stuck': return <Badge variant="destructive" className="text-xs">Stuck</Badge>;
+      case 'in_progress': return <Badge variant="secondary" className="text-xs">In Progress</Badge>;
+      case 'completed': return <Badge variant="outline" className="text-xs">Completed</Badge>;
+      default: return <Badge variant="outline" className="text-xs">Not Started</Badge>;
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
-          Enhanced Assignment Scheduler
+          {isLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Auto-Scheduling in Progress...
+            </>
+          ) : hasScheduled ? (
+            <>
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              Schedule Updated
+            </>
+          ) : (
+            'Enhanced Auto-Scheduler'
+          )}
           {testDate && (
-            <Badge variant="outline" className="ml-2">
+            <Badge variant="outline" className="text-xs">
               Test Date: {testDate.toLocaleDateString()}
             </Badge>
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex gap-3">
-          <Button 
-            onClick={handleAutoSchedule}
-            disabled={isAnalyzing || isExecuting}
-            className="flex items-center gap-2"
-          >
-            {isAnalyzing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Play className="h-4 w-4" />
-            )}
-            {isAnalyzing ? 'Analyzing...' : 'Auto-Schedule'}
-          </Button>
-
-          {decision && (
-            <Button 
-              onClick={() => executeSchedule(decision)}
-              disabled={isExecuting}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              {isExecuting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle className="h-4 w-4" />
-              )}
-              {isExecuting ? 'Executing...' : 'Execute Schedule'}
-            </Button>
-          )}
-        </div>
+      
+      <CardContent className="space-y-4">
+        {isLoading && (
+          <Alert>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <AlertDescription>
+              Automatically analyzing and scheduling assignments...
+            </AlertDescription>
+          </Alert>
+        )}
 
         {decision && (
           <div className="space-y-4">
@@ -176,6 +148,7 @@ export function EnhancedSchedulerWithDate({
             {/* Warnings */}
             {decision.warnings.length > 0 && (
               <Alert>
+                <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
                   <ul className="list-disc list-inside space-y-1">
                     {decision.warnings.map((warning, index) => (
@@ -213,6 +186,7 @@ export function EnhancedSchedulerWithDate({
                                 </div>
                               </div>
                               <div className="flex gap-2">
+                                {getStatusBadge(task.assignment.completion_status)}
                                 <Badge className={getTaskTypeColor(task.assignment.task_type)}>
                                   {task.assignment.task_type}
                                 </Badge>
@@ -248,6 +222,7 @@ export function EnhancedSchedulerWithDate({
                           </div>
                         </div>
                         <div className="flex gap-2">
+                          {getStatusBadge(task.completion_status)}
                           <Badge className={getTaskTypeColor(task.task_type)}>
                             {task.task_type}
                           </Badge>

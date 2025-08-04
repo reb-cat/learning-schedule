@@ -15,6 +15,9 @@ export interface TaskClassification {
   priority: string;
   scheduled_block?: number | null;
   scheduled_date?: string | null;
+  completion_status?: 'not_started' | 'in_progress' | 'stuck' | 'completed';
+  progress_percentage?: number;
+  stuck_reason?: string;
 }
 
 export interface BlockComposition {
@@ -125,6 +128,7 @@ export class BlockSharingScheduler {
           .eq('student_name', studentName)
           .is('scheduled_block', null)
           .eq('eligible_for_scheduling', true)
+          .in('completion_status', ['not_started', 'in_progress', 'stuck'])
           .order('due_date', { ascending: true, nullsFirst: false })
       : await supabase
           .from('assignments')
@@ -132,6 +136,7 @@ export class BlockSharingScheduler {
           .eq('student_name', studentName)
           .is('scheduled_block', null)
           .eq('eligible_for_scheduling', true)
+          .in('completion_status', ['not_started', 'in_progress', 'stuck'])
           .order('due_date', { ascending: true, nullsFirst: false });
 
     if (error) throw error;
@@ -144,22 +149,48 @@ export class BlockSharingScheduler {
       cognitive_load: assignment.cognitive_load || 'medium',
       subject: assignment.subject || 'General',
       course_name: assignment.course_name || '',
-      urgency: assignment.urgency || 'medium',
+      urgency: this.calculateUrgency(assignment),
       due_date: assignment.due_date ? new Date(assignment.due_date) : null,
       priority: assignment.priority || 'medium',
       scheduled_block: assignment.scheduled_block,
-      scheduled_date: assignment.scheduled_date
+      scheduled_date: assignment.scheduled_date,
+      completion_status: (assignment.completion_status as 'not_started' | 'in_progress' | 'stuck' | 'completed') || 'not_started',
+      progress_percentage: assignment.progress_percentage || 0,
+      stuck_reason: assignment.stuck_reason
     }));
   }
 
   private estimateTime(title: string): number {
-    // Fallback time estimation if database function doesn't work
-    if (title.toLowerCase().includes('syllabus')) return 10;
-    if (title.toLowerCase().includes('recipe')) return 8;
-    if (title.toLowerCase().includes('review') && title.length < 40) return 5;
-    if (title.toLowerCase().includes('check')) return 5;
-    if (title.toLowerCase().includes('worksheet')) return 30;
-    return title.length < 30 ? 15 : 30;
+    // Cap all tasks at 45 minutes max (one block)
+    let estimate = 30; // default
+    
+    if (title.toLowerCase().includes('syllabus')) estimate = 10;
+    else if (title.toLowerCase().includes('recipe')) estimate = 8;
+    else if (title.toLowerCase().includes('review') && title.length < 40) estimate = 5;
+    else if (title.toLowerCase().includes('check')) estimate = 5;
+    else if (title.toLowerCase().includes('worksheet')) estimate = 30;
+    else estimate = title.length < 30 ? 15 : 30;
+    
+    return Math.min(estimate, 45); // Cap at one block
+  }
+
+  private calculateUrgency(assignment: any): string {
+    const now = new Date();
+    const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
+    
+    // Boost urgency for stuck or in-progress tasks
+    if (assignment.completion_status === 'stuck') return 'critical';
+    if (assignment.completion_status === 'in_progress') return 'high';
+    
+    if (!dueDate) return assignment.urgency || 'medium';
+    
+    const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntilDue < 0) return 'overdue';
+    if (daysUntilDue <= 1) return 'critical';
+    if (daysUntilDue <= 3) return 'high';
+    
+    return assignment.urgency || 'medium';
   }
 
   private async getAvailableBlocks(studentName: string, daysAhead: number, startDate?: Date): Promise<BlockComposition[]> {
@@ -204,11 +235,24 @@ export class BlockSharingScheduler {
   ): Promise<BlockComposition[]> {
     const updatedBlocks = [...blocks];
     
-    // Sort tasks by priority (overdue first, then by due date)
+    // Sort tasks by priority (stuck first, then in_progress, then by urgency/due date)
     const sortedTasks = tasks.sort((a, b) => {
+      // Stuck tasks get highest priority
+      if (a.completion_status === 'stuck' && b.completion_status !== 'stuck') return -1;
+      if (b.completion_status === 'stuck' && a.completion_status !== 'stuck') return 1;
+      
+      // In-progress tasks get second priority
+      if (a.completion_status === 'in_progress' && b.completion_status !== 'in_progress') return -1;
+      if (b.completion_status === 'in_progress' && a.completion_status !== 'in_progress') return 1;
+      
+      // Then by urgency
       if (a.urgency === 'overdue' && b.urgency !== 'overdue') return -1;
       if (b.urgency === 'overdue' && a.urgency !== 'overdue') return 1;
       
+      if (a.urgency === 'critical' && b.urgency !== 'critical') return -1;
+      if (b.urgency === 'critical' && a.urgency !== 'critical') return 1;
+      
+      // Finally by due date
       if (a.due_date && b.due_date) {
         return a.due_date.getTime() - b.due_date.getTime();
       }

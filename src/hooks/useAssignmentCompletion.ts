@@ -8,47 +8,61 @@ export interface CompletionData {
   actualMinutes: number;
   difficultyRating: 'easy' | 'medium' | 'hard';
   notes?: string;
+  completionStatus: 'completed' | 'in_progress' | 'stuck';
+  progressPercentage?: number;
+  stuckReason?: string;
 }
 
 export function useAssignmentCompletion() {
   const [isLoading, setIsLoading] = useState(false);
   const { recordPerformanceData } = useEnergyPatternLearning();
 
-  const markAsCompleted = async (
+  const updateAssignmentStatus = async (
     assignment: Assignment, 
     completionData: CompletionData
   ): Promise<void> => {
     setIsLoading(true);
     
     try {
-      // Update assignment as completed
+      // Update assignment with completion data
       const { error: updateError } = await supabase
         .from('assignments')
         .update({
-          completed: true,
-          completed_at: new Date().toISOString(),
-          actual_time_minutes: completionData.actualMinutes,
+          completion_status: completionData.completionStatus,
+          completed_at: completionData.completionStatus === 'completed' ? new Date().toISOString() : null,
+          time_spent_minutes: completionData.actualMinutes,
           difficulty_rating: completionData.difficultyRating,
-          completion_notes: completionData.notes
+          completion_notes: completionData.notes,
+          progress_percentage: completionData.progressPercentage || 0,
+          stuck_reason: completionData.stuckReason,
+          // Clear scheduling if in progress or stuck to allow rescheduling
+          scheduled_block: completionData.completionStatus !== 'completed' ? null : assignment.scheduled_block,
+          scheduled_date: completionData.completionStatus !== 'completed' ? null : assignment.scheduled_date
         } as any)
         .eq('id', assignment.id);
 
       if (updateError) throw updateError;
 
-      // Update learning patterns for future inference
-      const estimatedMinutes = assignment.estimated_time_minutes || 
-                               assignment.actual_estimated_minutes || 
-                               30; // fallback
+      // Update learning patterns only for completed assignments
+      if (completionData.completionStatus === 'completed') {
+        const estimatedMinutes = assignment.estimated_time_minutes || 
+                                 assignment.actual_estimated_minutes || 
+                                 30; // fallback
 
-      await updateLearningPattern(
-        assignment.student_name,
-        assignment,
-        estimatedMinutes,
-        completionData.actualMinutes
-      );
+        await updateLearningPattern(
+          assignment.student_name,
+          assignment,
+          estimatedMinutes,
+          completionData.actualMinutes
+        );
+      }
 
       // Record performance data for energy pattern learning
-      if (assignment.scheduled_block && assignment.scheduled_date) {
+      if (assignment.scheduled_block && assignment.scheduled_date && completionData.completionStatus === 'completed') {
+        const estimatedMinutes = assignment.estimated_time_minutes || 
+                                 assignment.actual_estimated_minutes || 
+                                 30; // fallback
+        
         await recordPerformanceData({
           assignmentId: assignment.id,
           studentName: assignment.student_name,
@@ -63,14 +77,15 @@ export function useAssignmentCompletion() {
       }
 
       // Log success for analytics
-      console.log(`Assignment "${assignment.title}" completed successfully`, {
-        estimated: estimatedMinutes,
-        actual: completionData.actualMinutes,
-        efficiency: completionData.actualMinutes / estimatedMinutes
+      console.log(`Assignment "${assignment.title}" status updated to ${completionData.completionStatus}`, {
+        status: completionData.completionStatus,
+        timeSpent: completionData.actualMinutes,
+        progress: completionData.progressPercentage || 0,
+        stuckReason: completionData.stuckReason
       });
 
     } catch (error) {
-      console.error('Error marking assignment as completed:', error);
+      console.error('Error updating assignment status:', error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -119,7 +134,7 @@ export function useAssignmentCompletion() {
   };
 
   return {
-    markAsCompleted,
+    updateAssignmentStatus,
     getCompletionStats,
     isLoading
   };

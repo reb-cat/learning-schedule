@@ -134,6 +134,8 @@ export type Database = {
           canvas_url: string | null
           category: string | null
           cognitive_load: string | null
+          completion_notes: string | null
+          completion_status: string | null
           course_name: string | null
           created_at: string
           display_as_single_event: boolean | null
@@ -153,6 +155,7 @@ export type Database = {
           original_assignment_id: string | null
           parent_assignment_id: string | null
           priority: string | null
+          progress_percentage: number | null
           quiz_type: string | null
           recurrence_pattern: Json | null
           scheduled_block: number | null
@@ -162,9 +165,11 @@ export type Database = {
           shared_block_id: string | null
           source: string | null
           split_part_number: number | null
+          stuck_reason: string | null
           student_name: string
           subject: string | null
           task_type: string | null
+          time_spent_minutes: number | null
           title: string
           total_split_parts: number | null
           updated_at: string
@@ -183,6 +188,8 @@ export type Database = {
           canvas_url?: string | null
           category?: string | null
           cognitive_load?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
           course_name?: string | null
           created_at?: string
           display_as_single_event?: boolean | null
@@ -202,6 +209,7 @@ export type Database = {
           original_assignment_id?: string | null
           parent_assignment_id?: string | null
           priority?: string | null
+          progress_percentage?: number | null
           quiz_type?: string | null
           recurrence_pattern?: Json | null
           scheduled_block?: number | null
@@ -211,9 +219,11 @@ export type Database = {
           shared_block_id?: string | null
           source?: string | null
           split_part_number?: number | null
+          stuck_reason?: string | null
           student_name: string
           subject?: string | null
           task_type?: string | null
+          time_spent_minutes?: number | null
           title: string
           total_split_parts?: number | null
           updated_at?: string
@@ -232,6 +242,8 @@ export type Database = {
           canvas_url?: string | null
           category?: string | null
           cognitive_load?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
           course_name?: string | null
           created_at?: string
           display_as_single_event?: boolean | null
@@ -251,6 +263,7 @@ export type Database = {
           original_assignment_id?: string | null
           parent_assignment_id?: string | null
           priority?: string | null
+          progress_percentage?: number | null
           quiz_type?: string | null
           recurrence_pattern?: Json | null
           scheduled_block?: number | null
@@ -260,9 +273,11 @@ export type Database = {
           shared_block_id?: string | null
           source?: string | null
           split_part_number?: number | null
+          stuck_reason?: string | null
           student_name?: string
           subject?: string | null
           task_type?: string | null
+          time_spent_minutes?: number | null
           title?: string
           total_split_parts?: number | null
           updated_at?: string
@@ -299,6 +314,8 @@ export type Database = {
           canvas_url: string | null
           category: string | null
           cognitive_load: string | null
+          completion_notes: string | null
+          completion_status: string | null
           course_name: string | null
           created_at: string
           display_as_single_event: boolean | null
@@ -318,6 +335,7 @@ export type Database = {
           original_assignment_id: string | null
           parent_assignment_id: string | null
           priority: string | null
+          progress_percentage: number | null
           quiz_type: string | null
           recurrence_pattern: Json | null
           scheduled_block: number | null
@@ -327,9 +345,11 @@ export type Database = {
           shared_block_id: string | null
           source: string | null
           split_part_number: number | null
+          stuck_reason: string | null
           student_name: string
           subject: string | null
           task_type: string | null
+          time_spent_minutes: number | null
           title: string
           total_split_parts: number | null
           updated_at: string
@@ -348,6 +368,8 @@ export type Database = {
           canvas_url?: string | null
           category?: string | null
           cognitive_load?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
           course_name?: string | null
           created_at?: string
           display_as_single_event?: boolean | null
@@ -367,6 +389,7 @@ export type Database = {
           original_assignment_id?: string | null
           parent_assignment_id?: string | null
           priority?: string | null
+          progress_percentage?: number | null
           quiz_type?: string | null
           recurrence_pattern?: Json | null
           scheduled_block?: number | null
@@ -376,9 +399,11 @@ export type Database = {
           shared_block_id?: string | null
           source?: string | null
           split_part_number?: number | null
+          stuck_reason?: string | null
           student_name: string
           subject?: string | null
           task_type?: string | null
+          time_spent_minutes?: number | null
           title: string
           total_split_parts?: number | null
           updated_at?: string
@@ -397,6 +422,8 @@ export type Database = {
           canvas_url?: string | null
           category?: string | null
           cognitive_load?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
           course_name?: string | null
           created_at?: string
           display_as_single_event?: boolean | null
@@ -416,6 +443,7 @@ export type Database = {
           original_assignment_id?: string | null
           parent_assignment_id?: string | null
           priority?: string | null
+          progress_percentage?: number | null
           quiz_type?: string | null
           recurrence_pattern?: Json | null
           scheduled_block?: number | null
@@ -425,9 +453,11 @@ export type Database = {
           shared_block_id?: string | null
           source?: string | null
           split_part_number?: number | null
+          stuck_reason?: string | null
           student_name?: string
           subject?: string | null
           task_type?: string | null
+          time_spent_minutes?: number | null
           title?: string
           total_split_parts?: number | null
           updated_at?: string
