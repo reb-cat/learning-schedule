@@ -8,7 +8,7 @@ import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 import { useAssignments } from "@/hooks/useAssignments";
 import { useState, useEffect, useCallback } from "react";
 import { CoopChecklist } from "@/components/CoopChecklist";
-import { TodaysTasks } from "@/components/TodaysTasks";
+
 import { stagingUtils, type StagingMode } from "@/utils/stagingUtils";
 
 const KhalilDashboard = () => {
@@ -91,21 +91,6 @@ const KhalilDashboard = () => {
             currentDay={currentDay} 
           />
 
-          {/* Today's Tasks - only urgent items */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Today's Focus
-            </h2>
-            <TodaysTasks 
-              assignments={assignments}
-              scheduledAssignments={scheduledAssignments}
-              currentDay={currentDay}
-              currentDate={displayDate}
-              isLoading={assignmentsLoading}
-              error={assignmentsError}
-            />
-          </div>
 
           {/* Today's Schedule */}
           <div className="space-y-4">
