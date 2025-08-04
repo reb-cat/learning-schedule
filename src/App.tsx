@@ -24,12 +24,12 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Test />} />
-            <Route path="/abigail" element={<AbigailDashboard />} />
-            <Route path="/khalil" element={<KhalilDashboard />} />
-            <Route path="/admin" element={<AdminSetup />} />
-            <Route path="/parent" element={<ParentDashboard />} />
+            <Route path="/abigail" element={<div style={{padding: '20px', background: 'orange', color: 'white'}}>Abigail Page Test</div>} />
+            <Route path="/khalil" element={<div style={{padding: '20px', background: 'red', color: 'white'}}>Khalil Page Test</div>} />
+            <Route path="/admin" element={<div style={{padding: '20px', background: 'blue', color: 'white'}}>Admin Page Test</div>} />
+            <Route path="/parent" element={<div style={{padding: '20px', background: 'green', color: 'white'}}>Parent Page Test</div>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
+            <Route path="*" element={<div style={{padding: '20px', background: 'gray', color: 'white'}}>404 Page Test</div>} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
