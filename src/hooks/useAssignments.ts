@@ -56,30 +56,43 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
       setLoading(true);
       setError(null);
       
-      let data, error;
-      if (currentMode === 'staging') {
-        const result = await supabase
-          .from('assignments_staging')
-          .select('*')
-          .eq('student_name', studentName)
-          .order('due_date', { ascending: true, nullsFirst: false });
-        data = result.data;
-        error = result.error;
-      } else {
-        const result = await supabase
-          .from('assignments')
-          .select('*')
-          .eq('student_name', studentName)
-          .order('due_date', { ascending: true, nullsFirst: false });
-        data = result.data;
-        error = result.error;
-      }
+      const tableName = currentMode === 'staging' ? 'assignments_staging' : 'assignments';
+      console.log(`🔍 Fetching assignments from ${tableName} for ${studentName}`);
+      
+      // Add retry logic for network issues
+      const maxRetries = 3;
+      let lastError: Error | null = null;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const query = supabase
+            .from(tableName)
+            .select('*')
+            .eq('student_name', studentName)
+            .order('due_date', { ascending: true, nullsFirst: false });
 
-      if (error) {
-        throw error;
-      }
+          const { data, error } = await query;
 
-      setAssignments((data || []) as Assignment[]);
+          if (error) {
+            throw new Error(error.message);
+          }
+
+          console.log(`📚 Found ${data?.length || 0} assignments for ${studentName}`);
+          setAssignments((data || []) as Assignment[]);
+          return;
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error('Unknown error');
+          console.warn(`Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
+          
+          if (attempt < maxRetries) {
+            // Exponential backoff
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+          }
+        }
+      }
+      
+      // All retries failed
+      throw lastError || new Error('Failed to fetch assignments after retries');
     } catch (err) {
       console.error('Error fetching assignments:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch assignments');
@@ -89,40 +102,38 @@ export const useAssignments = (studentName: string, mode?: StagingMode) => {
   };
 
   const getScheduledAssignment = async (block: number, date: string) => {
-    try {
-      let data, error;
-      if (currentMode === 'staging') {
-        const result = await supabase
-          .from('assignments_staging')
+    const tableName = currentMode === 'staging' ? 'assignments_staging' : 'assignments';
+    
+    // Add retry logic for scheduled assignments too
+    const maxRetries = 2;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const { data, error } = await supabase
+          .from(tableName)
           .select('*')
           .eq('student_name', studentName)
           .eq('scheduled_block', block)
           .eq('scheduled_date', date)
           .maybeSingle();
-        data = result.data;
-        error = result.error;
-      } else {
-        const result = await supabase
-          .from('assignments')
-          .select('*')
-          .eq('student_name', studentName)
-          .eq('scheduled_block', block)
-          .eq('scheduled_date', date)
-          .maybeSingle();
-        data = result.data;
-        error = result.error;
-      }
 
-      if (error) {
-        console.error('Error fetching scheduled assignment:', error);
-        return null;
-      }
+        if (error) {
+          throw new Error(error.message);
+        }
 
-      return data as Assignment | null;
-    } catch (err) {
-      console.error('Error in getScheduledAssignment:', err);
-      return null;
+        return data as Assignment | null;
+      } catch (err) {
+        console.error(`Error fetching scheduled assignment (attempt ${attempt}):`, err);
+        
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        } else {
+          return null;
+        }
+      }
     }
+    
+    return null;
   };
 
   useEffect(() => {

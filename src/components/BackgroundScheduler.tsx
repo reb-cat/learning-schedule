@@ -28,8 +28,8 @@ export function BackgroundScheduler({ studentName, onSchedulingComplete }: Backg
     // Run immediately
     runScheduler();
     
-    // Then run every 5 minutes
-    interval = setInterval(runScheduler, 5 * 60 * 1000);
+    // Then run every 15 minutes to reduce load
+    interval = setInterval(runScheduler, 15 * 60 * 1000);
     
     return () => {
       if (interval) {
