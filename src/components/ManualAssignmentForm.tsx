@@ -326,7 +326,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Type</Label>
                 <Select value={formData.assignment_type} onValueChange={(value) => 
-                  setFormData(prev => ({ ...prev, assignment_type: value, subject: '' }))
+                  setFormData(prev => ({ ...prev, assignment_type: value }))
                 }>
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
