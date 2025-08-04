@@ -11,6 +11,8 @@ import { CoopChecklist } from "@/components/CoopChecklist";
 import { StudentBlockDisplay } from "@/components/StudentBlockDisplay";
 import { BackgroundScheduler } from "@/components/BackgroundScheduler";
 import { ErrorFallback } from "@/components/ErrorFallback";
+import { ErrorMonitoring } from "@/components/ErrorMonitoring";
+import { PerformanceMonitor } from "@/components/PerformanceMonitor";
 
 import { stagingUtils, type StagingMode } from "@/utils/stagingUtils";
 
@@ -23,9 +25,10 @@ const KhalilDashboard = () => {
   // Determine staging mode
   const stagingMode: StagingMode = stagingParam === 'true' ? 'staging' : 'production';
   
-  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch } = useAssignments('Khalil', stagingMode);
+  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch, cacheStats, cleanupData } = useAssignments('Khalil', stagingMode);
   const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
   const [criticalError, setCriticalError] = useState<string | null>(null);
+  const [errorCount, setErrorCount] = useState(0);
   
   // Use date parameter if provided and valid, otherwise use today
   let displayDate = new Date();
@@ -96,6 +99,13 @@ const KhalilDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background p-6">
+      <ErrorMonitoring 
+        studentName="Khalil" 
+        onError={(error, context) => {
+          setErrorCount(prev => prev + 1);
+          console.warn('Dashboard Error:', { error, context });
+        }} 
+      />
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -110,12 +120,30 @@ const KhalilDashboard = () => {
             </div>
             <p className="text-lg text-muted-foreground mt-1">{dateDisplay}</p>
           </div>
-          <Link to="/">
-            <Button variant="outline" size="sm" className="flex items-center gap-2">
-              <Home size={16} />
-              Home
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <PerformanceMonitor 
+              studentName="Khalil" 
+              metrics={{
+                cacheHits: cacheStats.hits,
+                cacheMisses: cacheStats.misses,
+                hitRate: cacheStats.hitRate,
+                dataFreshness: Date.now(),
+                lastRefresh: Date.now(),
+                errorCount,
+                avgResponseTime: 0
+              }}
+              onOptimize={async () => {
+                await cleanupData();
+                await refetch();
+              }}
+            />
+            <Link to="/">
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Home size={16} />
+                Home
+              </Button>
+            </Link>
+          </div>
         </div>
         
         <div className="space-y-6">
