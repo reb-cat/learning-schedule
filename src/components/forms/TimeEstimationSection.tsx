@@ -61,10 +61,8 @@ export function TimeEstimationSection({ value, onChange }: TimeEstimationSection
   const getCurrentSelectValue = () => {
     const matchingOption = timeOptions.find(option => option.value === value && option.value !== -1);
     if (matchingOption) {
-      setShowCustomInput(false);
       return matchingOption.value.toString();
     }
-    setShowCustomInput(true);
     return '-1'; // "Other"
   };
 
@@ -95,7 +93,7 @@ export function TimeEstimationSection({ value, onChange }: TimeEstimationSection
     }
   };
 
-  // Update custom input when value changes externally
+  // Update showCustomInput and customInput when value changes externally
   useEffect(() => {
     const matchingOption = timeOptions.find(option => option.value === value && option.value !== -1);
     if (!matchingOption && value > 0) {
@@ -106,6 +104,8 @@ export function TimeEstimationSection({ value, onChange }: TimeEstimationSection
       else if (value === 120) setCustomInput('2 hours');
       else if (value === 180) setCustomInput('3 hours');
       else setCustomInput(`${value} minutes`);
+    } else {
+      setShowCustomInput(false);
     }
   }, [value]);
 
