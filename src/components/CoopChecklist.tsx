@@ -66,7 +66,7 @@ export function CoopChecklist({ studentName, assignments, currentDay }: CoopChec
     });
 
     // Add student-specific co-op reminders
-    if (studentName === 'Abigail' && (currentDay === 'Tuesday' || currentDay === 'Thursday')) {
+    if (studentName === 'Abigail' && (currentDay === 'Monday' || currentDay === 'Thursday')) {
       items.unshift(
         { id: 'apron', text: '□ Bring clean apron for baking class', completed: false },
         { id: 'lunch', text: '□ Pack lunch and water bottle', completed: false },
@@ -75,7 +75,7 @@ export function CoopChecklist({ studentName, assignments, currentDay }: CoopChec
       );
     }
 
-    if (studentName === 'Khalil' && (currentDay === 'Monday' || currentDay === 'Wednesday')) {
+    if (studentName === 'Khalil' && (currentDay === 'Monday' || currentDay === 'Thursday')) {
       items.unshift(
         { id: 'tools', text: '□ Bring workshop tools and materials', completed: false },
         { id: 'safety', text: '□ Safety glasses and protective gear', completed: false },
@@ -95,8 +95,7 @@ export function CoopChecklist({ studentName, assignments, currentDay }: CoopChec
     );
   };
 
-  const isCoopDay = (studentName === 'Abigail' && (currentDay === 'Tuesday' || currentDay === 'Thursday')) ||
-                   (studentName === 'Khalil' && (currentDay === 'Monday' || currentDay === 'Wednesday'));
+  const isCoopDay = currentDay === 'Monday' || currentDay === 'Thursday';
 
   if (!isCoopDay || checklistItems.length === 0) {
     return null;
