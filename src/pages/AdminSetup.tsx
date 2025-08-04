@@ -11,6 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { RefreshCw, Calendar, ChevronDown, ChevronUp, Database, Zap, Settings, CheckCircle, XCircle, AlertCircle, Clock, Plus, BookOpen, AlertTriangle, TestTube, Trash, Copy } from 'lucide-react';
 import { stagingUtils, type StagingMode } from '@/utils/stagingUtils';
+import { RunScheduler } from '@/components/RunScheduler';
+import { EnhancedScheduler } from '@/components/EnhancedScheduler';
 const AdminSetup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState<any>(null);
@@ -451,6 +453,46 @@ const AdminSetup = () => {
                     <li>5. Clear staging data when finished testing</li>
                   </ol>
                 </div>
+
+                {/* Scheduling Controls - Only shown in staging mode */}
+                {stagingMode === 'staging' && (
+                  <div className="space-y-4">
+                    <div className="border-t pt-6">
+                      <h4 className="font-medium text-orange-900 mb-4">Test Assignment Scheduling</h4>
+                      <p className="text-sm text-orange-700 mb-4">
+                        After seeding test data, use these tools to schedule assignments into time blocks:
+                      </p>
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div>
+                          <h5 className="font-medium mb-2">Khalil's Scheduler</h5>
+                          <EnhancedScheduler 
+                            studentName="Khalil" 
+                            onSchedulingComplete={() => {
+                              toast({
+                                title: "Khalil's schedule updated",
+                                description: "Visit his dashboard to see the scheduled assignments."
+                              });
+                            }}
+                          />
+                        </div>
+                        
+                        <div>
+                          <h5 className="font-medium mb-2">Abigail's Scheduler</h5>
+                          <EnhancedScheduler 
+                            studentName="Abigail" 
+                            onSchedulingComplete={() => {
+                              toast({
+                                title: "Abigail's schedule updated",
+                                description: "Visit her dashboard to see the scheduled assignments."
+                              });
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Quick Links */}
                 <div className="flex flex-wrap gap-2">
