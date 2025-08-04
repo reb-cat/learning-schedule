@@ -118,7 +118,7 @@ export class BlockSharingScheduler {
     }
   }
 
-  private async getClassifiedTasks(studentName: string): Promise<TaskClassification[]> {
+  async getClassifiedTasks(studentName: string): Promise<TaskClassification[]> {
     const currentMode = stagingUtils.getCurrentMode();
     
     const { data, error } = currentMode === 'staging' 
@@ -193,7 +193,7 @@ export class BlockSharingScheduler {
     return assignment.urgency || 'medium';
   }
 
-  private async getAvailableBlocks(studentName: string, daysAhead: number, startDate?: Date): Promise<BlockComposition[]> {
+  async getAvailableBlocks(studentName: string, daysAhead: number, startDate?: Date): Promise<BlockComposition[]> {
     // Use real schedule data instead of mock data
     const { getScheduleForStudentAndDay } = await import('../data/scheduleData');
     const blocks: BlockComposition[] = [];
