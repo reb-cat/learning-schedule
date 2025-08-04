@@ -457,12 +457,17 @@ const AdminSetup = () => {
 
                 {/* Scheduling Controls - Only shown in staging mode */}
                 {stagingMode === 'staging' && (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <div className="border-t pt-6">
                       <h4 className="font-medium text-orange-900 mb-4">Test Assignment Scheduling</h4>
                       <p className="text-sm text-orange-700 mb-4">
                         After seeding test data, use these tools to schedule assignments into time blocks:
                       </p>
+                      
+                      {/* Debug Scheduler - New enhanced scheduler */}
+                      <div className="mb-6">
+                        <DebugScheduler />
+                      </div>
                       
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div>
@@ -636,9 +641,6 @@ const AdminSetup = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="diagnostics" className="space-y-6">
-            <DebugScheduler />
-          </TabsContent>
 
         </Tabs>
       </div>
