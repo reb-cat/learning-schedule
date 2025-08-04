@@ -5,16 +5,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TimeEstimationSection } from '@/components/forms/TimeEstimationSection';
-import { Calendar, User, BookOpen, Target, AlertCircle, CalendarDays, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { Calendar as CalendarIcon, User, Clock, Plus, ChevronDown, Repeat, Settings, MapPin } from 'lucide-react';
 import { addDays, format, parseISO } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface ManualAssignmentFormProps {
   onSuccess?: () => void;
@@ -24,6 +25,8 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [formData, setFormData] = useState({
     student_name: '',
     title: '',
@@ -48,21 +51,28 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
     appointment_time: ''
   });
 
-  const assignmentTypes = [
+  const quickAddSuggestions = [
+    { title: 'Driving Lesson', type: 'driving_lesson', subject: 'Driving Instruction', time: 60 },
+    { title: 'Spanish Tutoring', type: 'tutoring_session', subject: 'Spanish (Preply)', time: 60 },
+    { title: 'Food Bank Volunteer', type: 'volunteer_event', subject: 'Food Bank', time: 180 },
+    { title: 'Math Homework', type: 'academic', subject: 'Math', time: 45 },
+  ];
+
+  const assignmentTypes = {
     // Appointments (fixed time/place)
-    { value: 'tutoring_session', label: 'Tutoring Session', description: 'Scheduled 1-on-1 lessons', type: 'appointment', icon: Calendar },
-    { value: 'driving_lesson', label: 'Driving Lesson', description: 'With instructor', type: 'appointment', icon: Calendar },
-    { value: 'volunteer_event', label: 'Volunteer Event', description: 'Scheduled community service', type: 'appointment', icon: Calendar },
-    { value: 'job_interview', label: 'Job Interview', description: 'Scheduled meeting', type: 'appointment', icon: Calendar },
+    tutoring_session: { label: 'Tutoring Session', group: 'appointment', icon: '👨‍🏫' },
+    driving_lesson: { label: 'Driving Lesson', group: 'appointment', icon: '🚗' },
+    volunteer_event: { label: 'Volunteer Event', group: 'appointment', icon: '🤝' },
+    job_interview: { label: 'Job Interview', group: 'appointment', icon: '💼' },
     
     // Assignments (flexible completion)
-    { value: 'academic', label: 'Academic Work', description: 'Homework and schoolwork', type: 'assignment', icon: BookOpen },
-    { value: 'tutoring_homework', label: 'Tutoring Homework', description: 'Work assigned by tutor', type: 'assignment', icon: BookOpen },
-    { value: 'driving_practice', label: 'Driving Practice', description: 'Flexible practice time', type: 'assignment', icon: BookOpen },
-    { value: 'volunteer_prep', label: 'Volunteer Prep', description: 'Applications, training materials', type: 'assignment', icon: BookOpen },
-    { value: 'job_applications', label: 'Job Applications', description: 'Resume, forms, paperwork', type: 'assignment', icon: BookOpen },
-    { value: 'life_skills', label: 'Life Skills', description: 'Banking, cooking, household tasks', type: 'assignment', icon: BookOpen }
-  ];
+    academic: { label: 'Academic Work', group: 'assignment', icon: '📚' },
+    tutoring_homework: { label: 'Tutoring Homework', group: 'assignment', icon: '📝' },
+    driving_practice: { label: 'Driving Practice', group: 'assignment', icon: '🎯' },
+    volunteer_prep: { label: 'Volunteer Prep', group: 'assignment', icon: '📋' },
+    job_applications: { label: 'Job Applications', group: 'assignment', icon: '📄' },
+    life_skills: { label: 'Life Skills', group: 'assignment', icon: '🏠' }
+  };
 
   const subjectOptions = {
     // Appointments
@@ -80,10 +90,17 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
     life_skills: ['Cooking', 'Banking', 'Household Management', 'Personal Finance', 'Organization']
   };
 
+  const isAppointment = assignmentTypes[formData.assignment_type as keyof typeof assignmentTypes]?.group === 'appointment';
 
-  const daysOfWeek = [
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
-  ];
+  const handleQuickAdd = (suggestion: typeof quickAddSuggestions[0]) => {
+    setFormData(prev => ({
+      ...prev,
+      title: suggestion.title,
+      assignment_type: suggestion.type,
+      subject: suggestion.subject,
+      estimated_time_minutes: suggestion.time
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,13 +127,11 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
       const assignments = [];
       
       if (formData.is_multi_day_event && formData.due_date && formData.end_date) {
-        // Create assignments for each day of the multi-day event
         const startDate = parseISO(formData.due_date);
         const endDate = parseISO(formData.end_date);
         const dayCount = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         const hoursPerDay = formData.volunteer_hours / dayCount;
         
-        // Generate unique event group ID for multi-day events
         const eventGroupId = crypto.randomUUID();
         
         for (let i = 0; i < dayCount; i++) {
@@ -131,15 +146,14 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
             priority: formData.priority,
             due_date: format(currentDate, 'yyyy-MM-dd'),
             notes: `${formData.notes || ''}\nVolunteer Organization: ${formData.volunteer_organization}\nTotal Event Hours: ${formData.volunteer_hours}\nDay ${i + 1} of ${dayCount}`,
-              category: formData.assignment_type === 'volunteer_events' ? 'volunteer' : 
-                       formData.assignment_type === 'life_skills' ? 'life_skills' :
-                       formData.assignment_type === 'tutoring' ? 'tutoring' :
-                       formData.assignment_type === 'recurring' ? 'recurring' : 'academic',
+            category: formData.assignment_type === 'volunteer_events' ? 'volunteer' : 
+                     formData.assignment_type === 'life_skills' ? 'life_skills' :
+                     formData.assignment_type === 'tutoring' ? 'tutoring' :
+                     formData.assignment_type === 'recurring' ? 'recurring' : 'academic',
             urgency: 'upcoming',
             cognitive_load: getCognitiveLoad(formData.subject, formData.assignment_type),
             is_template: false,
             recurrence_pattern: null,
-            // Enhanced multi-day event fields
             is_full_day_block: formData.is_full_day_block,
             blocks_scheduling: formData.blocks_scheduling,
             event_group_id: eventGroupId,
@@ -174,36 +188,27 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
             days: formData.recurrence_days,
             frequency: 'weekly'
           } : null,
-          // Enhanced event fields
           is_full_day_block: formData.is_full_day_block,
           blocks_scheduling: formData.blocks_scheduling,
           event_group_id: null,
           display_as_single_event: false,
           volunteer_hours: formData.volunteer_hours || null,
           volunteer_organization: formData.volunteer_organization || null,
-          // Specific scheduling
           scheduled_date: formData.schedule_specific_datetime ? formData.specific_scheduled_date : null,
           scheduled_block: formData.schedule_specific_datetime ? formData.specific_scheduled_block : null
         };
         assignments.push(assignmentData);
       }
 
-      // Use edge function to create assignment(s) with proper permissions
-      console.log('Sending assignments to edge function:', assignments);
-      
       const { data, error } = await supabase.functions.invoke('create-manual-assignment', {
         body: assignments
       });
 
-      console.log('Edge function response:', { data, error });
-
       if (error) {
-        console.error('Edge function error:', error);
         throw new Error(`Edge function error: ${error.message}`);
       }
 
       if (!data?.success) {
-        console.error('Assignment creation failed:', data);
         throw new Error(data?.error || 'Failed to create assignment');
       }
 
@@ -257,521 +262,315 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
     return 'medium';
   };
 
-  const getStudentSpecificNotes = (studentName: string, assignmentType: string) => {
-    if (studentName === 'Abigail' && assignmentType === 'recurring') {
-      return 'Consistent weekly structure supports executive function needs';
-    }
-    if (studentName === 'Khalil' && assignmentType === 'tutoring') {
-      return 'Schedule in morning blocks (2-4) for optimal focus with dyslexia';
-    }
-    return '';
-  };
-
   return (
-    <Card className="w-full max-w-3xl mx-auto">
+    <Card className="w-full max-w-2xl mx-auto">
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2 text-xl">
-          <Target className="h-5 w-5" />
-          Create Manual Assignment
+          <Plus className="h-5 w-5" />
+          Add Assignment
         </CardTitle>
-        <CardDescription className="text-sm text-muted-foreground">
-          Add non-Canvas assignments like driving lessons, tutoring, and life skills
+        <CardDescription>
+          Create homework, appointments, and activities
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Student Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="student" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Student *
-            </Label>
-            <Select value={formData.student_name} onValueChange={(value) => 
-              setFormData(prev => ({ ...prev, student_name: value }))
-            }>
-              <SelectTrigger>
-                <SelectValue placeholder="Select student" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Abigail">Abigail</SelectItem>
-                <SelectItem value="Khalil">Khalil</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Assignment Type */}
+          {/* Quick Add Suggestions */}
           <div className="space-y-3">
-            <Label className="flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              Type *
-            </Label>
-            
-            {/* Appointments Section */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-blue-600">
-                <Calendar className="h-4 w-4" />
-                Appointments (fixed time & place)
-              </div>
-              <RadioGroup 
-                value={formData.assignment_type} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, assignment_type: value, subject: '' }))}
-                className="grid grid-cols-2 gap-3"
-              >
-                {assignmentTypes.filter(type => type.type === 'appointment').map((type) => (
-                  <div key={type.value} className="flex items-center space-x-2 p-3 border border-blue-200 bg-blue-50/50 rounded-lg hover:bg-blue-50">
-                    <RadioGroupItem value={type.value} id={type.value} />
-                    <div className="flex-1">
-                      <Label htmlFor={type.value} className="font-medium flex items-center gap-2">
-                        <Calendar className="h-3 w-3 text-blue-600" />
-                        {type.label}
-                      </Label>
-                      <p className="text-sm text-muted-foreground">{type.description}</p>
-                    </div>
+            <Label className="text-sm font-medium">Quick Add</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {quickAddSuggestions.map((suggestion) => (
+                <Button
+                  key={suggestion.title}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickAdd(suggestion)}
+                  className="justify-start text-left h-auto py-2"
+                >
+                  <div>
+                    <div className="font-medium">{suggestion.title}</div>
+                    <div className="text-xs text-muted-foreground">{suggestion.subject}</div>
                   </div>
-                ))}
-              </RadioGroup>
-            </div>
-
-            {/* Assignments Section */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-green-600">
-                <BookOpen className="h-4 w-4" />
-                Assignments (flexible completion)
-              </div>
-              <RadioGroup 
-                value={formData.assignment_type} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, assignment_type: value, subject: '' }))}
-                className="grid grid-cols-2 gap-3"
-              >
-                {assignmentTypes.filter(type => type.type === 'assignment').map((type) => (
-                  <div key={type.value} className="flex items-center space-x-2 p-3 border border-green-200 bg-green-50/50 rounded-lg hover:bg-green-50">
-                    <RadioGroupItem value={type.value} id={type.value} />
-                    <div className="flex-1">
-                      <Label htmlFor={type.value} className="font-medium flex items-center gap-2">
-                        <BookOpen className="h-3 w-3 text-green-600" />
-                        {type.label}
-                      </Label>
-                      <p className="text-sm text-muted-foreground">{type.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </RadioGroup>
+                </Button>
+              ))}
             </div>
           </div>
 
-          {/* Title and Subject */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Main Form Fields */}
+          <div className="space-y-4">
+            {/* Title (Google Calendar style) */}
             <div className="space-y-2">
-              <Label htmlFor="title">Title *</Label>
               <Input
-                id="title"
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="e.g., Driving Practice"
+                placeholder="Add title"
+                className="text-lg font-medium border-0 border-b border-border rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="subject">Subject *</Label>
-              <Select value={formData.subject} onValueChange={(value) => 
-                setFormData(prev => ({ ...prev, subject: value }))
-              }>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subjectOptions[formData.assignment_type as keyof typeof subjectOptions]?.map((subject) => (
-                    <SelectItem key={subject} value={subject}>{subject}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
 
-          {/* Date and Time Section */}
-          <div className="space-y-4">
-            {/* Multi-Day Event Toggle (for all types) */}
-            <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="multi_day"
-                  checked={formData.is_multi_day_event}
-                  onCheckedChange={(checked) => setFormData(prev => ({ 
-                    ...prev, 
-                    is_multi_day_event: checked as boolean
-                  }))}
+            {/* Student & Type Row */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm">
+                  <User className="h-4 w-4" />
+                  Student
+                </Label>
+                <Select value={formData.student_name} onValueChange={(value) => 
+                  setFormData(prev => ({ ...prev, student_name: value }))
+                }>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose student" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Abigail">Abigail</SelectItem>
+                    <SelectItem value="Khalil">Khalil</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm">Type</Label>
+                <Select value={formData.assignment_type} onValueChange={(value) => 
+                  setFormData(prev => ({ ...prev, assignment_type: value, subject: '' }))
+                }>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Appointments</div>
+                    {Object.entries(assignmentTypes)
+                      .filter(([_, config]) => config.group === 'appointment')
+                      .map(([value, config]) => (
+                        <SelectItem key={value} value={value}>
+                          <span className="flex items-center gap-2">
+                            <span>{config.icon}</span>
+                            {config.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Assignments</div>
+                    {Object.entries(assignmentTypes)
+                      .filter(([_, config]) => config.group === 'assignment')
+                      .map(([value, config]) => (
+                        <SelectItem key={value} value={value}>
+                          <span className="flex items-center gap-2">
+                            <span>{config.icon}</span>
+                            {config.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Subject & Time Row */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm">Subject</Label>
+                <Select value={formData.subject} onValueChange={(value) => 
+                  setFormData(prev => ({ ...prev, subject: value }))
+                }>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose subject" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subjectOptions[formData.assignment_type as keyof typeof subjectOptions]?.map((subject) => (
+                      <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm">
+                  <Clock className="h-4 w-4" />
+                  Time Needed
+                </Label>
+                <TimeEstimationSection
+                  value={formData.estimated_time_minutes}
+                  onChange={(value) => setFormData(prev => ({ ...prev, estimated_time_minutes: value }))}
                 />
-                <Label htmlFor="multi_day" className="flex items-center gap-2 font-medium">
-                  <CalendarDays className="h-4 w-4" />
-                  Multi-Day Event
-                </Label>
               </div>
-              <p className="text-sm text-muted-foreground ml-6">
-                Check this for events spanning multiple days (e.g., volunteer trips, conferences, training programs)
-              </p>
             </div>
 
-            {/* Conditional date/time picker based on type */}
-            {assignmentTypes.find(t => t.value === formData.assignment_type)?.type === 'appointment' ? (
-              <div className="space-y-3 p-4 border border-blue-200 bg-blue-50/30 rounded-lg">
-                <Label className="flex items-center gap-2 text-blue-700 font-medium">
-                  <Calendar className="h-4 w-4" />
-                  When? (Required for appointments)
-                </Label>
-                
-                {formData.is_multi_day_event ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="start_date" className="text-sm">Start Date *</Label>
-                      <Input
-                        id="start_date"
-                        type="date"
-                        value={formData.due_date}
-                        onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="end_date" className="text-sm">End Date *</Label>
-                      <Input
-                        id="end_date"
-                        type="date"
-                        value={formData.end_date}
-                        onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-                        min={formData.due_date}
-                        required
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="appointment_date" className="text-sm">Date *</Label>
-                      <Input
-                        id="appointment_date"
-                        type="date"
-                        value={formData.due_date}
-                        onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="appointment_time" className="text-sm">Time *</Label>
-                      <Input
-                        id="appointment_time"
-                        type="time"
-                        value={formData.appointment_time}
-                        onChange={(e) => setFormData(prev => ({ ...prev, appointment_time: e.target.value }))}
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {formData.is_multi_day_event ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="start_date" className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        Start Date *
-                      </Label>
-                      <Input
-                        id="start_date"
-                        type="date"
-                        value={formData.due_date}
-                        onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="end_date" className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        End Date *
-                      </Label>
-                      <Input
-                        id="end_date"
-                        type="date"
-                        value={formData.end_date}
-                        onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
-                        min={formData.due_date}
-                        required
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="due_date" className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      Due by? (Optional for assignments)
-                    </Label>
-                    <Input
-                      id="due_date"
-                      type="date"
-                      value={formData.due_date}
-                      onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Time Estimation */}
-          <TimeEstimationSection
-            value={formData.estimated_time_minutes}
-            onChange={(value) => setFormData(prev => ({ ...prev, estimated_time_minutes: value }))}
-          />
-
-          {/* Advanced Options */}
-          <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
-            <CollapsibleTrigger asChild>
-              <Button variant="outline" className="w-full" type="button">
-                {showAdvanced ? (
-                  <>
-                    <ChevronUp className="mr-2 h-4 w-4" />
-                    Hide Advanced Options
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="mr-2 h-4 w-4" />
-                    Show Advanced Options
-                  </>
-                )}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-6 pt-4">
-
-            {/* Priority Setting */}
-            <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
-              <Select value={formData.priority} onValueChange={(value) => 
-                setFormData(prev => ({ ...prev, priority: value }))
-              }>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Volunteer-Specific Fields */}
-            {formData.assignment_type === 'volunteer_events' && (
-            <div className="space-y-4 p-4 border rounded-lg bg-green-50">
-              <h3 className="font-medium text-green-800">Volunteer Details</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="volunteer_org">Organization</Label>
-                  <Input
-                    id="volunteer_org"
-                    value={formData.volunteer_organization}
-                    onChange={(e) => setFormData(prev => ({ ...prev, volunteer_organization: e.target.value }))}
-                    placeholder="e.g., Local Food Bank"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="volunteer_hours">
-                    {formData.is_multi_day_event ? 'Total Hours' : 'Hours'}
-                  </Label>
-                  <Input
-                    id="volunteer_hours"
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={formData.volunteer_hours}
-                    onChange={(e) => setFormData(prev => ({ ...prev, volunteer_hours: parseFloat(e.target.value) || 0 }))}
-                    placeholder={formData.is_multi_day_event ? "Total hours for entire event" : "Hours for this session"}
-                  />
-                </div>
-              </div>
-
-              {/* Event Display and Blocking Options */}
-              <div className="space-y-4 pt-2 border-t">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="full_day_block">Full Day Event</Label>
+            {/* Date Section */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center space-x-2">
                   <Switch
-                    id="full_day_block"
+                    id="all-day"
                     checked={formData.is_full_day_block}
                     onCheckedChange={(checked) => setFormData(prev => ({ 
                       ...prev, 
                       is_full_day_block: checked,
-                      estimated_time_minutes: checked ? 480 : prev.estimated_time_minutes 
+                      estimated_time_minutes: checked ? 1440 : 60
                     }))}
                   />
+                  <Label htmlFor="all-day" className="text-sm">All day</Label>
                 </div>
                 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <Label htmlFor="blocks_scheduling">Block Other Scheduling</Label>
-                    <p className="text-xs text-muted-foreground">Prevent other assignments on these dates</p>
-                  </div>
+                <div className="flex items-center space-x-2">
                   <Switch
-                    id="blocks_scheduling"
-                    checked={formData.blocks_scheduling}
-                    onCheckedChange={(checked) => setFormData(prev => ({ 
-                      ...prev, 
-                      blocks_scheduling: checked 
-                    }))}
+                    id="multi-day"
+                    checked={formData.is_multi_day_event}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_multi_day_event: checked }))}
                   />
+                  <Label htmlFor="multi-day" className="text-sm">Multi-day</Label>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm">
+                    {isAppointment ? 'Date' : 'Due Date'}
+                  </Label>
+                  <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !formData.due_date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.due_date ? format(parseISO(formData.due_date), "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={formData.due_date ? parseISO(formData.due_date) : undefined}
+                        onSelect={(date) => {
+                          if (date) {
+                            setFormData(prev => ({ ...prev, due_date: format(date, 'yyyy-MM-dd') }));
+                            setShowDatePicker(false);
+                          }
+                        }}
+                        disabled={(date) => date < new Date()}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 {formData.is_multi_day_event && (
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label htmlFor="display_single">Display as Single Event</Label>
-                      <p className="text-xs text-muted-foreground">Show as one card instead of separate days</p>
-                    </div>
-                    <Switch
-                      id="display_single"
-                      checked={formData.display_as_single_event}
-                      onCheckedChange={(checked) => setFormData(prev => ({ 
-                        ...prev, 
-                        display_as_single_event: checked 
-                      }))}
-                    />
+                  <div className="space-y-2">
+                    <Label className="text-sm">End Date</Label>
+                    <Popover open={showEndDatePicker} onOpenChange={setShowEndDatePicker}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !formData.end_date && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.end_date ? format(parseISO(formData.end_date), "PPP") : "Pick end date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.end_date ? parseISO(formData.end_date) : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              setFormData(prev => ({ ...prev, end_date: format(date, 'yyyy-MM-dd') }));
+                              setShowEndDatePicker(false);
+                            }
+                          }}
+                          disabled={(date) => {
+                            if (!formData.due_date) return date < new Date();
+                            return date < parseISO(formData.due_date);
+                          }}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 )}
-                </div>
               </div>
-            )}
+            </div>
+          </div>
 
-            {/* Specific Date/Time Scheduling */}
-            <div className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="specific_schedule"
-                checked={formData.schedule_specific_datetime}
-                onCheckedChange={(checked) => setFormData(prev => ({ 
-                  ...prev, 
-                  schedule_specific_datetime: checked as boolean
-                }))}
-              />
-              <Label htmlFor="specific_schedule">Schedule for specific date and time</Label>
-            </div>
-            
-            {formData.schedule_specific_datetime && (
-              <div className="space-y-2 p-4 border rounded-lg bg-blue-50">
-                <Label className="text-blue-800">Fixed Appointment Details</Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="specific_date">Date</Label>
-                    <Input
-                      id="specific_date"
-                      type="date"
-                      value={formData.specific_scheduled_date}
-                      onChange={(e) => setFormData(prev => ({ ...prev, specific_scheduled_date: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="specific_block">Block (1-8)</Label>
-                    <Select 
-                      value={formData.specific_scheduled_block.toString()} 
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, specific_scheduled_block: parseInt(value) }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1,2,3,4,5,6,7,8].map((block) => (
-                          <SelectItem key={block} value={block.toString()}>Block {block}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                </div>
-              )}
-            </div>
-
-            {/* Recurring Pattern */}
-            <div className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="recurring"
-                checked={formData.is_recurring}
-                onCheckedChange={(checked) => setFormData(prev => ({ 
-                  ...prev, 
-                  is_recurring: checked as boolean,
-                  recurrence_days: checked ? [] : []
-                }))}
-              />
-              <Label htmlFor="recurring">Make this a recurring assignment</Label>
-            </div>
-            
-            {formData.is_recurring && (
-              <div className="space-y-2 p-4 border rounded-lg bg-muted/50">
-                <Label>Recurring Days</Label>
-                <div className="flex flex-wrap gap-2">
-                  {daysOfWeek.map((day) => (
-                    <div key={day} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={day}
-                        checked={formData.recurrence_days.includes(day)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setFormData(prev => ({
-                              ...prev,
-                              recurrence_days: [...prev.recurrence_days, day]
-                            }));
-                          } else {
-                            setFormData(prev => ({
-                              ...prev,
-                              recurrence_days: prev.recurrence_days.filter(d => d !== day)
-                            }));
-                          }
-                        }}
-                      />
-                      <Label htmlFor={day} className="text-sm">{day}</Label>
-                    </div>
-                  ))}
-                </div>
-                </div>
-              )}
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-2">
-            <Label htmlFor="notes">Special Notes</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="e.g., Bring permit and insurance card"
-              rows={3}
-            />
-            {formData.student_name && formData.assignment_type && (
-              <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
-                <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5" />
-                <p className="text-sm text-blue-800">
-                  {getStudentSpecificNotes(formData.student_name, formData.assignment_type)}
-                </p>
-                </div>
-              )}
-            </div>
-
-            {/* Cognitive Load Preview */}
-            {formData.subject && (
-            <div className="p-3 bg-muted rounded-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Cognitive Load Preview:</span>
-                <Badge variant={getCognitiveLoad(formData.subject, formData.assignment_type) === 'heavy' ? 'destructive' : 
-                              getCognitiveLoad(formData.subject, formData.assignment_type) === 'medium' ? 'default' : 'secondary'}>
-                  {getCognitiveLoad(formData.subject, formData.assignment_type)}
-                </Badge>
-                </div>
+          {/* Advanced Options */}
+          <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="flex items-center gap-2 p-0 h-auto">
+                <Settings className="h-4 w-4" />
+                More options
+                <ChevronDown className={cn("h-4 w-4 transition-transform", showAdvanced && "rotate-180")} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4 mt-4">
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="notes" className="text-sm">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Add notes..."
+                  className="min-h-[80px]"
+                />
               </div>
-            )}
 
-          </CollapsibleContent>
+              {/* Volunteer Organization (if volunteer event) */}
+              {formData.assignment_type === 'volunteer_event' && (
+                <div className="space-y-2">
+                  <Label htmlFor="org" className="text-sm">Organization</Label>
+                  <Input
+                    id="org"
+                    value={formData.volunteer_organization}
+                    onChange={(e) => setFormData(prev => ({ ...prev, volunteer_organization: e.target.value }))}
+                    placeholder="Organization name"
+                  />
+                </div>
+              )}
+
+              {/* Recurring */}
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="recurring"
+                  checked={formData.is_recurring}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_recurring: checked }))}
+                />
+                <Label htmlFor="recurring" className="flex items-center gap-2 text-sm">
+                  <Repeat className="h-4 w-4" />
+                  Recurring
+                </Label>
+              </div>
+
+              {/* Priority */}
+              <div className="space-y-2">
+                <Label className="text-sm">Priority</Label>
+                <Select value={formData.priority} onValueChange={(value) => 
+                  setFormData(prev => ({ ...prev, priority: value }))
+                }>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CollapsibleContent>
           </Collapsible>
 
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? 'Creating...' : 'Create Assignment'}
-          </Button>
+          {/* Submit Button */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button type="submit" disabled={loading} className="px-8">
+              {loading ? 'Creating...' : 'Save'}
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>
