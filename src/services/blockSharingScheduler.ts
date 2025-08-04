@@ -13,6 +13,8 @@ export interface TaskClassification {
   urgency: string;
   due_date: Date | null;
   priority: string;
+  scheduled_block?: number | null;
+  scheduled_date?: string | null;
 }
 
 export interface BlockComposition {
@@ -46,37 +48,50 @@ export class BlockSharingScheduler {
   private static readonly MAX_COGNITIVE_LOAD_PER_BLOCK = 2; // heavy = 2, medium = 1, light = 0.5
 
   async analyzeAndSchedule(studentName: string, daysAhead: number = 7): Promise<SchedulingDecision> {
-    // Get unscheduled assignments classified by type
-    const tasks = await this.getClassifiedTasks(studentName);
-    
-    // Separate by task type
-    const academicTasks = tasks.filter(t => t.task_type === 'academic');
-    const quickReviewTasks = tasks.filter(t => t.task_type === 'quick_review');
-    const administrativeTasks = tasks.filter(t => t.task_type === 'administrative');
-    
-    // Get available blocks for the time window
-    const availableBlocks = await this.getAvailableBlocks(studentName, daysAhead);
-    
-    // Schedule academic tasks (full blocks first)
-    const scheduledBlocks = await this.scheduleAcademicTasks(academicTasks, availableBlocks);
-    
-    // Fill remaining space with quick review tasks
-    const updatedBlocks = await this.addQuickReviewTasks(quickReviewTasks, scheduledBlocks);
-    
-    // Identify unscheduled tasks and warnings
-    const allScheduledTaskIds = updatedBlocks.flatMap(b => b.tasks.map(t => t.assignment.id));
-    const unscheduledTasks = [...academicTasks, ...quickReviewTasks].filter(
-      t => !allScheduledTaskIds.includes(t.id)
-    );
-    
-    const warnings = this.generateWarnings(unscheduledTasks, updatedBlocks);
-    
-    return {
-      academic_blocks: updatedBlocks,
-      administrative_tasks: administrativeTasks,
-      unscheduled_tasks: unscheduledTasks,
-      warnings
-    };
+    try {
+      // 1. Fetch all unscheduled tasks (filter to current timeframe)
+      const allTasks = await this.getClassifiedTasks(studentName);
+      const today = new Date();
+      const endDate = addDays(today, daysAhead);
+      
+      // Filter tasks to current scheduling window
+      const tasks = allTasks.filter(task => {
+        const isInTimeframe = !task.due_date || task.due_date <= endDate || task.due_date >= today;
+        return isInTimeframe;
+      });
+      
+      // Separate by task type
+      const academicTasks = tasks.filter(t => t.task_type === 'academic');
+      const quickReviewTasks = tasks.filter(t => t.task_type === 'quick_review');
+      const administrativeTasks = tasks.filter(t => t.task_type === 'administrative');
+      
+      // 2. Get available time blocks
+      const availableBlocks = await this.getAvailableBlocks(studentName, daysAhead);
+      
+      // 3. Schedule academic tasks into available blocks
+      const scheduledBlocks = await this.scheduleAcademicTasks(academicTasks, availableBlocks);
+      
+      // 4. Fill remaining space with quick review tasks
+      const updatedBlocks = await this.addQuickReviewTasks(quickReviewTasks, scheduledBlocks);
+      
+      // 5. Identify unscheduled tasks and warnings
+      const allScheduledTaskIds = updatedBlocks.flatMap(b => b.tasks.map(t => t.assignment.id));
+      const unscheduledTasks = [...academicTasks, ...quickReviewTasks].filter(
+        t => !allScheduledTaskIds.includes(t.id)
+      );
+      
+      const warnings = this.generateWarnings(unscheduledTasks, updatedBlocks);
+      
+      return {
+        academic_blocks: updatedBlocks,
+        administrative_tasks: administrativeTasks,
+        unscheduled_tasks: unscheduledTasks,
+        warnings
+      };
+    } catch (error) {
+      console.error('Error in analyzeAndSchedule:', error);
+      throw error;
+    }
   }
 
   private async getClassifiedTasks(studentName: string): Promise<TaskClassification[]> {
@@ -110,7 +125,9 @@ export class BlockSharingScheduler {
       course_name: assignment.course_name || '',
       urgency: assignment.urgency || 'medium',
       due_date: assignment.due_date ? new Date(assignment.due_date) : null,
-      priority: assignment.priority || 'medium'
+      priority: assignment.priority || 'medium',
+      scheduled_block: assignment.scheduled_block,
+      scheduled_date: assignment.scheduled_date
     }));
   }
 
@@ -125,8 +142,8 @@ export class BlockSharingScheduler {
   }
 
   private async getAvailableBlocks(studentName: string, daysAhead: number): Promise<BlockComposition[]> {
-    // This would typically fetch from your schedule system
-    // For now, we'll create mock available blocks
+    // Use real schedule data instead of mock data
+    const { getScheduleForStudentAndDay } = await import('../data/scheduleData');
     const blocks: BlockComposition[] = [];
     const today = new Date();
     
@@ -138,10 +155,14 @@ export class BlockSharingScheduler {
       // Skip weekends
       if (dayName === 'Saturday' || dayName === 'Sunday') continue;
       
-      // Add typical assignment blocks (assuming blocks 2, 4, 6 are available for assignments)
-      for (const blockNum of [2, 4, 6]) {
+      // Get the actual schedule for this student and day
+      const daySchedule = getScheduleForStudentAndDay(studentName, dayName);
+      const assignmentBlocks = daySchedule.filter(block => block.isAssignmentBlock && block.block);
+      
+      // Add each assignment block as available
+      for (const scheduleBlock of assignmentBlocks) {
         blocks.push({
-          block_number: blockNum,
+          block_number: scheduleBlock.block!,
           date: dateStr,
           day: dayName,
           total_minutes: BlockSharingScheduler.BLOCK_DURATION,
