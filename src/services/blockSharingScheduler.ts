@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays } from "date-fns";
+import { stagingUtils } from "@/utils/stagingUtils";
 
 export interface TaskClassification {
   id: string;
@@ -79,13 +80,23 @@ export class BlockSharingScheduler {
   }
 
   private async getClassifiedTasks(studentName: string): Promise<TaskClassification[]> {
-    const { data, error } = await supabase
-      .from('assignments')
-      .select('*')
-      .eq('student_name', studentName)
-      .is('scheduled_block', null)
-      .eq('eligible_for_scheduling', true)
-      .order('due_date', { ascending: true, nullsFirst: false });
+    const currentMode = stagingUtils.getCurrentMode();
+    
+    const { data, error } = currentMode === 'staging' 
+      ? await supabase
+          .from('assignments_staging')
+          .select('*')
+          .eq('student_name', studentName)
+          .is('scheduled_block', null)
+          .eq('eligible_for_scheduling', true)
+          .order('due_date', { ascending: true, nullsFirst: false })
+      : await supabase
+          .from('assignments')
+          .select('*')
+          .eq('student_name', studentName)
+          .is('scheduled_block', null)
+          .eq('eligible_for_scheduling', true)
+          .order('due_date', { ascending: true, nullsFirst: false });
 
     if (error) throw error;
     
@@ -303,20 +314,31 @@ export class BlockSharingScheduler {
   }
 
   async executeSchedule(decision: SchedulingDecision): Promise<void> {
+    const currentMode = stagingUtils.getCurrentMode();
+    
     // Update database with scheduled blocks
     for (const block of decision.academic_blocks) {
       for (const task of block.tasks) {
-        await supabase
-          .from('assignments')
-          .update({
-            scheduled_block: block.block_number,
-            scheduled_date: block.date,
-            scheduled_day: block.day,
-            shared_block_id: task.shared_block_id,
-            block_position: task.position,
-            buffer_time_minutes: Math.floor(this.getRemainingMinutes(block) / block.tasks.length)
-          })
-          .eq('id', task.assignment.id);
+        const updateData = {
+          scheduled_block: block.block_number,
+          scheduled_date: block.date,
+          scheduled_day: block.day,
+          shared_block_id: task.shared_block_id,
+          block_position: task.position,
+          buffer_time_minutes: Math.floor(this.getRemainingMinutes(block) / block.tasks.length)
+        };
+
+        if (currentMode === 'staging') {
+          await supabase
+            .from('assignments_staging')
+            .update(updateData)
+            .eq('id', task.assignment.id);
+        } else {
+          await supabase
+            .from('assignments')
+            .update(updateData)
+            .eq('id', task.assignment.id);
+        }
       }
     }
   }

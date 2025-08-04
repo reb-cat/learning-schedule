@@ -53,7 +53,7 @@ const AbigailDashboard = () => {
     }
     
     setScheduledAssignments(assignmentMap);
-  }, [getScheduledAssignment, formattedDate]);
+  }, [getScheduledAssignment, formattedDate, todaySchedule]);
 
   useEffect(() => {
     loadScheduledAssignments();

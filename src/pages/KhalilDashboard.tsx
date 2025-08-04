@@ -53,7 +53,7 @@ const KhalilDashboard = () => {
     }
     
     setScheduledAssignments(assignmentMap);
-  }, [getScheduledAssignment, formattedDate]);
+  }, [getScheduledAssignment, formattedDate, todaySchedule]);
 
   useEffect(() => {
     loadScheduledAssignments();

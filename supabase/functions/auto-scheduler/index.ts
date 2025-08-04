@@ -82,12 +82,15 @@ async function scheduleAssignment(
   assignment: any,
   block: number,
   date: string,
-  day: string
+  day: string,
+  stagingMode: boolean = false
 ): Promise<boolean> {
   console.log(`📅 Scheduling "${assignment.title}" in block ${block} on ${date}`);
   
+  const assignmentsTable = stagingMode ? 'assignments_staging' : 'assignments';
+  
   const { error } = await supabase
-    .from('assignments')
+    .from(assignmentsTable)
     .update({
       scheduled_block: block,
       scheduled_date: date,
@@ -188,14 +191,15 @@ function getIntelligentTimeEstimate(assignment: any): number {
 }
 
 // Split large assignments into multiple parts
-async function createSplitAssignment(assignment: any, parts: number): Promise<string[]> {
+async function createSplitAssignment(assignment: any, parts: number, stagingMode: boolean = false): Promise<string[]> {
+  const assignmentsTable = stagingMode ? 'assignments_staging' : 'assignments';
   const splitIds = [];
   const estimatedMinutes = assignment.actual_estimated_minutes || assignment.estimated_time_minutes || 45;
   const minutesPerPart = Math.ceil(estimatedMinutes / parts);
   
   for (let i = 1; i <= parts; i++) {
     const { data, error } = await supabase
-      .from('assignments')
+      .from(assignmentsTable)
       .insert({
         student_name: assignment.student_name,
         title: `${assignment.title} (Part ${i}/${parts})`,
@@ -227,7 +231,7 @@ async function createSplitAssignment(assignment: any, parts: number): Promise<st
   
   // Mark original as template/not eligible for scheduling
   await supabase
-    .from('assignments')
+    .from(assignmentsTable)
     .update({ eligible_for_scheduling: false, is_template: true })
     .eq('id', assignment.id);
     
@@ -236,7 +240,7 @@ async function createSplitAssignment(assignment: any, parts: number): Promise<st
 }
 
 // Main scheduling function with forward-looking logic
-async function scheduleAssignments(studentName: string): Promise<number> {
+async function scheduleAssignments(studentName: string, stagingMode: boolean = false): Promise<number> {
   console.log(`🚀 Starting smart auto-scheduling for ${studentName}...`);
   
   const today = new Date();
@@ -251,10 +255,14 @@ async function scheduleAssignments(studentName: string): Promise<number> {
   const scheduleWindow = getAvailableBlocksForDays(5);
   console.log(`📅 Looking ahead ${scheduleWindow.length} school days for scheduling`);
   
+  // Determine table names based on staging mode
+  const assignmentsTable = stagingMode ? 'assignments_staging' : 'assignments';
+  const syncStatusTable = stagingMode ? 'sync_status_staging' : 'sync_status';
+  
   // Clear existing schedules in the window
   for (const day of scheduleWindow) {
     await supabase
-      .from('assignments')
+      .from(assignmentsTable)
       .update({ 
         scheduled_block: null, 
         scheduled_date: null, 
@@ -266,7 +274,7 @@ async function scheduleAssignments(studentName: string): Promise<number> {
   
   // Get unscheduled academic assignments
   const { data: assignments, error: assignmentsError } = await supabase
-    .from('assignments')
+    .from(assignmentsTable)
     .select('*')
     .eq('student_name', studentName)
     .eq('eligible_for_scheduling', true)
@@ -306,12 +314,12 @@ async function scheduleAssignments(studentName: string): Promise<number> {
       const parts = Math.ceil(estimatedMinutes / 45);
       console.log(`📝 Assignment "${assignment.title}" needs ${parts} parts (${estimatedMinutes} min)`);
       
-      const splitIds = await createSplitAssignment(assignment, parts);
+      const splitIds = await createSplitAssignment(assignment, parts, stagingMode);
       
       // Fetch the newly created split assignments
       if (splitIds.length > 0) {
         const { data: splitAssignments } = await supabase
-          .from('assignments')
+          .from(assignmentsTable)
           .select('*')
           .in('id', splitIds);
           
@@ -394,7 +402,7 @@ async function scheduleAssignments(studentName: string): Promise<number> {
     const bestBlock = findAvailableBlock(targetDay, scheduledBlocks, assignment, accommodations);
     
     if (bestBlock) {
-      const success = await scheduleAssignment(assignment, bestBlock, targetDay.date, targetDay.day);
+      const success = await scheduleAssignment(assignment, bestBlock, targetDay.date, targetDay.day, stagingMode);
       
       if (success) {
         const key = `${targetDay.date}-${bestBlock}`;
@@ -428,13 +436,15 @@ serve(async (req) => {
   }
 
   try {
-    // Handle request body to determine which students to schedule
+    // Handle request body to determine which students to schedule and staging mode
     let studentName = null;
+    let stagingMode = false;
     try {
       const body = await req.text();
       if (body.trim()) {
         const parsed = JSON.parse(body);
         studentName = parsed.studentName;
+        stagingMode = parsed.staging || false;
       }
     } catch (parseError) {
       console.log(`ℹ️ No specific student requested, scheduling for all students`);
@@ -447,12 +457,13 @@ serve(async (req) => {
     for (const student of studentsToSchedule) {
       try {
         console.log(`🎯 Processing auto-scheduling for ${student}...`);
-        const scheduledCount = await scheduleAssignments(student);
+        const scheduledCount = await scheduleAssignments(student, stagingMode);
         results[student] = { success: true, scheduledCount };
         
         // Update sync status
+        const syncStatusTable = stagingMode ? 'sync_status_staging' : 'sync_status';
         await supabase
-          .from('sync_status')
+          .from(syncStatusTable)
           .insert({
             student_name: student,
             status: 'success',
@@ -465,8 +476,9 @@ serve(async (req) => {
         console.error(`❌ Auto-scheduling failed for ${student}:`, error);
         results[student] = { success: false, error: error.message };
         
+        const syncStatusTable = stagingMode ? 'sync_status_staging' : 'sync_status';
         await supabase
-          .from('sync_status')
+          .from(syncStatusTable)
           .insert({
             student_name: student,
             status: 'error',
