@@ -1,5 +1,5 @@
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -9,8 +9,23 @@ interface TimeEstimationSectionProps {
 }
 
 export function TimeEstimationSection({ value, onChange }: TimeEstimationSectionProps) {
-  const [timeInput, setTimeInput] = useState('');
-  const [isMultiDay, setIsMultiDay] = useState(value >= 1440);
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customInput, setCustomInput] = useState('');
+
+  const timeOptions = [
+    { label: '15 minutes', value: 15 },
+    { label: '30 minutes', value: 30 },
+    { label: '45 minutes', value: 45 },
+    { label: '1 hour', value: 60 },
+    { label: '1.5 hours', value: 90 },
+    { label: '2 hours', value: 120 },
+    { label: '3 hours', value: 180 },
+    { label: '4 hours', value: 240 },
+    { label: 'Half day (4 hours)', value: 240 },
+    { label: 'Full day (8 hours)', value: 480 },
+    { label: 'Multi-day', value: 1440 },
+    { label: 'Other', value: -1 }
+  ];
 
   const formatTime = (minutes: number) => {
     if (minutes < 60) return `${minutes} min`;
@@ -43,8 +58,35 @@ export function TimeEstimationSection({ value, onChange }: TimeEstimationSection
     return Math.max(15, Math.round(totalMinutes / 15) * 15); // Round to nearest 15 minutes, min 15
   };
 
-  const handleTimeInputChange = (input: string) => {
-    setTimeInput(input);
+  const getCurrentSelectValue = () => {
+    const matchingOption = timeOptions.find(option => option.value === value && option.value !== -1);
+    if (matchingOption) {
+      setShowCustomInput(false);
+      return matchingOption.value.toString();
+    }
+    setShowCustomInput(true);
+    return '-1'; // "Other"
+  };
+
+  const handleSelectChange = (selectedValue: string) => {
+    const numValue = parseInt(selectedValue);
+    
+    if (numValue === -1) {
+      // "Other" selected
+      setShowCustomInput(true);
+      if (customInput.trim()) {
+        const parsedMinutes = parseTimeInput(customInput);
+        onChange(parsedMinutes);
+      }
+    } else {
+      // Preset option selected
+      setShowCustomInput(false);
+      onChange(numValue);
+    }
+  };
+
+  const handleCustomInputChange = (input: string) => {
+    setCustomInput(input);
     if (input.trim()) {
       const minutes = parseTimeInput(input);
       if (minutes > 0) {
@@ -53,30 +95,17 @@ export function TimeEstimationSection({ value, onChange }: TimeEstimationSection
     }
   };
 
-  const handleMultiDayToggle = (checked: boolean) => {
-    setIsMultiDay(checked);
-    if (checked) {
-      onChange(1440); // 1 day minimum for multi-day
-      setTimeInput('');
-    } else {
-      onChange(60); // Default to 1 hour
-      setTimeInput('1 hour');
-    }
-  };
-
-  // Update timeInput when value changes externally
+  // Update custom input when value changes externally
   useEffect(() => {
-    if (value >= 1440) {
-      setIsMultiDay(true);
-      setTimeInput('');
-    } else {
-      setIsMultiDay(false);
-      if (value === 60) setTimeInput('1 hour');
-      else if (value === 30) setTimeInput('30 min');
-      else if (value === 90) setTimeInput('1.5 hours');
-      else if (value === 120) setTimeInput('2 hours');
-      else if (value === 180) setTimeInput('3 hours');
-      else setTimeInput(`${value} min`);
+    const matchingOption = timeOptions.find(option => option.value === value && option.value !== -1);
+    if (!matchingOption && value > 0) {
+      setShowCustomInput(true);
+      if (value === 30) setCustomInput('30 minutes');
+      else if (value === 60) setCustomInput('1 hour');
+      else if (value === 90) setCustomInput('1.5 hours');
+      else if (value === 120) setCustomInput('2 hours');
+      else if (value === 180) setCustomInput('3 hours');
+      else setCustomInput(`${value} minutes`);
     }
   }, [value]);
 
@@ -89,25 +118,25 @@ export function TimeEstimationSection({ value, onChange }: TimeEstimationSection
       </div>
       
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Multi-day task</span>
-          <Switch
-            checked={isMultiDay}
-            onCheckedChange={handleMultiDayToggle}
-          />
-        </div>
+        <Select value={getCurrentSelectValue()} onValueChange={handleSelectChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select time estimate" />
+          </SelectTrigger>
+          <SelectContent>
+            {timeOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value.toString()}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         
-        {!isMultiDay && (
-          <div className="space-y-2">
-            <label className="text-sm text-muted-foreground">
-              Enter time estimate
-            </label>
-            <Input
-              placeholder="e.g., 2 hours, 45 min, 1.5h"
-              value={timeInput}
-              onChange={(e) => handleTimeInputChange(e.target.value)}
-            />
-          </div>
+        {showCustomInput && (
+          <Input
+            placeholder="e.g., 2 hours, 45 min, 1.5h"
+            value={customInput}
+            onChange={(e) => handleCustomInputChange(e.target.value)}
+          />
         )}
       </div>
     </div>
