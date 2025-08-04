@@ -13,6 +13,7 @@ import { RefreshCw, Calendar, ChevronDown, ChevronUp, Database, Zap, Settings, C
 import { stagingUtils, type StagingMode } from '@/utils/stagingUtils';
 import { RunScheduler } from '@/components/RunScheduler';
 import { EnhancedScheduler } from '@/components/EnhancedScheduler';
+import { DebugScheduler } from '@/components/DebugScheduler';
 const AdminSetup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState<any>(null);
@@ -633,6 +634,10 @@ const AdminSetup = () => {
                 </Collapsible>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="diagnostics" className="space-y-6">
+            <DebugScheduler />
           </TabsContent>
 
         </Tabs>
