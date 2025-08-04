@@ -1,19 +1,15 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Assignment } from '@/hooks/useAssignments';
 import { IntelligentInference } from './intelligentInference';
-import { stagingUtils, type StagingMode } from '@/utils/stagingUtils';
 
 export class DataCleanupService {
-  static async cleanupAssignmentData(studentName: string, mode?: StagingMode): Promise<void> {
-    const currentMode = mode || stagingUtils.getCurrentMode();
-    const tableName = currentMode === 'staging' ? 'assignments_staging' : 'assignments';
-    
-    console.log(`🧹 Starting data cleanup for ${studentName} in ${tableName}`);
+  static async cleanupAssignmentData(studentName: string): Promise<void> {
+    console.log(`🧹 Starting data cleanup for ${studentName}`);
     
     try {
       // Fetch assignments that need cleanup
       const { data: assignments, error } = await supabase
-        .from(tableName)
+        .from('assignments')
         .select('*')
         .eq('student_name', studentName)
         .or('cognitive_load.is.null,urgency.is.null');
@@ -41,7 +37,7 @@ export class DataCleanupService {
         
         for (const assignment of batch) {
           const { error: updateError } = await supabase
-            .from(tableName)
+            .from('assignments')
             .update({
               cognitive_load: assignment.cognitive_load,
               urgency: assignment.urgency,
@@ -67,17 +63,14 @@ export class DataCleanupService {
     }
   }
 
-  static async validateAssignmentData(studentName: string, mode?: StagingMode): Promise<{
+  static async validateAssignmentData(studentName: string): Promise<{
     total: number;
     missing_cognitive_load: number;
     missing_urgency: number;
     missing_task_type: number;
   }> {
-    const currentMode = mode || stagingUtils.getCurrentMode();
-    const tableName = currentMode === 'staging' ? 'assignments_staging' : 'assignments';
-    
     const { data: assignments, error } = await supabase
-      .from(tableName)
+      .from('assignments')
       .select('cognitive_load, urgency, task_type')
       .eq('student_name', studentName);
 
