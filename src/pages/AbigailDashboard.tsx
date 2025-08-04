@@ -15,6 +15,7 @@ import { PerformanceMonitor } from "@/components/PerformanceMonitor";
 import { SystemHealthDashboard } from "@/components/SystemHealthDashboard";
 import { StudentAnalyticsDashboard } from "@/components/StudentAnalyticsDashboard";
 import { SystemBenchmarkDashboard } from "@/components/SystemBenchmarkDashboard";
+import { TestScheduler } from "@/components/TestScheduler";
 
 const AbigailDashboard = () => {
   console.log('🏠 AbigailDashboard rendering...');
@@ -159,6 +160,12 @@ const AbigailDashboard = () => {
               onSchedulingComplete={loadScheduledAssignments}
             />
             
+            {/* Test Scheduler */}
+            <TestScheduler 
+              studentName="Abigail"
+              onSchedulingComplete={loadScheduledAssignments}
+            />
+
             {/* Co-op Checklist - only shows on co-op days */}
             <CoopChecklist 
               studentName="Abigail" 
