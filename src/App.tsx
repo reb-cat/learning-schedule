@@ -23,7 +23,7 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Test />} />
+            <Route path="/" element={<Index />} />
             <Route path="/abigail" element={<div style={{padding: '20px', background: 'orange', color: 'white'}}>Abigail Page Test</div>} />
             <Route path="/khalil" element={<div style={{padding: '20px', background: 'red', color: 'white'}}>Khalil Page Test</div>} />
             <Route path="/admin" element={<div style={{padding: '20px', background: 'blue', color: 'white'}}>Admin Page Test</div>} />
