@@ -21,7 +21,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 // Academic year cutoff date - only sync assignments due on or after this date
-const ACADEMIC_YEAR_CUTOFF = '2025-08-01T00:00:00Z';
+const ACADEMIC_YEAR_CUTOFF = '2025-06-01T00:00:00Z';
 
 // Function to categorize assignments based on title keywords
 function categorizeAssignment(title: string): 'academic' | 'administrative' {
@@ -279,7 +279,10 @@ function processModuleItems(modules: any[], courseName: string, courseId: string
 function isActionableTitle(title: string): boolean {
   const actionableKeywords = [
     'complete', 'submit', 'read', 'review', 'watch', 'attend', 'post', 'quiz',
-    'assignment', 'discussion', 'orientation', 'introduce', 'syllabus'
+    'assignment', 'discussion', 'orientation', 'introduce', 'syllabus', 'rules',
+    'class rules', 'welcome', 'getting started', 'first week', 'requirements',
+    'survey', 'checklist', 'safety', 'lab safety', 'sign up', 'registration',
+    'permission', 'consent', 'waiver', 'form', 'contract', 'agreement'
   ];
   
   const titleLower = title.toLowerCase();
@@ -415,15 +418,33 @@ async function syncStudentAssignments(studentName: string, token: string, baseUr
       console.log(`   📝 Found ${assignments.length} assignments`);
 
       // 4) Process regular assignments
+      let assignmentsProcessed = 0;
+      let assignmentsSkippedNoDueDate = 0;
+      let assignmentsSkippedOldDate = 0;
+      
       for (const assignment of assignments) {
-        if (!assignment.due_at) continue; // Skip assignments without due dates
+        assignmentsProcessed++;
         
-        // Skip assignments due before the academic year cutoff
-        const dueDate = new Date(assignment.due_at);
-        const cutoffDate = new Date(ACADEMIC_YEAR_CUTOFF);
-        if (dueDate < cutoffDate) {
-          console.log(`  📅 Skipping old assignment: ${assignment.name} (due: ${dueDate.toDateString()})`);
-          continue;
+        // Determine due date status and skip logic
+        let dueDateToUse = null;
+        let dueDateStatus = 'none';
+        
+        if (assignment.due_at) {
+          const dueDate = new Date(assignment.due_at);
+          const cutoffDate = new Date(ACADEMIC_YEAR_CUTOFF);
+          
+          if (dueDate < cutoffDate) {
+            console.log(`  📅 Skipping old assignment: ${assignment.name} (due: ${dueDate.toDateString()})`);
+            assignmentsSkippedOldDate++;
+            continue;
+          }
+          
+          dueDateToUse = dueDate.toISOString();
+          dueDateStatus = 'confirmed';
+        } else {
+          console.log(`  📝 Processing assignment without due date: ${assignment.name} (may unlock later)`);
+          assignmentsSkippedNoDueDate++;
+          dueDateStatus = 'pending';
         }
         
         // Check if assignment already exists (by canvas_id to handle duplicates across accounts)
@@ -456,12 +477,9 @@ async function syncStudentAssignments(studentName: string, token: string, baseUr
           continue;
         }
 
-        // Format due date
-        const dueDateISO = dueDate.toISOString();
-
         // Categorize assignment
         const category = categorizeAssignment(assignment.name);
-        console.log(`  📂 Categorized "${assignment.name}" as: ${category}`);
+        console.log(`  📂 Categorized "${assignment.name}" as: ${category} (due_date_status: ${dueDateStatus})`);
 
         // Insert new assignment
         const { error } = await supabase
@@ -470,12 +488,13 @@ async function syncStudentAssignments(studentName: string, token: string, baseUr
             student_name: studentName,
             title: assignment.name,
             course_name: course.name,
-            due_date: dueDateISO,
+            due_date: dueDateToUse,
             canvas_id: assignment.id?.toString(),
             canvas_url: assignment.html_url,
-            eligible_for_scheduling: category === 'academic',
+            eligible_for_scheduling: category === 'academic' && dueDateStatus === 'confirmed',
             category: category,
-            item_type: 'assignment'
+            item_type: 'assignment',
+            notes: dueDateStatus === 'pending' ? 'Due date pending - may unlock later' : null
           });
 
         if (error) {
@@ -539,16 +558,36 @@ async function syncStudentAssignments(studentName: string, token: string, baseUr
         }
       }
       
-      // 6) Process quizzes with due dates
+      // 6) Process quizzes  
       console.log(`   🧩 Processing ${quizzes.length} quizzes`);
+      let quizzesProcessed = 0;
+      let quizzesSkippedNoDueDate = 0;
+      let quizzesSkippedOldDate = 0;
       
       for (const quiz of quizzes) {
-        if (!quiz.due_at) continue; // Skip quizzes without due dates
+        quizzesProcessed++;
         
-        // Skip quizzes due before the academic year cutoff
-        const dueDate = new Date(quiz.due_at);
-        const cutoffDate = new Date(ACADEMIC_YEAR_CUTOFF);
-        if (dueDate < cutoffDate) continue;
+        // Handle quizzes without due dates (like assignments)
+        let quizDueDateToUse = null;
+        let quizDueDateStatus = 'none';
+        
+        if (quiz.due_at) {
+          const dueDate = new Date(quiz.due_at);
+          const cutoffDate = new Date(ACADEMIC_YEAR_CUTOFF);
+          
+          if (dueDate < cutoffDate) {
+            console.log(`  📅 Skipping old quiz: ${quiz.title} (due: ${dueDate.toDateString()})`);
+            quizzesSkippedOldDate++;
+            continue;
+          }
+          
+          quizDueDateToUse = dueDate.toISOString();
+          quizDueDateStatus = 'confirmed';
+        } else {
+          console.log(`  🧩 Processing quiz without due date: ${quiz.title} (may unlock later)`);
+          quizzesSkippedNoDueDate++;
+          quizDueDateStatus = 'pending';
+        }
         
         // Check if quiz already exists
         const existingQuiz = existingAssignments?.find(existing => 
@@ -562,7 +601,7 @@ async function syncStudentAssignments(studentName: string, token: string, baseUr
         
         // Categorize quiz
         const category = categorizeAssignment(quiz.title);
-        console.log(`  📂 Categorized quiz "${quiz.title}" as: ${category}`);
+        console.log(`  📂 Categorized quiz "${quiz.title}" as: ${category} (due_date_status: ${quizDueDateStatus})`);
         
         // Insert quiz as assignment
         const { error } = await supabase
@@ -571,13 +610,14 @@ async function syncStudentAssignments(studentName: string, token: string, baseUr
             student_name: studentName,
             title: quiz.title,
             course_name: course.name,
-            due_date: dueDate.toISOString(),
+            due_date: quizDueDateToUse,
             canvas_id: `quiz_${quiz.id}`,
             canvas_url: quiz.html_url,
-            eligible_for_scheduling: category === 'academic',
+            eligible_for_scheduling: category === 'academic' && quizDueDateStatus === 'confirmed',
             category: category,
             item_type: 'quiz',
-            quiz_type: quiz.quiz_type || 'assignment'
+            quiz_type: quiz.quiz_type || 'assignment',
+            notes: quizDueDateStatus === 'pending' ? 'Due date pending - may unlock later' : null
           });
 
         if (error) {
@@ -587,9 +627,24 @@ async function syncStudentAssignments(studentName: string, token: string, baseUr
           newAssignments++;
         }
       }
+      
+      // Course-level summary logging
+      console.log(`   📊 Course "${course.name}" summary:`);
+      console.log(`     - Assignments processed: ${assignmentsProcessed || 0}`);
+      console.log(`     - Assignments without due dates: ${assignmentsSkippedNoDueDate || 0}`);
+      console.log(`     - Assignments skipped (old dates): ${assignmentsSkippedOldDate || 0}`);
+      console.log(`     - Module items processed: ${moduleAssignments.length}`);
+      console.log(`     - Quizzes processed: ${quizzesProcessed || 0}`);
+      console.log(`     - Quizzes without due dates: ${quizzesSkippedNoDueDate || 0}`);
+      console.log(`     - Quizzes skipped (old dates): ${quizzesSkippedOldDate || 0}`);
     }
 
     console.log(`🎉 Sync complete for ${studentName}${accountLabel ? ` (${accountLabel})` : ''}: ${newAssignments} new assignments added`);
+    console.log(`📈 Overall Statistics:`);
+    console.log(`   - Total courses processed: ${courses.length}`);
+    console.log(`   - Total new assignments/items added: ${newAssignments}`);
+    console.log(`   - Academic year cutoff: ${ACADEMIC_YEAR_CUTOFF}`);
+    
     return { success: true, newAssignments };
 
   } catch (error) {
