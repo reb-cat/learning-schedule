@@ -1,6 +1,7 @@
 import { Assignment } from '@/hooks/useAssignments';
 import { supabase } from '@/integrations/supabase/client';
 import { getScheduleForStudentAndDay } from '@/data/scheduleData';
+import { format, isValid, parseISO } from 'date-fns';
 import { 
   inferCognitiveLoad, 
   inferDuration, 
@@ -62,6 +63,9 @@ class UnifiedScheduler {
     } = options;
 
     console.log(`🚀 Unified Scheduler: Starting analysis for ${studentName}`, { options });
+
+    // Verify current date for August 2025 debugging
+    this.verifyCurrentDate();
 
     // Check cache first
     const cacheKey = this.generateCacheKey(studentName, options);
@@ -146,12 +150,13 @@ class UnifiedScheduler {
         });
 
         const targetDate = new Date(decision.targetDate);
-        const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
+        const dayName = this.formatDayName(targetDate);
+        const formattedDate = this.formatDateString(targetDate);
         
         updates.push({
           id: decision.assignment.id,
           scheduled_block: decision.targetBlock,
-          scheduled_date: decision.targetDate,
+          scheduled_date: formattedDate,
           scheduled_day: dayName,
           originalTitle: decision.assignment.title
         });
@@ -171,12 +176,13 @@ class UnifiedScheduler {
 
         if (assignment.scheduled_date && assignment.scheduled_block) {
           const targetDate = new Date(assignment.scheduled_date);
-          const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
+          const dayName = this.formatDayName(targetDate);
+          const formattedDate = this.formatDateString(targetDate);
           
           updates.push({
             id: assignment.id,
             scheduled_block: assignment.scheduled_block,
-            scheduled_date: assignment.scheduled_date,
+            scheduled_date: formattedDate,
             scheduled_day: dayName,
             originalTitle: assignment.title
           });
@@ -350,6 +356,70 @@ class UnifiedScheduler {
   }
 
   /**
+   * Format date as YYYY-MM-DD string consistently using date-fns
+   */
+  private formatDateString(date: Date): string {
+    // Validate the date first
+    if (!isValid(date)) {
+      console.error('❌ Invalid date provided to formatDateString:', date);
+      return format(new Date(), 'yyyy-MM-dd');
+    }
+    
+    const formatted = format(date, 'yyyy-MM-dd');
+    
+    console.log('📅 Date formatting:', {
+      inputDate: date.toISOString(),
+      formatted,
+      isAugust2025: date.getFullYear() === 2025 && date.getMonth() === 7,
+      currentYear: date.getFullYear(),
+      currentMonth: date.getMonth() + 1 // 0-indexed, so +1 for human readable
+    });
+    
+    return formatted;
+  }
+
+  /**
+   * Format day name consistently using date-fns
+   */
+  private formatDayName(date: Date): string {
+    if (!isValid(date)) {
+      console.error('❌ Invalid date provided to formatDayName:', date);
+      return format(new Date(), 'EEEE');
+    }
+    
+    const dayName = format(date, 'EEEE');
+    
+    console.log('📅 Day name formatting:', {
+      inputDate: date.toISOString(),
+      dayName,
+      dayOfWeek: date.getDay(),
+      isValidDate: isValid(date)
+    });
+    
+    return dayName;
+  }
+
+  /**
+   * Verify current system date for debugging August 2025 scenarios
+   */
+  private verifyCurrentDate(): void {
+    const now = new Date();
+    const isAugust2025 = now.getFullYear() === 2025 && now.getMonth() === 7; // August is month 7 (0-indexed)
+    
+    console.log('📅 Current System Date Verification:', {
+      currentDate: now.toISOString(),
+      formattedDate: this.formatDateString(now),
+      dayName: this.formatDayName(now),
+      year: now.getFullYear(),
+      month: now.getMonth() + 1, // 1-indexed for human readable
+      monthName: format(now, 'MMMM'),
+      date: now.getDate(),
+      isAugust2025,
+      expectedScenario: 'Should be August 2025 for testing'
+    });
+  }
+
+  /**
    * Clear cache for a specific student or all students
    */
   invalidateCache(studentName?: string): void {
@@ -442,6 +512,16 @@ class UnifiedScheduler {
     const dueDate = new Date(assignment.due_date);
     const today = new Date();
     const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    console.log('⏰ Urgency calculation:', {
+      assignmentTitle: assignment.title,
+      dueDate: assignment.due_date,
+      dueDateParsed: dueDate.toISOString(),
+      today: today.toISOString(),
+      todayFormatted: this.formatDateString(today),
+      daysUntilDue,
+      isAugust2025: today.getFullYear() === 2025 && today.getMonth() === 7
+    });
 
     if (daysUntilDue <= 0) return 'critical';      // Overdue
     if (daysUntilDue === 1) return 'critical';     // Due tomorrow

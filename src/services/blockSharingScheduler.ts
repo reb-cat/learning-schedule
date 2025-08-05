@@ -240,6 +240,16 @@ export class BlockSharingScheduler {
     const now = new Date();
     const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
     
+    console.log('⏰ Block Scheduler urgency calculation:', {
+      assignmentTitle: assignment.title,
+      dueDate: assignment.due_date,
+      dueDateParsed: dueDate?.toISOString(),
+      now: now.toISOString(),
+      nowFormatted: format(now, 'yyyy-MM-dd'),
+      completionStatus: assignment.completion_status,
+      isAugust2025: now.getFullYear() === 2025 && now.getMonth() === 7
+    });
+    
     // Boost urgency for stuck or in-progress tasks
     if (assignment.completion_status === 'stuck') return 'critical';
     if (assignment.completion_status === 'in_progress') return 'high';
@@ -247,6 +257,12 @@ export class BlockSharingScheduler {
     if (!dueDate) return assignment.urgency || 'medium';
     
     const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    console.log('⏰ Days until due calculation:', {
+      assignmentTitle: assignment.title,
+      daysUntilDue,
+      urgencyResult: daysUntilDue < 0 ? 'overdue' : daysUntilDue <= 1 ? 'critical' : daysUntilDue <= 3 ? 'high' : 'medium'
+    });
     
     if (daysUntilDue < 0) return 'overdue';
     if (daysUntilDue <= 1) return 'critical';
