@@ -50,37 +50,45 @@ export function useAssignmentCompletion() {
         throw updateError;
       }
 
-      // Update learning patterns only for completed assignments
+      // Update learning patterns only for completed assignments (non-blocking)
       if (completionData.completionStatus === 'completed') {
-        const estimatedMinutes = assignment.estimated_time_minutes || 
-                                 assignment.actual_estimated_minutes || 
-                                 30; // fallback
+        try {
+          const estimatedMinutes = assignment.estimated_time_minutes || 
+                                   assignment.actual_estimated_minutes || 
+                                   30; // fallback
 
-        await updateLearningPattern(
-          assignment.student_name,
-          assignment,
-          estimatedMinutes,
-          completionData.actualMinutes
-        );
+          await updateLearningPattern(
+            assignment.student_name,
+            assignment,
+            estimatedMinutes,
+            completionData.actualMinutes
+          );
+        } catch (learningError) {
+          console.warn('Learning pattern update failed (non-critical):', learningError);
+        }
       }
 
-      // Record performance data for energy pattern learning
+      // Record performance data for energy pattern learning (non-blocking)
       if (assignment.scheduled_block && assignment.scheduled_date && completionData.completionStatus === 'completed') {
-        const estimatedMinutes = assignment.estimated_time_minutes || 
-                                 assignment.actual_estimated_minutes || 
-                                 30; // fallback
-        
-        await recordPerformanceData({
-          assignmentId: assignment.id,
-          studentName: assignment.student_name,
-          subject: assignment.subject || assignment.course_name,
-          scheduledBlock: assignment.scheduled_block,
-          scheduledDate: assignment.scheduled_date,
-          actualMinutes: completionData.actualMinutes,
-          estimatedMinutes,
-          difficultyRating: completionData.difficultyRating,
-          completedAt: new Date().toISOString()
-        });
+        try {
+          const estimatedMinutes = assignment.estimated_time_minutes || 
+                                   assignment.actual_estimated_minutes || 
+                                   30; // fallback
+          
+          await recordPerformanceData({
+            assignmentId: assignment.id,
+            studentName: assignment.student_name,
+            subject: assignment.subject || assignment.course_name,
+            scheduledBlock: assignment.scheduled_block,
+            scheduledDate: assignment.scheduled_date,
+            actualMinutes: completionData.actualMinutes,
+            estimatedMinutes,
+            difficultyRating: completionData.difficultyRating,
+            completedAt: new Date().toISOString()
+          });
+        } catch (energyError) {
+          console.warn('Energy pattern update failed (non-critical):', energyError);
+        }
       }
 
       // Log success for analytics

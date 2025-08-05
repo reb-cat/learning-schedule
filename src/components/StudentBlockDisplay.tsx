@@ -28,37 +28,16 @@ export function StudentBlockDisplay({
   onAssignmentUpdate,
   isLoading: isBlockLoading = false
 }: StudentBlockDisplayProps) {
-  console.log('StudentBlockDisplay rendering with assignment:', assignment?.title);
+  
   
   const [showTransition, setShowTransition] = useState(false);
   const { updateAssignmentStatus, isLoading: isUpdating } = useAssignmentCompletion();
   const { toast } = useToast();
 
   const handleStatusUpdate = async (status: 'completed' | 'in_progress' | 'stuck') => {
-    console.log('handleStatusUpdate called with status:', status);
-    
-    if (!assignment) {
-      console.log('No assignment provided');
-      return;
-    }
-
-    console.log('Assignment object:', assignment);
+    if (!assignment) return;
 
     try {
-      console.log('About to call updateAssignmentStatus');
-      
-      // Test direct supabase call
-      const { supabase } = await import('@/integrations/supabase/client');
-      console.log('Supabase client imported:', !!supabase);
-      
-      const testResult = await supabase
-        .from('assignments')
-        .select('id, completion_status')
-        .eq('id', assignment.id)
-        .single();
-      
-      console.log('Test query result:', testResult);
-      
       await updateAssignmentStatus(assignment, {
         completionStatus: status,
         progressPercentage: status === 'completed' ? 100 : status === 'in_progress' ? 50 : 25,
@@ -77,10 +56,7 @@ export function StudentBlockDisplay({
                     "This task will be prioritized for help."
       });
 
-      // Debounce the update to prevent rapid successive calls
-      setTimeout(() => {
-        onAssignmentUpdate?.();
-      }, 200);
+      onAssignmentUpdate?.();
     } catch (error) {
       console.error('Error updating assignment status:', error);
       toast({
@@ -257,10 +233,7 @@ export function StudentBlockDisplay({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    alert('Need More Time button clicked!');
-                    handleStatusUpdate('in_progress');
-                  }}
+                  onClick={() => handleStatusUpdate('in_progress')}
                   disabled={isUpdating}
                   className="flex items-center gap-1"
                 >
@@ -270,10 +243,7 @@ export function StudentBlockDisplay({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    alert('Stuck button clicked!');
-                    handleStatusUpdate('stuck');
-                  }}
+                  onClick={() => handleStatusUpdate('stuck')}
                   disabled={isUpdating}
                   className="flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
                 >
