@@ -28,6 +28,8 @@ export function StudentBlockDisplay({
   onAssignmentUpdate,
   isLoading: isBlockLoading = false
 }: StudentBlockDisplayProps) {
+  console.log('StudentBlockDisplay rendering with assignment:', assignment?.title);
+  
   const [showTransition, setShowTransition] = useState(false);
   const { updateAssignmentStatus, isLoading: isUpdating } = useAssignmentCompletion();
   const { toast } = useToast();
