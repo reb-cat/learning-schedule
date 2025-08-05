@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { findPotentialDuplicates, DuplicateCheckParams } from '../_shared/duplicateDetection.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -46,6 +47,21 @@ async function routeAdministrativeTasksToChecklist(studentName: string): Promise
   // Route each administrative task to the checklist
   for (const task of adminTasks) {
     try {
+      // Check for intelligent duplicates before inserting
+      const newNotificationParams: DuplicateCheckParams = {
+        title: task.title,
+        notificationType: 'checklist_item',
+        courseName: task.course_name,
+        studentName: task.student_name
+      };
+      
+      const duplicates = await findPotentialDuplicates(supabase, newNotificationParams, 80);
+      
+      if (duplicates.length > 0) {
+        console.log(`🔄 Skipping duplicate administrative task: "${task.title}" (found ${duplicates.length} similar)`);
+        continue;
+      }
+      
       // Insert into administrative_notifications (checklist)
       const { error: insertError } = await supabase
         .from('administrative_notifications')

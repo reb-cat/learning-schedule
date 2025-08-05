@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { findPotentialDuplicates, DuplicateCheckParams } from '../_shared/duplicateDetection.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -359,22 +360,23 @@ async function syncStudentAssignments(studentName: string, token: string, baseUr
       const allContent = `${syllabusContent}\n\n${announcementsContent}\n\n${pagesContent}`;
       const adminRequirements = extractAdministrativeRequirements(allContent, course.name);
       
-      // Insert fees as notifications (with duplicate prevention)
+      // Insert fees as notifications (with intelligent duplicate prevention)
       for (const req of adminRequirements) {
         console.log(`   💰 Found ${req.type}: ${req.title}`);
         
-        // Check if this notification already exists
-        const { data: existingNotification } = await supabase
-          .from('administrative_notifications')
-          .select('id')
-          .eq('student_name', studentName)
-          .eq('title', req.title)
-          .eq('notification_type', req.type)
-          .eq('course_name', course.name)
-          .maybeSingle();
-
-        // Only insert if it doesn't already exist
-        if (!existingNotification) {
+        // Use intelligent duplicate detection
+        const newNotificationParams: DuplicateCheckParams = {
+          title: req.title,
+          notificationType: req.type,
+          courseName: course.name,
+          studentName: studentName,
+          amount: req.amount
+        };
+        
+        const duplicates = await findPotentialDuplicates(supabase, newNotificationParams, 80);
+        
+        // Only insert if no intelligent duplicates found
+        if (duplicates.length === 0) {
           const { error: adminError } = await supabase
             .from('administrative_notifications')
             .insert({
@@ -394,7 +396,7 @@ async function syncStudentAssignments(studentName: string, token: string, baseUr
             console.log(`   ✅ Added fee: ${req.title}`);
           }
         } else {
-          console.log(`   ℹ️ Fee already exists: ${req.title}`);
+          console.log(`   🔄 Intelligent duplicate detected for: ${req.title} (found ${duplicates.length} similar)`);
         }
       }
       
