@@ -228,9 +228,14 @@ function isFixedDateEvent(assignment: any): boolean {
   // Check for event keywords
   const hasEventKeyword = eventKeywords.some(keyword => title.includes(keyword));
   
-  // Check for location-specific indicators
-  const locationKeywords = ['at ', 'to ', 'visit '];
-  const hasLocationIndicator = locationKeywords.some(keyword => title.includes(keyword));
+  // More specific location detection - avoid false positives like "to CDCN"
+  const locationPatterns = [
+    /\bat\s+\w+/,        // "at [location]"
+    /\bvisit\s+\w+/,     // "visit [location]" 
+    /\bgo\s+to\s+\w+/,   // "go to [location]"
+    /\btrip\s+to\s+\w+/, // "trip to [location]"
+  ];
+  const hasLocationIndicator = locationPatterns.some(pattern => pattern.test(title));
   
   // Check assignment type for appointment-like activities
   const appointmentTypes = ['tutoring_session', 'driving_lesson', 'volunteer_event', 'job_interview'];
