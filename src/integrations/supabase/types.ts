@@ -68,6 +68,39 @@ export type Database = {
         }
         Relationships: []
       }
+      all_day_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_date: string
+          event_title: string
+          event_type: string
+          id: string
+          student_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_date: string
+          event_title: string
+          event_type?: string
+          id?: string
+          student_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_date?: string
+          event_title?: string
+          event_type?: string
+          id?: string
+          student_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       assignments: {
         Row: {
           academic_year: string | null

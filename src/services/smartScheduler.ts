@@ -70,7 +70,7 @@ class SmartScheduler {
     });
 
     // Get appropriate scheduling window based on assignment urgency
-    const availabilityWindow = this.getAvailabilityWindow(studentName, 14); // Extended to 2 weeks
+    const availabilityWindow = await this.getAvailabilityWindow(studentName, 14); // Extended to 2 weeks
 
     for (const assignment of academicAssignments) {
       try {
@@ -474,7 +474,7 @@ class SmartScheduler {
     return parts.join('; ') || `Scheduled in available Block ${block} on ${day.dayName}`;
   }
 
-  private getAvailabilityWindow(studentName: string, daysAhead: number): DayBlockAvailability[] {
+  private async getAvailabilityWindow(studentName: string, daysAhead: number): Promise<DayBlockAvailability[]> {
     const window: DayBlockAvailability[] = [];
     const today = new Date();
 
@@ -487,6 +487,19 @@ class SmartScheduler {
 
       // Skip weekends
       if (dayName === 'Saturday' || dayName === 'Sunday') continue;
+
+      // Check for all-day events that would override the normal schedule
+      const { data: allDayEvents } = await supabase
+        .from('all_day_events')
+        .select('*')
+        .eq('student_name', studentName)
+        .eq('event_date', dateString);
+
+      // If there's an all-day event, skip this day entirely
+      if (allDayEvents && allDayEvents.length > 0) {
+        console.log(`⚠️ All-day event detected for ${studentName} on ${dateString} - skipping assignment scheduling`);
+        continue;
+      }
 
       const schedule = getScheduleForStudentAndDay(studentName, dayName);
       const availableBlocks = schedule

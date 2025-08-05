@@ -107,8 +107,8 @@ async function scheduleAssignment(
   return true;
 }
 
-// Get available blocks for next N days
-function getAvailableBlocksForDays(daysAhead: number = 5): Array<{date: string, day: string, blocks: number[]}> {
+// Get available blocks for next N days, checking for all-day events
+async function getAvailableBlocksForDays(daysAhead: number = 5, studentName: string): Promise<Array<{date: string, day: string, blocks: number[]}>> {
   const scheduleWindow = [];
   const today = new Date();
   
@@ -119,9 +119,25 @@ function getAvailableBlocksForDays(daysAhead: number = 5): Array<{date: string, 
     // Skip weekends
     if (date.getDay() === 0 || date.getDay() === 6) continue;
     
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+    const dateString = date.toISOString().split('T')[0];
+    
+    // Check for all-day events that would override the normal schedule
+    const { data: allDayEvents } = await supabase
+      .from('all_day_events')
+      .select('*')
+      .eq('student_name', studentName)
+      .eq('event_date', dateString);
+
+    // If there's an all-day event, skip this day entirely
+    if (allDayEvents && allDayEvents.length > 0) {
+      console.log(`⚠️ All-day event detected for ${studentName} on ${dateString} - skipping assignment scheduling`);
+      continue;
+    }
+    
     scheduleWindow.push({
-      date: date.toISOString().split('T')[0],
-      day: date.toLocaleDateString('en-US', { weekday: 'long' }),
+      date: dateString,
+      day: dayName,
       blocks: [1, 2, 3, 4, 5, 6] // All available blocks
     });
   }
@@ -156,8 +172,8 @@ function shouldScheduleAssignment(assignment: any, today: Date): boolean {
     return false;
   }
   
-  // Don't schedule items more than 7 days before due date
-  if (daysDiff > 7) {
+  // Extended scheduling window to 14 days for better preparation
+  if (daysDiff > 14) {
     console.log(`⚠️ Too early to schedule: "${assignment.title}" due in ${daysDiff} days`);
     return false;
   }
@@ -252,7 +268,7 @@ async function scheduleAssignments(studentName: string, stagingMode: boolean = f
   }
   
   // Get 5-day scheduling window
-  const scheduleWindow = getAvailableBlocksForDays(5);
+  const scheduleWindow = await getAvailableBlocksForDays(5, studentName);
   console.log(`📅 Looking ahead ${scheduleWindow.length} school days for scheduling`);
   
   // Determine table names based on staging mode
