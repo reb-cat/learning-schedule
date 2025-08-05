@@ -195,14 +195,22 @@ class UnifiedScheduler {
           scheduled_day: update.scheduled_day
         });
 
-        // Validate UUID format before attempting update
-        if (!this.isValidUUID(update.id)) {
-          console.warn(`⚠️ UUID VALIDATION FAILED - Skipping invalid UUID: ${update.id}`);
+        // Extract base UUID for split assignments and validate
+        const baseId = this.extractBaseUUID(update.id);
+        console.log(`🔍 UUID extraction and validation:`, {
+          originalId: update.id,
+          extractedBaseId: baseId,
+          isValidUUID: this.isValidUUID(baseId),
+          containsPartSuffix: update.id.includes('_part_')
+        });
+
+        if (!this.isValidUUID(baseId)) {
+          console.warn(`⚠️ UUID VALIDATION FAILED - Skipping invalid UUID: ${update.id} -> ${baseId}`);
           errorCount++;
           continue;
         }
 
-        console.log(`✅ UUID validation passed for: ${update.id}`);
+        console.log(`✅ UUID validation passed for: ${baseId}`);
 
         try {
           const { data, error, count } = await supabase
@@ -212,10 +220,10 @@ class UnifiedScheduler {
               scheduled_date: update.scheduled_date,
               scheduled_day: update.scheduled_day
             })
-            .eq('id', update.id)
+            .eq('id', baseId)
             .select();
 
-          console.log(`📝 Supabase update result for ${update.id}:`, {
+          console.log(`📝 Supabase update result for ${baseId}:`, {
             error: error?.message || null,
             rowsAffected: data?.length || 0,
             data: data?.[0] || null
@@ -281,6 +289,24 @@ class UnifiedScheduler {
   }
 
   /**
+   * Extract base UUID from potentially split assignment IDs
+   */
+  private extractBaseUUID(id: string): string {
+    // Handle split assignment IDs like "uuid_part_1"
+    const parts = id.split('_part_');
+    const baseId = parts[0];
+    
+    console.log('🔧 UNIFIED UUID extraction:', {
+      originalId: id,
+      splitParts: parts,
+      extractedBaseId: baseId,
+      hadPartSuffix: parts.length > 1
+    });
+    
+    return baseId;
+  }
+
+  /**
    * Validate UUID format
    */
   private isValidUUID(uuid: string): boolean {
@@ -288,10 +314,11 @@ class UnifiedScheduler {
     const isValid = uuidRegex.test(uuid);
     
     if (!isValid) {
-      console.warn('🔍 UUID VALIDATION DETAILS:', {
+      console.warn('🔍 UNIFIED UUID VALIDATION DETAILS:', {
         uuid,
         length: uuid.length,
         containsUnderscorePart: uuid.includes('_part_'),
+        startsWithValidChar: /^[0-9a-f]/.test(uuid),
         format: 'Expected: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
       });
     }
