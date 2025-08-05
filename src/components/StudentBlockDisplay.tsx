@@ -261,7 +261,7 @@ export function StudentBlockDisplay({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    console.log('Need More Time button clicked');
+                    alert('Need More Time button clicked!');
                     handleStatusUpdate('in_progress');
                   }}
                   disabled={isUpdating}
@@ -274,7 +274,7 @@ export function StudentBlockDisplay({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    console.log('Stuck button clicked');
+                    alert('Stuck button clicked!');
                     handleStatusUpdate('stuck');
                   }}
                   disabled={isUpdating}
