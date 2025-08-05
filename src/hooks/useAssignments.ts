@@ -148,7 +148,7 @@ export const useAssignments = (studentName: string) => {
     }
   }, [studentName, cache]);
 
-  const getScheduledAssignment = async (block: number, date: string) => {
+  const getScheduledAssignment = useCallback(async (block: number, date: string) => {
     // Add retry logic for scheduled assignments too
     const maxRetries = 2;
     
@@ -211,7 +211,7 @@ export const useAssignments = (studentName: string) => {
     }
     
     return null;
-  };
+  }, [studentName]);
 
   // Smart refresh logic - only fetch if data is stale or dependencies changed
   const shouldRefresh = useMemo(() => {

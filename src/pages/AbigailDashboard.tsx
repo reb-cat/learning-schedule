@@ -6,9 +6,9 @@ import { Home, Calendar, Plus } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
 import { getScheduleForStudentAndDay } from "@/data/scheduleData";
 import { useAssignments } from "@/hooks/useAssignments";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { CoopChecklist } from "@/components/CoopChecklist";
-import { StudentBlockDisplay } from "@/components/StudentBlockDisplay";
+import { OptimizedStudentBlockDisplay } from "@/components/OptimizedStudentBlockDisplay";
 import { AllDayEventForm } from "@/components/AllDayEventForm";
 import { AllDayEventsList } from "@/components/AllDayEventsList";
 import { getEffectiveScheduleForDay } from "@/data/allDayEvents";
@@ -24,9 +24,12 @@ const AbigailDashboard = () => {
     
   const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch, cacheStats, cleanupData } = useAssignments('Abigail');
   const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
+  const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
   const [criticalError, setCriticalError] = useState<string | null>(null);
   const [effectiveSchedule, setEffectiveSchedule] = useState<any[] | null>(null);
   const [hasAllDayEvent, setHasAllDayEvent] = useState(false);
+  const loadingRef = useRef(false);
+  const assignmentCacheRef = useRef<{[key: string]: any}>({});
     
     // Use date parameter if provided and valid, otherwise use today
     let displayDate = new Date();
@@ -69,20 +72,44 @@ const AbigailDashboard = () => {
   // Use effective schedule or fallback to base schedule
   const todaySchedule = effectiveSchedule || baseTodaySchedule;
 
-  // Memoize expensive calculations
+  // Stabilize getScheduledAssignment function
+  const stableGetScheduledAssignment = useCallback(getScheduledAssignment, [getScheduledAssignment]);
+
+  // Memoize expensive calculations with stable dependencies
   const assignmentBlocks = useMemo(() => 
-    todaySchedule.filter(block => block.isAssignmentBlock && block.block),
+    todaySchedule?.filter(block => block.isAssignmentBlock && block.block) || [],
     [todaySchedule]
   );
 
-    // Load scheduled assignments for this date
+    // Load scheduled assignments with stabilized dependencies and batch loading
     const loadScheduledAssignments = useCallback(async () => {
-      if (!getScheduledAssignment || assignmentBlocks.length === 0) return;
+      if (!stableGetScheduledAssignment || assignmentBlocks.length === 0 || loadingRef.current) return;
+      
+      // Prevent concurrent loading
+      loadingRef.current = true;
+      setIsLoadingAssignments(true);
       
       try {
+        // Generate cache key for this specific combination
+        const cacheKey = `${formattedDate}-${assignmentBlocks.map(b => b.block).join(',')}`;
+        
+        // Check if we already have this exact data cached
+        if (assignmentCacheRef.current[cacheKey]) {
+          const cachedAssignments = assignmentCacheRef.current[cacheKey];
+          
+          // Deep equality check - only update if data actually changed
+          const currentAssignmentsStr = JSON.stringify(scheduledAssignments);
+          const cachedAssignmentsStr = JSON.stringify(cachedAssignments);
+          
+          if (currentAssignmentsStr !== cachedAssignmentsStr) {
+            setScheduledAssignments(cachedAssignments);
+          }
+          return;
+        }
+
         const assignmentPromises = assignmentBlocks.map(async (block) => {
           try {
-            const assignment = await getScheduledAssignment(block.block!, formattedDate);
+            const assignment = await stableGetScheduledAssignment(block.block!, formattedDate);
             return assignment ? [`${block.block}`, assignment] : null;
           } catch (error) {
             console.warn('Error loading assignment for block:', block.block, error);
@@ -95,21 +122,40 @@ const AbigailDashboard = () => {
           results.filter((result): result is [string, any] => result !== null)
         );
         
-        setScheduledAssignments(assignmentMap);
+        // Cache the result
+        assignmentCacheRef.current[cacheKey] = assignmentMap;
+        
+        // Only update state if data actually changed
+        const currentAssignmentsStr = JSON.stringify(scheduledAssignments);
+        const newAssignmentsStr = JSON.stringify(assignmentMap);
+        
+        if (currentAssignmentsStr !== newAssignmentsStr) {
+          setScheduledAssignments(assignmentMap);
+        }
       } catch (error) {
         console.error('Error loading scheduled assignments:', error);
+      } finally {
+        loadingRef.current = false;
+        setIsLoadingAssignments(false);
       }
-    }, [getScheduledAssignment, formattedDate, assignmentBlocks]);
+    }, [stableGetScheduledAssignment, formattedDate, assignmentBlocks, scheduledAssignments]);
 
 
   useEffect(() => {
     loadScheduledAssignments();
   }, [loadScheduledAssignments]);
 
-  const handleEventUpdate = () => {
-    checkEffectiveSchedule();
-    loadScheduledAssignments();
-  };
+  // Debounced update handler to prevent rapid successive calls
+  const handleEventUpdate = useCallback(() => {
+    // Clear cache to force fresh data
+    assignmentCacheRef.current = {};
+    
+    // Use setTimeout to batch updates
+    setTimeout(() => {
+      checkEffectiveSchedule();
+      loadScheduledAssignments();
+    }, 100);
+  }, [checkEffectiveSchedule, loadScheduledAssignments]);
 
     // Handle critical errors that would cause blank pages
     useEffect(() => {
@@ -216,12 +262,13 @@ const AbigailDashboard = () => {
                 ) : (
                   <div className="space-y-3">
                     {todaySchedule.map((block, index) => (
-                      <StudentBlockDisplay
-                        key={index}
+                      <OptimizedStudentBlockDisplay
+                        key={`${block.block || index}-${formattedDate}`}
                         block={block}
                         assignment={block.isAssignmentBlock ? scheduledAssignments[`${block.block}`] : undefined}
                         studentName="Abigail"
-                        onAssignmentUpdate={loadScheduledAssignments}
+                        onAssignmentUpdate={handleEventUpdate}
+                        isLoading={isLoadingAssignments}
                       />
                     ))}
                   </div>

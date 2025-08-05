@@ -18,16 +18,18 @@ interface StudentBlockDisplayProps {
   assignment?: any;
   studentName: string;
   onAssignmentUpdate?: () => void;
+  isLoading?: boolean;
 }
 
 export function StudentBlockDisplay({ 
   block, 
   assignment, 
   studentName,
-  onAssignmentUpdate 
+  onAssignmentUpdate,
+  isLoading: isBlockLoading = false
 }: StudentBlockDisplayProps) {
   const [showTransition, setShowTransition] = useState(false);
-  const { updateAssignmentStatus, isLoading } = useAssignmentCompletion();
+  const { updateAssignmentStatus, isLoading: isUpdating } = useAssignmentCompletion();
   const { toast } = useToast();
 
   const handleStatusUpdate = async (status: 'completed' | 'in_progress' | 'stuck') => {
@@ -52,7 +54,10 @@ export function StudentBlockDisplay({
                     "This task will be prioritized for help."
       });
 
-      onAssignmentUpdate?.();
+      // Debounce the update to prevent rapid successive calls
+      setTimeout(() => {
+        onAssignmentUpdate?.();
+      }, 200);
     } catch (error) {
       console.error('Error updating assignment status:', error);
       toast({
@@ -219,7 +224,7 @@ export function StudentBlockDisplay({
                 <Button
                   size="sm"
                   onClick={() => handleStatusUpdate('completed')}
-                  disabled={isLoading}
+                  disabled={isUpdating}
                   className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
                 >
                   <CheckCircle className="h-3 w-3" />
@@ -229,7 +234,7 @@ export function StudentBlockDisplay({
                   variant="outline"
                   size="sm"
                   onClick={() => handleStatusUpdate('in_progress')}
-                  disabled={isLoading}
+                  disabled={isUpdating}
                   className="flex items-center gap-1"
                 >
                   <Clock className="h-3 w-3" />
@@ -239,7 +244,7 @@ export function StudentBlockDisplay({
                   variant="outline"
                   size="sm"
                   onClick={() => handleStatusUpdate('stuck')}
-                  disabled={isLoading}
+                  disabled={isUpdating}
                   className="flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
                 >
                   <AlertTriangle className="h-3 w-3" />
