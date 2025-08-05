@@ -94,23 +94,62 @@ export function UnifiedScheduler({
     setIsExecuting(true);
     try {
       console.log('💾 Calling unifiedScheduler.executeSchedule...');
-      await unifiedScheduler.executeSchedule(result, studentName);
+      const executionResult = await unifiedScheduler.executeSchedule(result, studentName);
 
-      console.log('✅ Execute completed successfully');
-      toast({
-        title: "Schedule Applied Successfully!",
-        description: `Scheduled ${result.stats.scheduledTasks} assignments across ${result.stats.totalBlocks} blocks.`
-      });
+      console.log('✅ Execute completed:', executionResult);
 
-      // Force page refresh to show updated assignments
-      if (autoRefresh) {
-        console.log('🔄 Auto-refreshing page to show updated assignments');
-        window.location.reload();
+      if (executionResult.success) {
+        // Full or partial success
+        if (executionResult.errors.length === 0) {
+          toast({
+            title: "Schedule Applied Successfully!",
+            description: `Successfully scheduled ${executionResult.successCount} assignments across ${result.stats.totalBlocks} blocks.`
+          });
+        } else {
+          // Partial success with errors
+          toast({
+            title: "Schedule Partially Applied",
+            description: `Scheduled ${executionResult.successCount}/${executionResult.totalCount} assignments. ${executionResult.errors.length} errors occurred.`,
+            variant: "destructive"
+          });
+          
+          // Log detailed errors for debugging
+          console.error('🔍 Execution errors:', executionResult.errors);
+          
+          // Show detailed error information
+          setTimeout(() => {
+            toast({
+              title: "Execution Errors",
+              description: executionResult.errors.slice(0, 3).join('\n') + (executionResult.errors.length > 3 ? '\n...' : ''),
+              variant: "destructive"
+            });
+          }, 1000);
+        }
+
+        // Force page refresh to show updated assignments
+        if (autoRefresh) {
+          console.log('🔄 Auto-refreshing page to show updated assignments');
+          window.location.reload();
+        }
+
+        setResult(null);
+        onSchedulingComplete?.();
+      } else {
+        // Complete failure
+        const errorSummary = executionResult.errors.length > 0 
+          ? executionResult.errors[0] 
+          : 'Unknown error occurred';
+          
+        toast({
+          title: "Execution Failed",
+          description: `Failed to schedule assignments: ${errorSummary}`,
+          variant: "destructive"
+        });
+
+        // Show all errors in console for debugging
+        console.error('🔍 All execution errors:', executionResult.errors);
       }
-
-      setResult(null);
-      onSchedulingComplete?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ EXECUTE SCHEDULE FAILED in component:', {
         error: error.message,
         stack: error.stack,
@@ -118,7 +157,7 @@ export function UnifiedScheduler({
       });
       toast({
         title: "Execution Failed",
-        description: `Unable to save schedule: ${error.message}`,
+        description: `Unexpected error: ${error.message}`,
         variant: "destructive"
       });
     } finally {

@@ -111,13 +111,17 @@ class UnifiedScheduler {
   async executeSchedule(
     result: UnifiedSchedulingResult, 
     studentName: string
-  ): Promise<void> {
+  ): Promise<{ success: boolean; errors: string[]; successCount: number; totalCount: number }> {
     console.log('🚀 UNIFIED SCHEDULER EXECUTION START', {
       studentName,
       decisions: result.decisions.length,
       splitAssignments: result.splitAssignments.length,
       timestamp: new Date().toISOString()
     });
+
+    const executionErrors: string[] = [];
+    let successCount = 0;
+    let errorCount = 0;
 
     try {
       const today = new Date();
@@ -182,10 +186,7 @@ class UnifiedScheduler {
       console.log('💾 Total updates to execute:', updates.length);
       console.log('📋 Full update list:', updates);
 
-      let successCount = 0;
-      let errorCount = 0;
-
-      // Execute all updates with proper error handling and UUID validation
+      // Execute all updates with detailed error collection
       for (const update of updates) {
         console.log(`🔄 Executing update ${successCount + errorCount + 1}/${updates.length}:`, {
           id: update.id,
@@ -195,25 +196,27 @@ class UnifiedScheduler {
           scheduled_day: update.scheduled_day
         });
 
-        // Extract base UUID for split assignments and validate
-        const baseId = this.extractBaseUUID(update.id);
-        console.log(`🔍 UUID extraction and validation:`, {
-          originalId: update.id,
-          extractedBaseId: baseId,
-          isValidUUID: this.isValidUUID(baseId),
-          containsPartSuffix: update.id.includes('_part_')
-        });
-
-        if (!this.isValidUUID(baseId)) {
-          console.warn(`⚠️ UUID VALIDATION FAILED - Skipping invalid UUID: ${update.id} -> ${baseId}`);
-          errorCount++;
-          continue;
-        }
-
-        console.log(`✅ UUID validation passed for: ${baseId}`);
-
         try {
-          const { data, error, count } = await supabase
+          // Extract base UUID for split assignments and validate
+          const baseId = this.extractBaseUUID(update.id);
+          console.log(`🔍 UUID extraction and validation:`, {
+            originalId: update.id,
+            extractedBaseId: baseId,
+            isValidUUID: this.isValidUUID(baseId),
+            containsPartSuffix: update.id.includes('_part_')
+          });
+
+          if (!this.isValidUUID(baseId)) {
+            const errorMsg = `Invalid UUID format: ${update.id} -> ${baseId}`;
+            console.warn(`⚠️ ${errorMsg}`);
+            executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
+            errorCount++;
+            continue;
+          }
+
+          console.log(`✅ UUID validation passed for: ${baseId}`);
+
+          const { data, error } = await supabase
             .from('assignments')
             .update({
               scheduled_block: update.scheduled_block,
@@ -230,6 +233,7 @@ class UnifiedScheduler {
           });
 
           if (error) {
+            const errorMsg = `Database error: ${error.message} (Code: ${error.code || 'unknown'})`;
             console.error(`❌ SUPABASE ERROR for assignment ${update.id}:`, {
               error,
               code: error.code,
@@ -237,22 +241,30 @@ class UnifiedScheduler {
               details: error.details,
               hint: error.hint
             });
+            executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
             errorCount++;
-            throw new Error(`Failed to update assignment ${update.id}: ${error.message}`);
+            continue;
           }
 
           if (!data || data.length === 0) {
+            const errorMsg = `Assignment not found in database`;
             console.error(`❌ NO ROWS UPDATED for assignment ${update.id} - Assignment might not exist`);
+            executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
             errorCount++;
-          } else {
-            console.log(`✅ Successfully updated assignment ${update.id}`);
-            successCount++;
+            continue;
           }
 
-        } catch (updateError) {
-          console.error(`❌ EXCEPTION during update for ${update.id}:`, updateError);
+          console.log(`✅ Successfully updated assignment ${update.id}`);
+          successCount++;
+
+        } catch (updateError: any) {
+          const errorMsg = `Unexpected error: ${updateError.message || 'Unknown error'}`;
+          console.error(`💥 EXCEPTION during update for ${update.id}:`, {
+            error: updateError.message,
+            stack: updateError.stack
+          });
+          executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
           errorCount++;
-          throw updateError;
         }
       }
 
@@ -260,20 +272,31 @@ class UnifiedScheduler {
         totalUpdates: updates.length,
         successCount,
         errorCount,
+        successRate: updates.length > 0 ? (successCount / updates.length * 100).toFixed(1) + '%' : '0%',
         timestamp: new Date().toISOString()
       });
 
-      if (errorCount > 0) {
-        throw new Error(`Execution completed with ${errorCount} errors out of ${updates.length} total updates`);
-      }
+      return {
+        success: successCount > 0,
+        errors: executionErrors,
+        successCount,
+        totalCount: updates.length
+      };
 
-    } catch (error) {
+    } catch (error: any) {
+      const fatalError = `Fatal execution error: ${error.message || 'Unknown error'}`;
       console.error('💥 UNIFIED SCHEDULER EXECUTION FAILED:', {
         error: error.message,
         stack: error.stack,
         timestamp: new Date().toISOString()
       });
-      throw error;
+      
+      return {
+        success: false,
+        errors: [fatalError, ...executionErrors],
+        successCount,
+        totalCount: 0
+      };
     }
   }
 

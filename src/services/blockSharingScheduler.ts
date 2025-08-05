@@ -539,7 +539,7 @@ export class BlockSharingScheduler {
     return warnings;
   }
 
-  async executeSchedule(decision: SchedulingDecision): Promise<void> {
+  async executeSchedule(decision: SchedulingDecision): Promise<{ success: boolean; errors: string[]; successCount: number; totalCount: number }> {
     console.log('🚀 BLOCK SHARING SCHEDULER EXECUTION START:', {
       academicBlocks: decision.academic_blocks?.length || 0,
       administrativeTasks: decision.administrative_tasks?.length || 0,
@@ -547,12 +547,12 @@ export class BlockSharingScheduler {
       timestamp: new Date().toISOString()
     });
     
+    const executionErrors: string[] = [];
+    let successCount = 0;
+    let errorCount = 0;
+    let totalUpdates = 0;
+    
     try {
-      // Execute updates sequentially to avoid overwhelming the database
-      let successCount = 0;
-      let errorCount = 0;
-      let totalUpdates = 0;
-      
       for (const block of decision.academic_blocks) {
         console.log(`📚 Processing academic block ${block.block_number} on ${block.date}:`, {
           blockNumber: block.block_number,
@@ -575,34 +575,33 @@ export class BlockSharingScheduler {
             sharedBlockId: taskAssignment.shared_block_id
           });
           
-          // Extract base UUID and validate it
-          const baseId = this.extractBaseUUID(assignment.id);
-          console.log(`🔍 UUID extraction and validation:`, {
-            originalId: assignment.id,
-            extractedBaseId: baseId,
-            isValidUUID: this.isValidUUID(baseId),
-            containsPartSuffix: assignment.id.includes('_part_')
-          });
-
-          if (!this.isValidUUID(baseId)) {
-            console.error(`❌ UUID VALIDATION FAILED:`, {
-              originalId: assignment.id,
-              extractedId: baseId,
-              reason: 'Invalid UUID format'
-            });
-            errorCount++;
-            continue;
-          }
-          
           try {
+            // Extract base UUID and validate it
+            const baseId = this.extractBaseUUID(assignment.id);
+            console.log(`🔍 UUID extraction and validation:`, {
+              originalId: assignment.id,
+              extractedBaseId: baseId,
+              isValidUUID: this.isValidUUID(baseId),
+              containsPartSuffix: assignment.id.includes('_part_')
+            });
+
+            if (!this.isValidUUID(baseId)) {
+              const errorMsg = `Invalid UUID format: ${assignment.id} -> ${baseId}`;
+              console.error(`❌ ${errorMsg}`);
+              executionErrors.push(`${assignment.title}: ${errorMsg}`);
+              errorCount++;
+              continue;
+            }
+            
             console.log(`💾 Executing Supabase update for ${baseId}:`, {
               scheduledBlock: block.block_number,
               scheduledDate: block.date,
+              scheduledDay: block.day,
               sharedBlockId: taskAssignment.shared_block_id,
               blockPosition: taskAssignment.position
             });
 
-            const { data, error, count } = await supabase
+            const { data, error } = await supabase
               .from('assignments')
               .update({
                 scheduled_block: block.block_number,
@@ -621,6 +620,7 @@ export class BlockSharingScheduler {
             });
 
             if (error) {
+              const errorMsg = `Database error: ${error.message} (Code: ${error.code || 'unknown'})`;
               console.error(`❌ SUPABASE ERROR for assignment ${baseId}:`, {
                 error,
                 code: error.code,
@@ -628,19 +628,29 @@ export class BlockSharingScheduler {
                 details: error.details,
                 hint: error.hint
               });
+              executionErrors.push(`${assignment.title}: ${errorMsg}`);
               errorCount++;
-            } else if (!data || data.length === 0) {
-              console.error(`❌ NO ROWS UPDATED for assignment ${baseId} - Assignment might not exist`);
-              errorCount++;
-            } else {
-              console.log(`✅ Successfully updated assignment ${baseId}`);
-              successCount++;
+              continue;
             }
-          } catch (updateError) {
-            console.error(`💥 EXCEPTION during update for ${baseId}:`, {
+
+            if (!data || data.length === 0) {
+              const errorMsg = `Assignment not found in database`;
+              console.error(`❌ NO ROWS UPDATED for assignment ${baseId} - Assignment might not exist`);
+              executionErrors.push(`${assignment.title}: ${errorMsg}`);
+              errorCount++;
+              continue;
+            }
+
+            console.log(`✅ Successfully updated assignment ${baseId}`);
+            successCount++;
+
+          } catch (updateError: any) {
+            const errorMsg = `Unexpected error: ${updateError.message || 'Unknown error'}`;
+            console.error(`💥 EXCEPTION during update for ${assignment.id}:`, {
               error: updateError.message,
               stack: updateError.stack
             });
+            executionErrors.push(`${assignment.title}: ${errorMsg}`);
             errorCount++;
           }
         }
@@ -660,22 +670,27 @@ export class BlockSharingScheduler {
         this.cache.clear();
       }
       
-      // Throw if all updates failed
-      if (errorCount > 0 && successCount === 0) {
-        throw new Error(`All database updates failed (${errorCount} errors out of ${totalUpdates} total)`);
-      }
+      return {
+        success: successCount > 0,
+        errors: executionErrors,
+        successCount,
+        totalCount: totalUpdates
+      };
       
-      if (errorCount > 0) {
-        console.warn(`⚠️ Partial execution completed with ${errorCount} errors out of ${totalUpdates} total updates`);
-      }
-      
-    } catch (error) {
+    } catch (error: any) {
+      const fatalError = `Fatal execution error: ${error.message || 'Unknown error'}`;
       console.error('💥 BLOCK SHARING SCHEDULER EXECUTION FAILED:', {
         error: error.message,
         stack: error.stack,
         timestamp: new Date().toISOString()
       });
-      throw error;
+      
+      return {
+        success: false,
+        errors: [fatalError, ...executionErrors],
+        successCount,
+        totalCount: totalUpdates
+      };
     }
   }
 
