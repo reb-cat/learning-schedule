@@ -126,6 +126,7 @@ class UnifiedScheduler {
     const executionErrors: string[] = [];
     let successCount = 0;
     let errorCount = 0;
+    const successfulUpdates: Array<{ id: string; previousState: any }> = [];
 
     try {
       const today = new Date();
@@ -220,6 +221,21 @@ class UnifiedScheduler {
             continue;
           }
 
+          // Get current state for potential rollback
+          const { data: currentState, error: fetchError } = await supabase
+            .from('assignments')
+            .select('id, scheduled_block, scheduled_date, scheduled_day')
+            .eq('id', baseId)
+            .single();
+
+          if (fetchError) {
+            const errorMsg = `Failed to fetch current state: ${fetchError.message}`;
+            console.error(`❌ FETCH ERROR for assignment ${update.id}:`, fetchError);
+            executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
+            errorCount++;
+            continue;
+          }
+
           console.log(`✅ UUID validation passed for: ${baseId}`);
 
           const { data, error } = await supabase
@@ -260,7 +276,28 @@ class UnifiedScheduler {
             continue;
           }
 
-          console.log(`✅ Successfully updated assignment ${update.id}`);
+          // Verify the update was applied correctly
+          const verificationResult = await this.verifyUpdate(baseId, {
+            scheduled_block: update.scheduled_block,
+            scheduled_date: update.scheduled_date,
+            scheduled_day: update.scheduled_day
+          });
+
+          if (!verificationResult.success) {
+            const errorMsg = `Update verification failed: ${verificationResult.error}`;
+            console.error(`❌ VERIFICATION FAILED for assignment ${update.id}:`, verificationResult);
+            executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
+            errorCount++;
+            continue;
+          }
+
+          // Store successful update for potential rollback
+          successfulUpdates.push({
+            id: baseId,
+            previousState: currentState
+          });
+
+          console.log(`✅ Successfully updated and verified assignment ${update.id}`);
           successCount++;
 
         } catch (updateError: any) {
@@ -274,11 +311,26 @@ class UnifiedScheduler {
         }
       }
 
+      // Check if we need to rollback due to partial failures
+      const failureRate = updates.length > 0 ? (errorCount / updates.length) : 0;
+      if (failureRate > 0.5 && successCount > 0) {
+        console.warn(`⚠️ High failure rate detected (${(failureRate * 100).toFixed(1)}%), initiating rollback...`);
+        const rollbackResult = await this.rollbackUpdates(successfulUpdates);
+        
+        if (rollbackResult.success) {
+          executionErrors.unshift(`Rollback completed due to high failure rate (${(failureRate * 100).toFixed(1)}%)`);
+          successCount = 0; // Reset success count as we rolled back
+        } else {
+          executionErrors.unshift(`Rollback failed: ${rollbackResult.error}`);
+        }
+      }
+
       console.log(`🎉 UNIFIED SCHEDULER EXECUTION COMPLETE:`, {
         totalUpdates: updates.length,
         successCount,
         errorCount,
         successRate: updates.length > 0 ? (successCount / updates.length * 100).toFixed(1) + '%' : '0%',
+        rolledBack: failureRate > 0.5 && successfulUpdates.length > 0,
         timestamp: new Date().toISOString()
       });
 
@@ -290,19 +342,95 @@ class UnifiedScheduler {
       };
 
     } catch (error: any) {
-      const fatalError = `Fatal execution error: ${error.message || 'Unknown error'}`;
-      console.error('💥 UNIFIED SCHEDULER EXECUTION FAILED:', {
-        error: error.message,
-        stack: error.stack,
-        timestamp: new Date().toISOString()
-      });
+      console.error('💥 CRITICAL ERROR in executeSchedule:', error);
+      
+      // Attempt rollback on critical error
+      if (successfulUpdates.length > 0) {
+        console.log('🔄 Attempting rollback due to critical error...');
+        await this.rollbackUpdates(successfulUpdates);
+      }
       
       return {
         success: false,
-        errors: [fatalError, ...executionErrors],
-        successCount,
+        errors: [`Critical execution error: ${error.message || 'Unknown error'}`],
+        successCount: 0,
         totalCount: 0
       };
+    }
+  }
+
+  /**
+   * Verify that an update was applied correctly
+   */
+  private async verifyUpdate(
+    assignmentId: string, 
+    expectedValues: { scheduled_block: number; scheduled_date: string; scheduled_day: string }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('assignments')
+        .select('scheduled_block, scheduled_date, scheduled_day')
+        .eq('id', assignmentId)
+        .single();
+
+      if (error) {
+        return { success: false, error: `Failed to fetch for verification: ${error.message}` };
+      }
+
+      if (!data) {
+        return { success: false, error: 'Assignment not found during verification' };
+      }
+
+      const matches = 
+        data.scheduled_block === expectedValues.scheduled_block &&
+        data.scheduled_date === expectedValues.scheduled_date &&
+        data.scheduled_day === expectedValues.scheduled_day;
+
+      if (!matches) {
+        return { 
+          success: false, 
+          error: `Values don't match. Expected: ${JSON.stringify(expectedValues)}, Got: ${JSON.stringify(data)}` 
+        };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: `Verification exception: ${error.message}` };
+    }
+  }
+
+  /**
+   * Rollback successful updates
+   */
+  private async rollbackUpdates(
+    successfulUpdates: Array<{ id: string; previousState: any }>
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log(`🔄 Rolling back ${successfulUpdates.length} successful updates...`);
+
+      for (const update of successfulUpdates) {
+        const { error } = await supabase
+          .from('assignments')
+          .update({
+            scheduled_block: update.previousState.scheduled_block,
+            scheduled_date: update.previousState.scheduled_date,
+            scheduled_day: update.previousState.scheduled_day
+          })
+          .eq('id', update.id);
+
+        if (error) {
+          console.error(`❌ Failed to rollback assignment ${update.id}:`, error);
+          return { success: false, error: `Rollback failed for assignment ${update.id}: ${error.message}` };
+        }
+
+        console.log(`✅ Rolled back assignment ${update.id}`);
+      }
+
+      console.log(`✅ Successfully rolled back all ${successfulUpdates.length} updates`);
+      return { success: true };
+    } catch (error: any) {
+      console.error('💥 Exception during rollback:', error);
+      return { success: false, error: `Rollback exception: ${error.message}` };
     }
   }
 
