@@ -445,7 +445,11 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                             setShowDatePicker(false);
                           }
                         }}
-                        disabled={(date) => date < new Date()}
+                        disabled={(date) => {
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          return date < today;
+                        }}
                         initialFocus
                         className="pointer-events-auto"
                       />
@@ -480,7 +484,9 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                             }
                           }}
                           disabled={(date) => {
-                            if (!formData.due_date) return date < new Date();
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            if (!formData.due_date) return date < today;
                             return date < parseISO(formData.due_date);
                           }}
                           initialFocus
