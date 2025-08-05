@@ -161,7 +161,11 @@ function calculateUrgency(assignment: any, today: Date): 'critical' | 'high' | '
 
 // Determine if assignment should be scheduled based on type and due date
 function shouldScheduleAssignment(assignment: any, today: Date): boolean {
-  if (!assignment.due_date) return false;
+  // Handle assignments without due dates - treat as "due soon"
+  if (!assignment.due_date) {
+    console.log(`📋 Scheduling assignment without due date: "${assignment.title}"`);
+    return true;
+  }
   
   const dueDate = new Date(assignment.due_date);
   const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -184,7 +188,13 @@ function shouldScheduleAssignment(assignment: any, today: Date): boolean {
 // Detect administrative tasks that should be checklist items
 function isAdministrativeTask(assignment: any): boolean {
   const title = assignment.title?.toLowerCase() || '';
-  const adminKeywords = ['fee', 'form', 'permission', 'bring', 'deliver', 'submit form', 'turn in', 'payment'];
+  
+  // Exclude complex administrative tasks that require substantial time
+  if (title.includes('packet') || title.includes('application') || title.includes('notarization')) {
+    return false;
+  }
+  
+  const adminKeywords = ['fee', 'permission', 'bring', 'deliver', 'submit form', 'turn in', 'payment'];
   return adminKeywords.some(keyword => title.includes(keyword));
 }
 
