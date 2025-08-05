@@ -17,6 +17,11 @@ export interface TaskClassification {
   completion_status?: 'not_started' | 'in_progress' | 'stuck' | 'completed';
   progress_percentage?: number;
   stuck_reason?: string;
+  // Split assignment fields
+  parent_assignment_id?: string;
+  is_split_assignment?: boolean;
+  split_part_number?: number;
+  total_split_parts?: number;
 }
 
 export interface BlockComposition {
