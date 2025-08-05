@@ -376,15 +376,27 @@ export class BlockSharingScheduler {
     
     console.log(`  🔄 Splitting task \"${task.title}\" (${totalTime} min) into ${numberOfParts} parts`);
     
+    // SEQUENTIAL SPLIT SCHEDULING: Find consecutive available blocks
+    const availableBlocks = blocks
+      .filter(block => this.getRemainingMinutes(block) >= 15) // At least 15 minutes
+      .sort((a, b) => {
+        // Sort by date first, then by block number (sequential order)
+        if (a.date !== b.date) {
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        }
+        return a.block_number - b.block_number;
+      });
+    
     let remainingTime = totalTime;
     let partNumber = 1;
     let scheduledParts = 0;
     
-    for (let i = 0; i < numberOfParts && remainingTime > 0; i++) {
+    // Try to place split parts in sequential blocks
+    for (const block of availableBlocks) {
+      if (remainingTime <= 0 || partNumber > numberOfParts) break;
+      
       const timeForThisPart = Math.min(remainingTime, maxBlockTime);
       
-      // Generate a proper UUID for the split part
-      // Use original task ID for database operations - only add part info for display
       const taskPart: TaskClassification = {
         ...task,
         id: task.id, // Keep original ID for database operations
@@ -398,16 +410,14 @@ export class BlockSharingScheduler {
       
       console.log(`    📝 Creating part ${partNumber}: ${timeForThisPart} min`);
       
-      const bestBlock = this.findBestBlockForTask(taskPart, blocks);
-      if (bestBlock && this.canFitInBlock(taskPart, bestBlock)) {
-        console.log(`    ✅ Scheduled part ${partNumber} in Block ${bestBlock.block_number} on ${bestBlock.day}`);
-        this.addTaskToBlock(taskPart, bestBlock);
+      if (this.canFitInBlock(taskPart, block)) {
+        console.log(`    ✅ Scheduled part ${partNumber} in Block ${block.block_number} on ${block.day}`);
+        this.addTaskToBlock(taskPart, block);
         remainingTime -= timeForThisPart;
         partNumber++;
         scheduledParts++;
       } else {
-        console.log(`    ❌ Could not schedule part ${partNumber} - no suitable block found`);
-        break;
+        console.log(`    ❌ Could not fit part ${partNumber} in Block ${block.block_number} - checking next block`);
       }
     }
     
@@ -451,36 +461,52 @@ export class BlockSharingScheduler {
     
     if (availableBlocks.length === 0) return null;
     
-    // For Math assignments, prefer Block 2
-    if (task.subject === 'Math' || task.course_name?.toLowerCase().includes('math')) {
-      const mathBlock = availableBlocks.find(block => block.block_number === 2);
-      if (mathBlock && this.canFitInBlock(task, mathBlock)) {
-        return mathBlock;
+    // PRIORITY 1: SEQUENTIAL FILLING - Fill blocks in order without gaps
+    // Find the earliest block that can fit the task
+    const sequentialBlocks = availableBlocks
+      .filter(block => this.canFitInBlock(task, block))
+      .sort((a, b) => {
+        // Sort by date first, then by block number
+        if (a.date !== b.date) {
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        }
+        return a.block_number - b.block_number;
+      });
+    
+    if (sequentialBlocks.length === 0) return null;
+    
+    // Check if we can maintain sequential filling
+    const firstAvailableBlock = sequentialBlocks[0];
+    
+    // PRIORITY 2: DURATION MATCHING (only if it doesn't create gaps)
+    // Among sequential candidates, prefer blocks that match duration better
+    // but only if they're in the same day or very close in sequence
+    const sameDay = sequentialBlocks.filter(block => block.date === firstAvailableBlock.date);
+    
+    if (sameDay.length > 1) {
+      // For Math assignments, prefer Block 2 if available on same day
+      if (task.subject === 'Math' || task.course_name?.toLowerCase().includes('math')) {
+        const mathBlock = sameDay.find(block => block.block_number === 2);
+        if (mathBlock && this.canFitInBlock(task, mathBlock)) {
+          return mathBlock;
+        }
+      }
+      
+      // Check for duration matching within same day blocks
+      const durationMatchedBlocks = sameDay.filter(block => {
+        const remainingTime = this.getRemainingMinutes(block);
+        // Prefer blocks where task uses 70-100% of remaining time
+        const utilizationRate = task.estimated_time / Math.max(remainingTime, 1);
+        return utilizationRate >= 0.7 && utilizationRate <= 1.0;
+      });
+      
+      if (durationMatchedBlocks.length > 0) {
+        return durationMatchedBlocks[0]; // Return first duration-matched block
       }
     }
     
-    // Avoid consecutive heavy cognitive loads and same subjects
-    const preferredBlocks = availableBlocks.filter(block => {
-      const lastTask = block.tasks[block.tasks.length - 1];
-      if (!lastTask) return true;
-      
-      // If last task was high cognitive load, prefer medium/low for this task
-      if (lastTask.assignment.cognitive_load === 'high' && task.cognitive_load === 'high') {
-        return false;
-      }
-      
-      // Avoid same subject in consecutive tasks
-      if (lastTask.assignment.subject === task.subject) {
-        return false;
-      }
-      
-      return true;
-    });
-    
-    const targetBlocks = preferredBlocks.length > 0 ? preferredBlocks : availableBlocks;
-    
-    // Find block with best cognitive load balance
-    return targetBlocks.find(block => this.canAddCognitiveLoad(task, block)) || targetBlocks[0];
+    // Return the first available sequential block (maintains no-gaps rule)
+    return firstAvailableBlock;
   }
 
   private canFitInBlock(task: TaskClassification, block: BlockComposition): boolean {
