@@ -23,6 +23,10 @@ export interface Assignment {
   created_at: string;
   updated_at: string;
   // Completion tracking fields
+  completion_status?: 'not_started' | 'completed' | 'in_progress' | 'stuck';
+  progress_percentage?: number;
+  time_spent_minutes?: number;
+  stuck_reason?: string;
   completed?: boolean;
   completed_at?: string;
   actual_time_minutes?: number;

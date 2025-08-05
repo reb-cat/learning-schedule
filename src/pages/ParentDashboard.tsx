@@ -19,16 +19,28 @@ import { toast } from "sonner";
 
 const ParentDashboard = () => {
   // Fetch assignments for both students
-  const { assignments: abigailAssignments, loading: abigailLoading, refetch: refetchAbigail } = useAssignments('Abigail');
-  const { assignments: khalilAssignments, loading: khalilLoading, refetch: refetchKhalil } = useAssignments('Khalil');
+  const { assignments: abigailAssignments, loading: abigailLoading, refetch: refetchAbigail, forceRefresh: forceRefreshAbigail } = useAssignments('Abigail');
+  const { assignments: khalilAssignments, loading: khalilLoading, refetch: refetchKhalil, forceRefresh: forceRefreshKhalil } = useAssignments('Khalil');
   const [testingScheduler, setTestingScheduler] = useState(false);
   const [migrating, setMigrating] = useState(false);
   
 
   const handleAssignmentAdded = () => {
-    refetchAbigail();
-    refetchKhalil();
+    // Force refetch to bypass cache and get fresh data from database
+    forceRefreshAbigail();
+    forceRefreshKhalil();
   };
+
+  // Auto-refresh every 30 seconds to keep data current
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Silently refresh data to catch any updates from student dashboards
+      forceRefreshAbigail();
+      forceRefreshKhalil();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [forceRefreshAbigail, forceRefreshKhalil]);
 
 
   const handleTestAutoScheduler = async () => {

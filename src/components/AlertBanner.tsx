@@ -16,11 +16,15 @@ export const AlertBanner = ({ abigailAssignments, khalilAssignments }: AlertBann
     const allAssignments = [...abigailAssignments, ...khalilAssignments];
     
     const blocked = allAssignments.filter(assignment => 
-      assignment.urgency === 'overdue' && assignment.cognitive_load === 'heavy'
+      assignment.urgency === 'overdue' && 
+      assignment.cognitive_load === 'heavy' &&
+      assignment.completion_status !== 'completed'
     );
     
     const atRisk = allAssignments.filter(assignment => 
-      assignment.urgency === 'due_today' && assignment.cognitive_load === 'heavy'
+      assignment.urgency === 'due_today' && 
+      assignment.cognitive_load === 'heavy' &&
+      assignment.completion_status !== 'completed'
     );
 
     return { blocked, atRisk };
