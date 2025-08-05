@@ -164,7 +164,11 @@ export function StudentBlockDisplay({
   const cognitiveInfo = getCognitiveLoadInfo(assignment.cognitive_load);
 
   return (
-    <Card className={`border ${getStatusColor(assignment.completion_status)}`}>
+    <>
+      <div style={{background: 'red', padding: '10px', margin: '10px 0', color: 'white', fontWeight: 'bold'}}>
+        DEBUG MODE - Component is updating! Assignment: {assignment?.title || 'No title'}
+      </div>
+      <Card className={`border ${getStatusColor(assignment.completion_status)}`}>
       <CardContent className="p-4 space-y-3">
         {/* Block Header */}
         <div className="flex items-center justify-between">
@@ -293,5 +297,6 @@ export function StudentBlockDisplay({
         )}
       </CardContent>
     </Card>
+    </>
   );
 }
