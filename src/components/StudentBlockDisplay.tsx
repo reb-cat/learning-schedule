@@ -240,7 +240,10 @@ export function StudentBlockDisplay({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleStatusUpdate('in_progress')}
+                  onClick={() => {
+                    console.log('Need More Time button clicked');
+                    handleStatusUpdate('in_progress');
+                  }}
                   disabled={isUpdating}
                   className="flex items-center gap-1"
                 >
@@ -250,7 +253,10 @@ export function StudentBlockDisplay({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleStatusUpdate('stuck')}
+                  onClick={() => {
+                    console.log('Stuck button clicked');
+                    handleStatusUpdate('stuck');
+                  }}
                   disabled={isUpdating}
                   className="flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
                 >
