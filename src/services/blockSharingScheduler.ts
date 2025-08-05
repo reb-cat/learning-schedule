@@ -540,64 +540,141 @@ export class BlockSharingScheduler {
   }
 
   async executeSchedule(decision: SchedulingDecision): Promise<void> {
+    console.log('🚀 BLOCK SHARING SCHEDULER EXECUTION START:', {
+      academicBlocks: decision.academic_blocks?.length || 0,
+      administrativeTasks: decision.administrative_tasks?.length || 0,
+      unscheduledTasks: decision.unscheduled_tasks?.length || 0,
+      timestamp: new Date().toISOString()
+    });
     
     try {
-      console.log('Executing schedule with decision:', decision);
-      
       // Execute updates sequentially to avoid overwhelming the database
       let successCount = 0;
       let errorCount = 0;
+      let totalUpdates = 0;
       
       for (const block of decision.academic_blocks) {
+        console.log(`📚 Processing academic block ${block.block_number} on ${block.date}:`, {
+          blockNumber: block.block_number,
+          date: block.date,
+          day: block.day,
+          totalMinutes: block.total_minutes,
+          usedMinutes: block.used_minutes,
+          tasksCount: block.tasks?.length || 0
+        });
+
         for (const taskAssignment of block.tasks) {
           const assignment = taskAssignment.assignment;
+          totalUpdates++;
+          
+          console.log(`🎯 Processing task assignment ${totalUpdates}:`, {
+            originalId: assignment.id,
+            title: assignment.title,
+            position: taskAssignment.position,
+            allocatedMinutes: taskAssignment.allocated_minutes,
+            sharedBlockId: taskAssignment.shared_block_id
+          });
           
           // Extract base UUID and validate it
           const baseId = this.extractBaseUUID(assignment.id);
+          console.log(`🔍 UUID extraction and validation:`, {
+            originalId: assignment.id,
+            extractedBaseId: baseId,
+            isValidUUID: this.isValidUUID(baseId),
+            containsPartSuffix: assignment.id.includes('_part_')
+          });
+
           if (!this.isValidUUID(baseId)) {
-            console.error(`Invalid UUID format: ${assignment.id} -> ${baseId}`);
+            console.error(`❌ UUID VALIDATION FAILED:`, {
+              originalId: assignment.id,
+              extractedId: baseId,
+              reason: 'Invalid UUID format'
+            });
             errorCount++;
             continue;
           }
           
           try {
-            const { error } = await supabase
+            console.log(`💾 Executing Supabase update for ${baseId}:`, {
+              scheduledBlock: block.block_number,
+              scheduledDate: block.date,
+              sharedBlockId: taskAssignment.shared_block_id,
+              blockPosition: taskAssignment.position
+            });
+
+            const { data, error, count } = await supabase
               .from('assignments')
               .update({
                 scheduled_block: block.block_number,
                 scheduled_date: block.date,
+                scheduled_day: block.day,
                 shared_block_id: taskAssignment.shared_block_id,
                 block_position: taskAssignment.position
               })
-              .eq('id', baseId);
+              .eq('id', baseId)
+              .select();
             
+            console.log(`📝 Supabase update result for ${baseId}:`, {
+              error: error?.message || null,
+              rowsAffected: data?.length || 0,
+              data: data?.[0] || null
+            });
+
             if (error) {
-              console.error(`Database update failed for ${baseId}:`, error.message);
+              console.error(`❌ SUPABASE ERROR for assignment ${baseId}:`, {
+                error,
+                code: error.code,
+                message: error.message,
+                details: error.details,
+                hint: error.hint
+              });
+              errorCount++;
+            } else if (!data || data.length === 0) {
+              console.error(`❌ NO ROWS UPDATED for assignment ${baseId} - Assignment might not exist`);
               errorCount++;
             } else {
+              console.log(`✅ Successfully updated assignment ${baseId}`);
               successCount++;
             }
           } catch (updateError) {
-            console.error(`Update error for ${baseId}:`, updateError);
+            console.error(`💥 EXCEPTION during update for ${baseId}:`, {
+              error: updateError.message,
+              stack: updateError.stack
+            });
             errorCount++;
           }
         }
       }
       
-      console.log(`Schedule execution completed: ${successCount} success, ${errorCount} errors`);
+      console.log(`🎉 BLOCK SHARING SCHEDULER EXECUTION COMPLETE:`, {
+        totalUpdates,
+        successCount,
+        errorCount,
+        successRate: totalUpdates > 0 ? (successCount / totalUpdates * 100).toFixed(1) + '%' : '0%',
+        timestamp: new Date().toISOString()
+      });
       
       // Only invalidate cache if we had at least some successes
       if (successCount > 0) {
+        console.log('🗑️ Clearing cache due to successful updates');
         this.cache.clear();
       }
       
       // Throw if all updates failed
       if (errorCount > 0 && successCount === 0) {
-        throw new Error(`All database updates failed (${errorCount} errors)`);
+        throw new Error(`All database updates failed (${errorCount} errors out of ${totalUpdates} total)`);
+      }
+      
+      if (errorCount > 0) {
+        console.warn(`⚠️ Partial execution completed with ${errorCount} errors out of ${totalUpdates} total updates`);
       }
       
     } catch (error) {
-      console.error('Error executing schedule:', error);
+      console.error('💥 BLOCK SHARING SCHEDULER EXECUTION FAILED:', {
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
       throw error;
     }
   }
@@ -605,12 +682,33 @@ export class BlockSharingScheduler {
   private extractBaseUUID(id: string): string {
     // Handle split assignment IDs like "uuid_part_1"
     const parts = id.split('_part_');
-    return parts[0];
+    const baseId = parts[0];
+    
+    console.log('🔧 UUID extraction:', {
+      originalId: id,
+      splitParts: parts,
+      extractedBaseId: baseId,
+      hadPartSuffix: parts.length > 1
+    });
+    
+    return baseId;
   }
 
   private isValidUUID(uuid: string): boolean {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(uuid);
+    const isValid = uuidRegex.test(uuid);
+    
+    if (!isValid) {
+      console.warn('🔍 BLOCK SHARING UUID VALIDATION DETAILS:', {
+        uuid,
+        length: uuid.length,
+        containsUnderscorePart: uuid.includes('_part_'),
+        startsWithValidChar: /^[0-9a-f]/.test(uuid),
+        format: 'Expected: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+      });
+    }
+    
+    return isValid;
   }
 
   // Cache invalidation method

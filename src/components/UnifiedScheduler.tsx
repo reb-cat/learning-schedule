@@ -79,13 +79,24 @@ export function UnifiedScheduler({
   }, [studentName, mode, previewOnly, daysAhead, includeAdminTasks, toast]);
 
   const handleExecute = useCallback(async () => {
-    if (!result) return;
+    if (!result) {
+      console.warn('🚫 Execute called but no result available');
+      return;
+    }
+
+    console.log('🎬 USER CLICKED EXECUTE SCHEDULE:', {
+      studentName,
+      scheduledTasks: result.stats.scheduledTasks,
+      totalBlocks: result.stats.totalBlocks,
+      timestamp: new Date().toISOString()
+    });
 
     setIsExecuting(true);
     try {
-      console.log('💾 Unified Scheduler: Executing schedule');
+      console.log('💾 Calling unifiedScheduler.executeSchedule...');
       await unifiedScheduler.executeSchedule(result, studentName);
 
+      console.log('✅ Execute completed successfully');
       toast({
         title: "Schedule Applied Successfully!",
         description: `Scheduled ${result.stats.scheduledTasks} assignments across ${result.stats.totalBlocks} blocks.`
@@ -93,16 +104,21 @@ export function UnifiedScheduler({
 
       // Force page refresh to show updated assignments
       if (autoRefresh) {
+        console.log('🔄 Auto-refreshing page to show updated assignments');
         window.location.reload();
       }
 
       setResult(null);
       onSchedulingComplete?.();
     } catch (error) {
-      console.error('❌ Unified Scheduler: Execution failed', error);
+      console.error('❌ EXECUTE SCHEDULE FAILED in component:', {
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
       toast({
         title: "Execution Failed",
-        description: "Unable to save schedule. Please try again.",
+        description: `Unable to save schedule: ${error.message}`,
         variant: "destructive"
       });
     } finally {
@@ -111,6 +127,13 @@ export function UnifiedScheduler({
   }, [result, studentName, autoRefresh, onSchedulingComplete, toast]);
 
   const handleAutoSchedule = useCallback(async () => {
+    console.log('🎬 USER CLICKED AUTO-SCHEDULE:', {
+      studentName,
+      daysAhead,
+      includeAdminTasks,
+      timestamp: new Date().toISOString()
+    });
+
     setIsAnalyzing(true);
     try {
       const options: SchedulerOptions = {
@@ -119,24 +142,34 @@ export function UnifiedScheduler({
         autoExecute: true // Auto-execute if no critical warnings
       };
 
+      console.log('🔄 Calling unifiedScheduler.analyzeAndSchedule with autoExecute...');
       const schedulingResult = await unifiedScheduler.analyzeAndSchedule(studentName, options);
       
+      console.log('📊 Auto-schedule analysis complete:', {
+        scheduledTasks: schedulingResult.stats.scheduledTasks,
+        warnings: schedulingResult.warnings.length,
+        warningsList: schedulingResult.warnings
+      });
+
       // Check if it was auto-executed
       const hasCriticalWarnings = schedulingResult.warnings.some(w => 
         w.includes('overdue') || w.includes('critical')
       );
 
       if (!hasCriticalWarnings) {
+        console.log('✅ Auto-execute completed successfully - no critical warnings');
         toast({
           title: "Auto-Schedule Complete!",
           description: `Automatically scheduled ${schedulingResult.stats.scheduledTasks} assignments.`
         });
         
         if (autoRefresh) {
+          console.log('🔄 Auto-refreshing page to show updated assignments');
           window.location.reload();
         }
         onSchedulingComplete?.();
       } else {
+        console.log('⚠️ Manual review required due to critical warnings');
         setResult(schedulingResult);
         toast({
           title: "Manual Review Required",
@@ -144,10 +177,14 @@ export function UnifiedScheduler({
         });
       }
     } catch (error) {
-      console.error('❌ Auto-schedule failed', error);
+      console.error('❌ AUTO-SCHEDULE FAILED in component:', {
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
       toast({
         title: "Auto-Schedule Failed",
-        description: "Unable to auto-schedule. Please try manual mode.",
+        description: `Unable to auto-schedule: ${error.message}`,
         variant: "destructive"
       });
     } finally {

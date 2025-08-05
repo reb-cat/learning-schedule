@@ -112,9 +112,11 @@ class UnifiedScheduler {
     result: UnifiedSchedulingResult, 
     studentName: string
   ): Promise<void> {
-    console.log('💾 Unified Scheduler: Executing schedule', {
+    console.log('🚀 UNIFIED SCHEDULER EXECUTION START', {
+      studentName,
       decisions: result.decisions.length,
-      splitAssignments: result.splitAssignments.length
+      splitAssignments: result.splitAssignments.length,
+      timestamp: new Date().toISOString()
     });
 
     try {
@@ -124,10 +126,21 @@ class UnifiedScheduler {
         scheduled_block: number;
         scheduled_date: string;
         scheduled_day: string;
+        originalTitle?: string;
       }> = [];
 
+      console.log('📊 Processing scheduling decisions:', result.decisions.length);
+      
       // Process main scheduling decisions
       for (const decision of result.decisions) {
+        console.log('🎯 Processing decision:', {
+          assignmentId: decision.assignment.id,
+          title: decision.assignment.title,
+          targetDate: decision.targetDate,
+          targetBlock: decision.targetBlock,
+          isValidUUID: this.isValidUUID(decision.assignment.id)
+        });
+
         const targetDate = new Date(decision.targetDate);
         const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
         
@@ -135,12 +148,23 @@ class UnifiedScheduler {
           id: decision.assignment.id,
           scheduled_block: decision.targetBlock,
           scheduled_date: decision.targetDate,
-          scheduled_day: dayName
+          scheduled_day: dayName,
+          originalTitle: decision.assignment.title
         });
       }
 
+      console.log('📊 Processing split assignments:', result.splitAssignments.length);
+      
       // Process split assignments
       for (const assignment of result.splitAssignments) {
+        console.log('✂️ Processing split assignment:', {
+          assignmentId: assignment.id,
+          title: assignment.title,
+          scheduledDate: assignment.scheduled_date,
+          scheduledBlock: assignment.scheduled_block,
+          isValidUUID: this.isValidUUID(assignment.id)
+        });
+
         if (assignment.scheduled_date && assignment.scheduled_block) {
           const targetDate = new Date(assignment.scheduled_date);
           const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
@@ -149,38 +173,98 @@ class UnifiedScheduler {
             id: assignment.id,
             scheduled_block: assignment.scheduled_block,
             scheduled_date: assignment.scheduled_date,
-            scheduled_day: dayName
+            scheduled_day: dayName,
+            originalTitle: assignment.title
           });
         }
       }
 
+      console.log('💾 Total updates to execute:', updates.length);
+      console.log('📋 Full update list:', updates);
+
+      let successCount = 0;
+      let errorCount = 0;
+
       // Execute all updates with proper error handling and UUID validation
       for (const update of updates) {
+        console.log(`🔄 Executing update ${successCount + errorCount + 1}/${updates.length}:`, {
+          id: update.id,
+          title: update.originalTitle,
+          scheduled_block: update.scheduled_block,
+          scheduled_date: update.scheduled_date,
+          scheduled_day: update.scheduled_day
+        });
+
         // Validate UUID format before attempting update
         if (!this.isValidUUID(update.id)) {
-          console.warn(`⚠️ Skipping invalid UUID: ${update.id}`);
+          console.warn(`⚠️ UUID VALIDATION FAILED - Skipping invalid UUID: ${update.id}`);
+          errorCount++;
           continue;
         }
 
-        const { error } = await supabase
-          .from('assignments')
-          .update({
-            scheduled_block: update.scheduled_block,
-            scheduled_date: update.scheduled_date,
-            scheduled_day: update.scheduled_day
-          })
-          .eq('id', update.id);
+        console.log(`✅ UUID validation passed for: ${update.id}`);
 
-        if (error) {
-          console.error(`❌ Failed to update assignment ${update.id}:`, error);
-          throw new Error(`Failed to update assignment ${update.id}: ${error.message}`);
+        try {
+          const { data, error, count } = await supabase
+            .from('assignments')
+            .update({
+              scheduled_block: update.scheduled_block,
+              scheduled_date: update.scheduled_date,
+              scheduled_day: update.scheduled_day
+            })
+            .eq('id', update.id)
+            .select();
+
+          console.log(`📝 Supabase update result for ${update.id}:`, {
+            error: error?.message || null,
+            rowsAffected: data?.length || 0,
+            data: data?.[0] || null
+          });
+
+          if (error) {
+            console.error(`❌ SUPABASE ERROR for assignment ${update.id}:`, {
+              error,
+              code: error.code,
+              message: error.message,
+              details: error.details,
+              hint: error.hint
+            });
+            errorCount++;
+            throw new Error(`Failed to update assignment ${update.id}: ${error.message}`);
+          }
+
+          if (!data || data.length === 0) {
+            console.error(`❌ NO ROWS UPDATED for assignment ${update.id} - Assignment might not exist`);
+            errorCount++;
+          } else {
+            console.log(`✅ Successfully updated assignment ${update.id}`);
+            successCount++;
+          }
+
+        } catch (updateError) {
+          console.error(`❌ EXCEPTION during update for ${update.id}:`, updateError);
+          errorCount++;
+          throw updateError;
         }
       }
 
-      console.log(`✅ Unified Scheduler: Successfully updated ${updates.length} assignments`);
+      console.log(`🎉 UNIFIED SCHEDULER EXECUTION COMPLETE:`, {
+        totalUpdates: updates.length,
+        successCount,
+        errorCount,
+        timestamp: new Date().toISOString()
+      });
+
+      if (errorCount > 0) {
+        throw new Error(`Execution completed with ${errorCount} errors out of ${updates.length} total updates`);
+      }
 
     } catch (error) {
-      console.error('❌ Unified Scheduler: Execution failed', error);
+      console.error('💥 UNIFIED SCHEDULER EXECUTION FAILED:', {
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
       throw error;
     }
   }
@@ -201,7 +285,18 @@ class UnifiedScheduler {
    */
   private isValidUUID(uuid: string): boolean {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(uuid);
+    const isValid = uuidRegex.test(uuid);
+    
+    if (!isValid) {
+      console.warn('🔍 UUID VALIDATION DETAILS:', {
+        uuid,
+        length: uuid.length,
+        containsUnderscorePart: uuid.includes('_part_'),
+        format: 'Expected: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+      });
+    }
+    
+    return isValid;
   }
 
   /**
