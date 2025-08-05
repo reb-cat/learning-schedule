@@ -33,16 +33,30 @@ export function StudentBlockDisplay({
   const { toast } = useToast();
 
   const handleStatusUpdate = async (status: 'completed' | 'in_progress' | 'stuck') => {
-    if (!assignment) return;
+    console.log('handleStatusUpdate called with status:', status);
+    
+    if (!assignment) {
+      console.log('No assignment provided');
+      return;
+    }
 
-    console.log('Starting status update:', { 
-      status, 
-      assignmentId: assignment.id, 
-      assignmentTitle: assignment.title,
-      currentStatus: assignment.completion_status 
-    });
+    console.log('Assignment object:', assignment);
 
     try {
+      console.log('About to call updateAssignmentStatus');
+      
+      // Test direct supabase call
+      const { supabase } = await import('@/integrations/supabase/client');
+      console.log('Supabase client imported:', !!supabase);
+      
+      const testResult = await supabase
+        .from('assignments')
+        .select('id, completion_status')
+        .eq('id', assignment.id)
+        .single();
+      
+      console.log('Test query result:', testResult);
+      
       await updateAssignmentStatus(assignment, {
         completionStatus: status,
         progressPercentage: status === 'completed' ? 100 : status === 'in_progress' ? 50 : 25,
