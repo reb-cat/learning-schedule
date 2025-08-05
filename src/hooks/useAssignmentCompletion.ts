@@ -8,7 +8,7 @@ export interface CompletionData {
   actualMinutes: number;
   difficultyRating: 'easy' | 'medium' | 'hard';
   notes?: string;
-  completionStatus: 'completed' | 'in_progress' | 'stuck';
+  completionStatus: 'not_started' | 'completed' | 'in_progress' | 'stuck';
   progressPercentage?: number;
   stuckReason?: string;
 }
@@ -24,6 +24,12 @@ export function useAssignmentCompletion() {
     setIsLoading(true);
     
     try {
+      console.log('Updating assignment status:', {
+        assignmentId: assignment.id,
+        completionStatus: completionData.completionStatus,
+        progressPercentage: completionData.progressPercentage
+      });
+
       // Update assignment with completion data
       const { error: updateError } = await supabase
         .from('assignments')
@@ -41,7 +47,10 @@ export function useAssignmentCompletion() {
         } as any)
         .eq('id', assignment.id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Database update error:', updateError);
+        throw updateError;
+      }
 
       // Update learning patterns only for completed assignments
       if (completionData.completionStatus === 'completed') {
