@@ -53,6 +53,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: true, 
       data,
+      assignment: data[0], // Return the created assignment for immediate use
       message: 'Assignment created successfully' 
     }), {
       headers: { 
