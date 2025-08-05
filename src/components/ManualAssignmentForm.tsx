@@ -294,12 +294,15 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
           {/* Main Form Fields */}
           <div className="space-y-4">
             {/* Title */}
-            <div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                Title *
+              </Label>
               <Input
                 value={formData.title}
                 onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="Add title"
-                className="text-lg font-medium border-0 border-b border-border rounded-none px-0 py-2 focus-visible:ring-0 focus-visible:border-primary bg-transparent"
+                placeholder="Enter assignment title"
+                className="text-base"
               />
             </div>
 
