@@ -311,7 +311,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-sm font-medium">
                   <User className="h-4 w-4" />
-                  Student
+                  Student *
                 </Label>
                 <Select value={formData.student_name} onValueChange={(value) => 
                   setFormData(prev => ({ ...prev, student_name: value }))
@@ -365,7 +365,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
             {/* Subject & Time Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
-                <Label className="text-sm font-medium">Subject</Label>
+                <Label className="text-sm font-medium">Subject *</Label>
                 <Select value={formData.subject} onValueChange={(value) => 
                   setFormData(prev => ({ ...prev, subject: value }))
                 }>
