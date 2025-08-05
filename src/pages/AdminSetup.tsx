@@ -9,6 +9,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { RefreshCw, Calendar, ChevronDown, Database, Settings, CheckCircle, AlertCircle, Clock, BookOpen, AlertTriangle } from 'lucide-react';
 import { UnifiedScheduler } from '@/components/UnifiedScheduler';
 import { DatabasePermissionTest } from '@/components/DatabasePermissionTest';
+import { SystemHealthDashboard } from '@/components/SystemHealthDashboard';
+import { StudentAnalyticsDashboard } from '@/components/StudentAnalyticsDashboard';
+import { SystemBenchmarkDashboard } from '@/components/SystemBenchmarkDashboard';
 
 const AdminSetup = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -144,7 +147,7 @@ const AdminSetup = () => {
         </div>
 
         <Tabs defaultValue="sync" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="sync" className="flex items-center gap-2">
               <RefreshCw className="h-4 w-4" />
               Canvas Sync
@@ -152,6 +155,10 @@ const AdminSetup = () => {
             <TabsTrigger value="diagnostics" className="flex items-center gap-2">
               <Database className="h-4 w-4" />
               Diagnostics
+            </TabsTrigger>
+            <TabsTrigger value="monitoring" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Student Monitoring
             </TabsTrigger>
           </TabsList>
 
@@ -409,6 +416,100 @@ const AdminSetup = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="monitoring" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Khalil Monitoring */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" />
+                    Khalil - System Health
+                  </CardTitle>
+                  <CardDescription>
+                    Real-time monitoring and diagnostics for Khalil's dashboard
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="min-h-[200px]">
+                    <SystemHealthDashboard studentName="Khalil" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Abigail Monitoring */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" />
+                    Abigail - System Health
+                  </CardTitle>
+                  <CardDescription>
+                    Real-time monitoring and diagnostics for Abigail's dashboard
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="min-h-[200px]">
+                    <SystemHealthDashboard studentName="Abigail" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Khalil Analytics */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    Khalil - Learning Analytics
+                  </CardTitle>
+                  <CardDescription>
+                    Performance insights and learning patterns
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="min-h-[200px]">
+                    <StudentAnalyticsDashboard studentName="Khalil" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Abigail Analytics */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    Abigail - Learning Analytics
+                  </CardTitle>
+                  <CardDescription>
+                    Performance insights and learning patterns
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="min-h-[200px]">
+                    <StudentAnalyticsDashboard studentName="Abigail" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Performance Benchmarks */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="h-5 w-5" />
+                    System Performance Benchmarks
+                  </CardTitle>
+                  <CardDescription>
+                    Comprehensive performance testing and benchmarking
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="min-h-[300px]">
+                    <SystemBenchmarkDashboard studentName="Both" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
