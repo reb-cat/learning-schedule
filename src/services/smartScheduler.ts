@@ -41,6 +41,8 @@ class SmartScheduler {
   private readonly BLOCK_DURATION_MINUTES = 45;
 
   async analyzeSchedulingNeeds(studentName: string): Promise<SchedulingResult> {
+    console.log(`🔍 SCHEDULER DEBUG: Starting analysis for ${studentName}`);
+    
     // Get all unscheduled assignments
     const { data: assignments, error } = await supabase
       .from('assignments')
@@ -51,6 +53,11 @@ class SmartScheduler {
       .order('due_date', { ascending: true });
 
     if (error) throw error;
+    
+    console.log(`📋 SCHEDULER DEBUG: Found ${assignments?.length || 0} unscheduled assignments`);
+    assignments?.forEach(a => {
+      console.log(`  - "${a.title}" (due: ${a.due_date || 'no date'}, eligible: ${a.eligible_for_scheduling})`);
+    });
 
     const decisions: SchedulingDecision[] = [];
     const splitAssignments: Assignment[] = [];
@@ -63,28 +70,40 @@ class SmartScheduler {
       const isAdmin = this.isAdministrativeTask(title);
       
       if (isAdmin) {
+        console.log(`⚠️ SCHEDULER DEBUG: Skipping admin task: "${assignment.title}"`);
         warnings.push(`"${assignment.title}" should be a checklist item, not a scheduled block`);
       }
       
       return !isAdmin;
     });
+    
+    console.log(`📚 SCHEDULER DEBUG: ${academicAssignments.length} academic assignments after filtering admin tasks`);
 
     // Get appropriate scheduling window based on assignment urgency
-    const availabilityWindow = await this.getAvailabilityWindow(studentName, 14); // Extended to 2 weeks
+    const availabilityWindow = await this.getAvailabilityWindow(studentName, 7); // Simplified to 1 week
+    
+    console.log(`📅 SCHEDULER DEBUG: Got ${availabilityWindow.length} available days:`);
+    availabilityWindow.forEach(day => {
+      console.log(`  - ${day.date} (${day.dayName}): blocks ${day.availableBlocks.join(', ')}`);
+    });
 
     for (const assignment of academicAssignments) {
       try {
         // Cast the database assignment to our Assignment type
         const typedAssignment = assignment as Assignment;
         
-        // Skip assignments that are due too far in the future
-        if (!this.shouldScheduleNow(typedAssignment)) {
-          continue;
-        }
+        console.log(`🎯 SCHEDULER DEBUG: Processing "${typedAssignment.title}"`);
+        
+        // TEMPORARILY SIMPLIFIED: Schedule all assignments regardless of due date
+        // if (!this.shouldScheduleNow(typedAssignment)) {
+        //   console.log(`⏭️ SCHEDULER DEBUG: Skipping "${typedAssignment.title}" - not ready to schedule`);
+        //   continue;
+        // }
         
         const result = await this.scheduleAssignment(typedAssignment, availabilityWindow);
         
         if (result.success) {
+          console.log(`✅ SCHEDULER DEBUG: Successfully scheduled "${typedAssignment.title}"`);
           decisions.push(result.decision!);
           
           // If assignment was split, add split parts
@@ -92,6 +111,7 @@ class SmartScheduler {
             splitAssignments.push(...result.splitParts);
           }
         } else {
+          console.log(`❌ SCHEDULER DEBUG: Failed to schedule "${typedAssignment.title}": ${result.reason}`);
           unscheduledAssignments.push(typedAssignment);
           if (result.reason) {
             warnings.push(`${typedAssignment.title}: ${result.reason}`);
@@ -251,9 +271,15 @@ class SmartScheduler {
     urgencyLevel: 'critical' | 'high' | 'medium' | 'low',
     excludeSlots: { date: string; block: number }[] = []
   ): Promise<{ date: string; block: number; reasoning: string } | null> {
+    console.log(`🔍 SCHEDULER DEBUG: Finding best block for "${assignment.title}" (urgency: ${urgencyLevel})`);
+    
     const cognitiveLoad = this.getCognitiveLoad(assignment);
     const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
     const today = new Date();
+    
+    console.log(`  - Cognitive load: ${cognitiveLoad}`);
+    console.log(`  - Due date: ${dueDate?.toDateString() || 'none'}`);
+    console.log(`  - Available days: ${availabilityWindow.length}`);
 
     // Get student-specific energy-based scheduling preferences
     const energyPreferences = await getOptimalSchedulingTime(
@@ -275,32 +301,46 @@ class SmartScheduler {
     for (const day of availabilityWindow) {
       const dayDate = new Date(day.date);
       
-      // Skip if due date passed
-      if (dueDate && dayDate >= dueDate) continue;
+      console.log(`📅 SCHEDULER DEBUG: Checking day ${day.date} (${day.dayName}) with ${day.availableBlocks.length} blocks`);
       
+      // TEMPORARILY SIMPLIFIED: Remove most date constraints
+      // Skip if due date passed
+      // if (dueDate && dayDate >= dueDate) {
+      //   console.log(`  ⏭️ Skipping ${day.date} - after due date`);
+      //   continue;
+      // }
+      
+      // TEMPORARILY SIMPLIFIED: Remove early scheduling constraints
       // For non-urgent items, don't schedule too early
-      if (urgencyLevel === 'low' || urgencyLevel === 'medium') {
-        const daysToDue = dueDate ? Math.ceil((dueDate.getTime() - dayDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-        const daysFromToday = Math.ceil((dayDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        
-        // Don't schedule more than 5 days before due date for medium urgency
-        if (urgencyLevel === 'medium' && daysToDue > 5) continue;
-        
-        // Don't schedule more than 3 days before due date for low urgency
-        if (urgencyLevel === 'low' && daysToDue > 3) continue;
-        
-        // Don't schedule more than 1 week ahead unless urgent
-        if (daysFromToday > 7 && (urgencyLevel === 'low' || urgencyLevel === 'medium')) continue;
-      }
+      // if (urgencyLevel === 'low' || urgencyLevel === 'medium') {
+      //   const daysToDue = dueDate ? Math.ceil((dueDate.getTime() - dayDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+      //   const daysFromToday = Math.ceil((dayDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      //   
+      //   // Don't schedule more than 5 days before due date for medium urgency
+      //   if (urgencyLevel === 'medium' && daysToDue > 5) continue;
+      //   
+      //   // Don't schedule more than 3 days before due date for low urgency
+      //   if (urgencyLevel === 'low' && daysToDue > 3) continue;
+      //   
+      //   // Don't schedule more than 1 week ahead unless urgent
+      //   if (daysFromToday > 7 && (urgencyLevel === 'low' || urgencyLevel === 'medium')) continue;
+      // }
 
       for (const block of day.availableBlocks) {
+        console.log(`  🧱 SCHEDULER DEBUG: Checking block ${block}`);
+        
         // Skip excluded slots
         if (excludeSlots.some(slot => slot.date === day.date && slot.block === block)) {
+          console.log(`    ⏭️ Skipping block ${block} - excluded slot`);
           continue;
         }
 
+        // TEMPORARILY SIMPLIFIED: Remove cognitive load limits
         // Check cognitive load limits
-        if (!this.canAddCognitiveLoad(day, cognitiveLoad)) continue;
+        // if (!this.canAddCognitiveLoad(day, cognitiveLoad)) {
+        //   console.log(`    ⏭️ Skipping block ${block} - cognitive load limit reached`);
+        //   continue;
+        // }
 
         // Calculate score for this block
         let score = 100; // Base score
@@ -352,6 +392,8 @@ class SmartScheduler {
           }
         }
 
+        console.log(`    📊 Block ${block} score: ${score} (${reasoningParts.join('; ')})`);
+        
         scoredBlocks.push({
           date: day.date,
           block,
@@ -364,11 +406,16 @@ class SmartScheduler {
     // Sort by score (highest first) and return the best option
     scoredBlocks.sort((a, b) => b.score - a.score);
     
+    console.log(`📊 SCHEDULER DEBUG: Found ${scoredBlocks.length} possible blocks for "${assignment.title}"`);
+    
     if (scoredBlocks.length === 0) {
+      console.log(`❌ SCHEDULER DEBUG: No available blocks found for "${assignment.title}"`);
       return null;
     }
 
     const bestBlock = scoredBlocks[0];
+    console.log(`🏆 SCHEDULER DEBUG: Best block for "${assignment.title}": Block ${bestBlock.block} on ${bestBlock.date} (score: ${bestBlock.score})`);
+    
     return {
       date: bestBlock.date,
       block: bestBlock.block,
@@ -506,20 +553,40 @@ class SmartScheduler {
         .filter(block => block.isAssignmentBlock && block.block)
         .map(block => block.block!);
 
+      // Get already scheduled assignments for this day and student
+      const { data: existingAssignments } = await supabase
+        .from('assignments')
+        .select('scheduled_block')
+        .eq('student_name', studentName)
+        .eq('scheduled_date', dateString)
+        .not('scheduled_block', 'is', null);
+        
+      console.log(`📋 SCHEDULER DEBUG: Found ${existingAssignments?.length || 0} existing assignments on ${dateString}`);
+      
+      // Remove blocks that are already scheduled
+      const scheduledBlocks = existingAssignments?.map(a => a.scheduled_block) || [];
+      const actuallyAvailableBlocks = availableBlocks.filter(block => !scheduledBlocks.includes(block));
+
       window.push({
         date: dateString,
         dayName,
-        availableBlocks,
+        availableBlocks: actuallyAvailableBlocks,
         cognitiveLoadUsed: { light: 0, medium: 0, heavy: 0 }
       });
+      
+      console.log(`📅 SCHEDULER DEBUG: Day ${dateString} (${dayName}): ${actuallyAvailableBlocks.length}/${availableBlocks.length} blocks available`);
     }
 
     return window;
   }
 
   async executeScheduling(decisions: SchedulingDecision[], splitAssignments: Assignment[]): Promise<void> {
+    console.log(`💾 SCHEDULER DEBUG: Executing ${decisions.length} scheduling decisions and ${splitAssignments.length} split assignments`);
+    
     // Update main assignments
     for (const decision of decisions) {
+      console.log(`💾 Saving: "${decision.assignment.title}" to block ${decision.targetBlock} on ${decision.targetDate}`);
+      
       const { error } = await supabase
         .from('assignments')
         .update({
@@ -529,7 +596,12 @@ class SmartScheduler {
         })
         .eq('id', decision.assignment.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error(`❌ SCHEDULER DEBUG: Failed to save "${decision.assignment.title}":`, error);
+        throw error;
+      } else {
+        console.log(`✅ SCHEDULER DEBUG: Saved "${decision.assignment.title}"`);
+      }
     }
 
     // Create split assignments if any
