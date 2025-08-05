@@ -37,6 +37,9 @@ export function DebugScheduler() {
       await blockSharingScheduler.executeSchedule(decision);
       console.log('✅ Scheduler executed successfully');
       
+      // Force refresh the page to show updated assignments
+      window.location.reload();
+      
       setResult(enhancedResult);
     } catch (error) {
       console.error('❌ Scheduler failed:', error);
