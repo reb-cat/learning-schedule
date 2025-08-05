@@ -350,11 +350,18 @@ export class BlockSharingScheduler {
     for (let i = 0; i < numberOfParts && remainingTime > 0; i++) {
       const timeForThisPart = Math.min(remainingTime, maxBlockTime);
       
+      // Generate a proper UUID for the split part
+      const splitId = crypto.randomUUID();
+      
       const taskPart: TaskClassification = {
         ...task,
-        id: `${task.id}_part_${partNumber}`,
+        id: splitId,
         title: `${task.title} (Part ${partNumber}/${numberOfParts})`,
-        estimated_time: timeForThisPart
+        estimated_time: timeForThisPart,
+        parent_assignment_id: task.id,
+        is_split_assignment: true,
+        split_part_number: partNumber,
+        total_split_parts: numberOfParts
       };
       
       console.log(`    📝 Creating part ${partNumber}: ${timeForThisPart} min`);

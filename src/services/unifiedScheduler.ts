@@ -154,8 +154,14 @@ class UnifiedScheduler {
         }
       }
 
-      // Execute all updates
+      // Execute all updates with proper error handling and UUID validation
       for (const update of updates) {
+        // Validate UUID format before attempting update
+        if (!this.isValidUUID(update.id)) {
+          console.warn(`⚠️ Skipping invalid UUID: ${update.id}`);
+          continue;
+        }
+
         const { error } = await supabase
           .from('assignments')
           .update({
@@ -166,6 +172,7 @@ class UnifiedScheduler {
           .eq('id', update.id);
 
         if (error) {
+          console.error(`❌ Failed to update assignment ${update.id}:`, error);
           throw new Error(`Failed to update assignment ${update.id}: ${error.message}`);
         }
       }
@@ -187,6 +194,14 @@ class UnifiedScheduler {
       startDate: new Date(),
       previewOnly: true
     });
+  }
+
+  /**
+   * Validate UUID format
+   */
+  private isValidUUID(uuid: string): boolean {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(uuid);
   }
 
   /**
