@@ -35,6 +35,13 @@ export function StudentBlockDisplay({
   const handleStatusUpdate = async (status: 'completed' | 'in_progress' | 'stuck') => {
     if (!assignment) return;
 
+    console.log('Starting status update:', { 
+      status, 
+      assignmentId: assignment.id, 
+      assignmentTitle: assignment.title,
+      currentStatus: assignment.completion_status 
+    });
+
     try {
       await updateAssignmentStatus(assignment, {
         completionStatus: status,

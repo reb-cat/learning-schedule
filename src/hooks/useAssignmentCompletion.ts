@@ -95,6 +95,8 @@ export function useAssignmentCompletion() {
 
     } catch (error) {
       console.error('Error updating assignment status:', error);
+      console.error('Assignment data:', assignment);
+      console.error('Completion data:', completionData);
       throw error;
     } finally {
       setIsLoading(false);
