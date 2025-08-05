@@ -166,6 +166,38 @@ export const useAssignments = (studentName: string) => {
           throw new Error(error.message);
         }
 
+        // If no assignment found for today, check if there are assignments scheduled for past dates
+        if (!data) {
+          console.log('🔍 No assignment found for today, checking past dates for block:', block);
+          
+          const { data: pastAssignments, error: pastError } = await supabase
+            .from('assignments')
+            .select('*')
+            .eq('student_name', studentName)
+            .eq('scheduled_block', block)
+            .lt('scheduled_date', date)
+            .eq('completion_status', 'not_started')
+            .order('scheduled_date', { ascending: false })
+            .limit(1);
+
+          if (pastError) {
+            console.error('Error fetching past scheduled assignments:', pastError);
+            return null;
+          }
+
+          if (pastAssignments && pastAssignments.length > 0) {
+            const pastAssignment = pastAssignments[0];
+            console.log('🔄 Found past assignment to show:', {
+              title: pastAssignment.title,
+              originalDate: pastAssignment.scheduled_date,
+              requestedDate: date,
+              block: block
+            });
+            
+            return pastAssignment as Assignment;
+          }
+        }
+
         return data as Assignment | null;
       } catch (err) {
         console.error(`Error fetching scheduled assignment (attempt ${attempt}):`, err);

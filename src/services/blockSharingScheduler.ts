@@ -109,15 +109,27 @@ export class BlockSharingScheduler {
       const today = startDate || new Date();
       const endDate = addDays(today, daysAhead);
       
-      // Filter tasks to current scheduling window
+      // Filter tasks to include unscheduled tasks or tasks scheduled for past dates
       const tasks = allTasks.filter(task => {
-        if (!task.due_date) return true; // Include tasks without due dates
+        // Include unscheduled tasks
+        if (!task.scheduled_date) return true;
         
-        const taskDueDate = new Date(task.due_date);
-        const windowStart = addDays(today, -3); // Include tasks due 3 days before
-        const windowEnd = addDays(today, daysAhead + 7); // Extend window for better flexibility
+        // Include tasks scheduled for past dates that need rescheduling
+        const scheduledDate = new Date(task.scheduled_date);
+        const todayMidnight = new Date(today);
+        todayMidnight.setHours(0, 0, 0, 0);
         
-        return taskDueDate >= windowStart && taskDueDate <= windowEnd;
+        if (scheduledDate < todayMidnight) {
+          console.log('🔄 Found past-scheduled task to reschedule:', {
+            title: task.title,
+            scheduledDate: task.scheduled_date,
+            today: todayMidnight.toISOString().split('T')[0]
+          });
+          return true;
+        }
+        
+        // Exclude already scheduled future tasks
+        return false;
       });
       
       console.log('Filtered tasks for timeframe:', tasks.length);
