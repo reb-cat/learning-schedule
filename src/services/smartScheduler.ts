@@ -65,16 +65,23 @@ class SmartScheduler {
     const warnings: string[] = [];
 
     // Filter out administrative tasks that should be checklist items
+    // Also filter out fixed-date events that should be all-day events
     const academicAssignments = (assignments || []).filter(assignment => {
       const title = assignment.title.toLowerCase();
       const isAdmin = this.isAdministrativeTask(title);
+      const isFixedEvent = this.isFixedDateEvent(assignment as Assignment);
       
       if (isAdmin) {
         console.log(`⚠️ SCHEDULER DEBUG: Skipping admin task: "${assignment.title}"`);
         warnings.push(`"${assignment.title}" should be a checklist item, not a scheduled block`);
       }
       
-      return !isAdmin;
+      if (isFixedEvent && !assignment.scheduled_date) {
+        console.log(`⚠️ SCHEDULER DEBUG: Skipping fixed-date event: "${assignment.title}"`);
+        warnings.push(`"${assignment.title}" appears to be a fixed-date event and should be moved to all-day events or scheduled for a specific date`);
+      }
+      
+      return !isAdmin && !(isFixedEvent && !assignment.scheduled_date);
     });
     
     console.log(`📚 SCHEDULER DEBUG: ${academicAssignments.length} academic assignments after filtering admin tasks`);
@@ -451,6 +458,30 @@ class SmartScheduler {
   private isAdministrativeTask(title: string): boolean {
     const adminKeywords = ['fee', 'form', 'permission', 'bring', 'pack', 'payment', 'sign', 'deliver', 'turn in'];
     return adminKeywords.some(keyword => title.includes(keyword));
+  }
+
+  private isFixedDateEvent(assignment: Assignment): boolean {
+    const title = assignment.title.toLowerCase();
+    const eventKeywords = [
+      'trip', 'visit', 'performance', 'concert', 'show', 'play', 'recital',
+      'field trip', 'excursion', 'outing', 'ceremony', 'graduation', 'wedding',
+      'conference', 'workshop', 'seminar', 'meeting', 'appointment', 'interview',
+      'exam', 'test', 'quiz', 'presentation', 'competition', 'tournament',
+      'event', 'activity', 'celebration', 'party', 'gathering'
+    ];
+    
+    // Check for event keywords
+    const hasEventKeyword = eventKeywords.some(keyword => title.includes(keyword));
+    
+    // Check for location-specific indicators
+    const locationKeywords = ['at ', 'to ', 'visit '];
+    const hasLocationIndicator = locationKeywords.some(keyword => title.includes(keyword));
+    
+    // Check assignment type for appointment-like activities
+    const appointmentTypes = ['tutoring_session', 'driving_lesson', 'volunteer_event', 'job_interview'];
+    const isAppointmentType = appointmentTypes.includes(assignment.assignment_type || '');
+    
+    return hasEventKeyword || hasLocationIndicator || isAppointmentType;
   }
 
   private isReviewTask(title: string): boolean {

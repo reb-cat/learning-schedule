@@ -108,6 +108,21 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
     }));
   };
 
+  const isFixedDateEvent = (title: string, assignmentType: string): boolean => {
+    const titleLower = title.toLowerCase();
+    const eventKeywords = [
+      'trip', 'visit', 'performance', 'concert', 'show', 'play', 'recital',
+      'field trip', 'excursion', 'outing', 'ceremony', 'graduation', 'wedding',
+      'conference', 'workshop', 'seminar', 'competition', 'tournament'
+    ];
+    
+    const hasEventKeyword = eventKeywords.some(keyword => titleLower.includes(keyword));
+    const appointmentTypes = ['tutoring_session', 'driving_lesson', 'volunteer_event', 'job_interview'];
+    const isAppointmentType = appointmentTypes.includes(assignmentType);
+    
+    return hasEventKeyword || isAppointmentType;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.student_name || !formData.title || !formData.subject || !formData.due_date) {
@@ -117,6 +132,15 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
         variant: "destructive"
       });
       return;
+    }
+
+    // Check if this appears to be a fixed-date event
+    if (isFixedDateEvent(formData.title, formData.assignment_type)) {
+      toast({
+        title: "Consider All-Day Event",
+        description: `"${formData.title}" appears to be a fixed-date event. Consider creating an all-day event instead if this is a trip, performance, or appointment.`,
+        variant: "default"
+      });
     }
 
     if (formData.is_multi_day_event && (!formData.due_date || !formData.end_date)) {

@@ -176,6 +176,12 @@ function shouldScheduleAssignment(assignment: any, today: Date): boolean {
     return false;
   }
   
+  // Don't schedule fixed-date events unless they have a scheduled_date - they should be all-day events
+  if (isFixedDateEvent(assignment) && !assignment.scheduled_date) {
+    console.log(`⚠️ Skipping fixed-date event: "${assignment.title}" - should be moved to all-day events`);
+    return false;
+  }
+  
   // Extended scheduling window to 14 days for better preparation
   if (daysDiff > 14) {
     console.log(`⚠️ Too early to schedule: "${assignment.title}" due in ${daysDiff} days`);
@@ -196,6 +202,31 @@ function isAdministrativeTask(assignment: any): boolean {
   
   const adminKeywords = ['fee', 'permission', 'bring', 'deliver', 'submit form', 'turn in', 'payment'];
   return adminKeywords.some(keyword => title.includes(keyword));
+}
+
+// Detect fixed-date events that should be all-day events
+function isFixedDateEvent(assignment: any): boolean {
+  const title = assignment.title?.toLowerCase() || '';
+  const eventKeywords = [
+    'trip', 'visit', 'performance', 'concert', 'show', 'play', 'recital',
+    'field trip', 'excursion', 'outing', 'ceremony', 'graduation', 'wedding',
+    'conference', 'workshop', 'seminar', 'meeting', 'appointment', 'interview',
+    'exam', 'test', 'quiz', 'presentation', 'competition', 'tournament',
+    'event', 'activity', 'celebration', 'party', 'gathering'
+  ];
+  
+  // Check for event keywords
+  const hasEventKeyword = eventKeywords.some(keyword => title.includes(keyword));
+  
+  // Check for location-specific indicators
+  const locationKeywords = ['at ', 'to ', 'visit '];
+  const hasLocationIndicator = locationKeywords.some(keyword => title.includes(keyword));
+  
+  // Check assignment type for appointment-like activities
+  const appointmentTypes = ['tutoring_session', 'driving_lesson', 'volunteer_event', 'job_interview'];
+  const isAppointmentType = appointmentTypes.includes(assignment.assignment_type || '');
+  
+  return hasEventKeyword || hasLocationIndicator || isAppointmentType;
 }
 
 // Get intelligent time estimate based on task type
