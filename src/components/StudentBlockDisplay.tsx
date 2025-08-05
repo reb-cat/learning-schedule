@@ -250,10 +250,7 @@ export function StudentBlockDisplay({
               <>
                 <Button
                   size="sm"
-                  onClick={() => {
-                    alert('Done button clicked!');
-                    handleStatusUpdate('completed');
-                  }}
+                  onClick={() => handleStatusUpdate('completed')}
                   disabled={isUpdating}
                   className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
                 >

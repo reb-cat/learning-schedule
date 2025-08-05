@@ -35,16 +35,14 @@ export function useAssignmentCompletion() {
         .from('assignments')
         .update({
           completion_status: completionData.completionStatus,
-          completed_at: completionData.completionStatus === 'completed' ? new Date().toISOString() : null,
           time_spent_minutes: completionData.actualMinutes,
-          difficulty_rating: completionData.difficultyRating,
           completion_notes: completionData.notes,
           progress_percentage: completionData.progressPercentage || 0,
           stuck_reason: completionData.stuckReason,
           // Clear scheduling if in progress or stuck to allow rescheduling
           scheduled_block: completionData.completionStatus !== 'completed' ? null : assignment.scheduled_block,
           scheduled_date: completionData.completionStatus !== 'completed' ? null : assignment.scheduled_date
-        } as any)
+        })
         .eq('id', assignment.id);
 
       if (updateError) {
