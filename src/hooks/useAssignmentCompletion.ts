@@ -91,6 +91,15 @@ export function useAssignmentCompletion() {
         }
       }
 
+      // Check if this is a split assignment and handle parent completion
+      if (assignment.is_split_assignment && assignment.parent_assignment_id && completionData.completionStatus === 'completed') {
+        try {
+          await checkAndCompleteParentAssignment(assignment.parent_assignment_id, assignment.student_name);
+        } catch (parentError) {
+          console.warn('Parent assignment completion check failed (non-critical):', parentError);
+        }
+      }
+
       // Log success for analytics
       console.log(`Assignment "${assignment.title}" status updated to ${completionData.completionStatus}`, {
         status: completionData.completionStatus,
@@ -147,6 +156,57 @@ export function useAssignmentCompletion() {
         averageAccuracy: 0,
         recentTrends: []
       };
+    }
+  };
+
+  // Helper function to check if all split parts are complete and mark parent as complete
+  const checkAndCompleteParentAssignment = async (parentId: string, studentName: string): Promise<void> => {
+    try {
+      // Get all split parts for this parent assignment
+      const { data: splitParts, error: fetchError } = await supabase
+        .from('assignments')
+        .select('id, completion_status, split_part_number, total_split_parts')
+        .eq('parent_assignment_id', parentId)
+        .eq('student_name', studentName);
+
+      if (fetchError) {
+        console.error('Error fetching split parts:', fetchError);
+        return;
+      }
+
+      if (!splitParts || splitParts.length === 0) {
+        console.log('No split parts found for parent:', parentId);
+        return;
+      }
+
+      // Check if all parts are completed
+      const completedParts = splitParts.filter(part => part.completion_status === 'completed');
+      const totalParts = splitParts[0]?.total_split_parts || splitParts.length;
+
+      console.log(`Split assignment progress: ${completedParts.length}/${totalParts} parts completed`);
+
+      if (completedParts.length === totalParts) {
+        // All parts are complete - mark parent as complete
+        console.log(`All split parts completed - marking parent assignment ${parentId} as complete`);
+        
+        const { error: updateError } = await supabase
+          .from('assignments')
+          .update({
+            completion_status: 'completed',
+            progress_percentage: 100,
+            eligible_for_scheduling: false // Keep it marked as not schedulable
+          })
+          .eq('id', parentId);
+
+        if (updateError) {
+          console.error('Error updating parent assignment:', updateError);
+        } else {
+          console.log('✅ Parent assignment marked as complete');
+        }
+      }
+    } catch (error) {
+      console.error('Error in checkAndCompleteParentAssignment:', error);
+      throw error;
     }
   };
 

@@ -15,13 +15,18 @@ export const AlertBanner = ({ abigailAssignments, khalilAssignments }: AlertBann
   const getAllCriticalAlerts = () => {
     const allAssignments = [...abigailAssignments, ...khalilAssignments];
     
-    const blocked = allAssignments.filter(assignment => 
+    // Filter out split assignment parts - only track the parent assignments
+    const trackableAssignments = allAssignments.filter(assignment => 
+      !assignment.is_split_assignment || !assignment.parent_assignment_id
+    );
+    
+    const blocked = trackableAssignments.filter(assignment => 
       assignment.urgency === 'overdue' && 
       assignment.cognitive_load === 'heavy' &&
       assignment.completion_status !== 'completed'
     );
     
-    const atRisk = allAssignments.filter(assignment => 
+    const atRisk = trackableAssignments.filter(assignment => 
       assignment.urgency === 'due_today' && 
       assignment.cognitive_load === 'heavy' &&
       assignment.completion_status !== 'completed'
