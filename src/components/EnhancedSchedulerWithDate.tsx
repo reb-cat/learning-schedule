@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { blockSharingScheduler, type SchedulingDecision } from '@/services/blockSharingScheduler';
+import { unifiedScheduler, type UnifiedSchedulingResult } from '@/services/unifiedScheduler';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, Clock, Users, CheckCircle, Loader2 } from 'lucide-react';
 
@@ -17,7 +17,7 @@ export function EnhancedSchedulerWithDate({
   onSchedulingComplete 
 }: EnhancedSchedulerWithDateProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [decision, setDecision] = useState<SchedulingDecision | null>(null);
+  const [decision, setDecision] = useState<UnifiedSchedulingResult | null>(null);
   const [hasScheduled, setHasScheduled] = useState(false);
 
   // Auto-schedule when component mounts
@@ -30,14 +30,11 @@ export function EnhancedSchedulerWithDate({
       
       try {
         console.log('Auto-scheduling for:', studentName, 'testDate:', testDate);
-        const result = await blockSharingScheduler.analyzeAndSchedule(
-          studentName, 
-          7, // 7 days ahead
-          testDate
-        );
-        
-        // Auto-execute the schedule
-        await blockSharingScheduler.executeSchedule(result);
+        const result = await unifiedScheduler.analyzeAndSchedule(studentName, {
+          daysAhead: 7,
+          startDate: testDate,
+          autoExecute: true
+        });
         setDecision(result);
         setHasScheduled(true);
         
@@ -121,25 +118,25 @@ export function EnhancedSchedulerWithDate({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-3 bg-blue-50 rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">
-                  {decision.academic_blocks.filter(b => b.tasks.length > 0).length}
+                  {decision.stats.totalBlocks}
                 </div>
                 <div className="text-sm text-blue-600">Scheduled Blocks</div>
               </div>
               <div className="text-center p-3 bg-green-50 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">
-                  {decision.academic_blocks.reduce((sum, b) => sum + b.tasks.length, 0)}
+                  {decision.stats.scheduledTasks}
                 </div>
                 <div className="text-sm text-green-600">Total Tasks</div>
               </div>
               <div className="text-center p-3 bg-orange-50 rounded-lg">
                 <div className="text-2xl font-bold text-orange-600">
-                  {decision.unscheduled_tasks.length}
+                  {decision.stats.unscheduledTasks}
                 </div>
                 <div className="text-sm text-orange-600">Unscheduled</div>
               </div>
               <div className="text-center p-3 bg-purple-50 rounded-lg">
                 <div className="text-2xl font-bold text-purple-600">
-                  {decision.administrative_tasks.length}
+                  {decision.stats.adminTasks}
                 </div>
                 <div className="text-sm text-purple-600">Admin Tasks</div>
               </div>
@@ -159,75 +156,60 @@ export function EnhancedSchedulerWithDate({
               </Alert>
             )}
 
-            {/* Academic Blocks */}
-            {decision.academic_blocks.filter(b => b.tasks.length > 0).length > 0 && (
+            {/* Scheduled Assignments */}
+            {decision.decisions.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold">Scheduled Academic Blocks</h3>
-                {decision.academic_blocks
-                  .filter(b => b.tasks.length > 0)
-                  .map((block, index) => (
-                    <Card key={index} className="border-l-4 border-l-blue-500">
-                      <CardContent className="p-4">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-medium">
-                            Block {block.block_number} - {block.day}, {block.date}
-                          </span>
-                          <Badge variant={getCognitiveLoadColor(block.cognitive_balance)}>
-                            {block.cognitive_balance} load
+                <h3 className="text-lg font-semibold">Scheduled Assignments</h3>
+                {decision.decisions.map((schedulingDecision, index) => (
+                  <Card key={index} className="border-l-4 border-l-blue-500">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-medium">
+                          Block {schedulingDecision.targetBlock} - {new Date(schedulingDecision.targetDate).toLocaleDateString()}
+                        </span>
+                        <Badge variant={getCognitiveLoadColor(schedulingDecision.cognitiveLoad)}>
+                          {schedulingDecision.cognitiveLoad} load
+                        </Badge>
+                      </div>
+                      <div className="p-2 bg-gray-50 rounded">
+                        <div>
+                          <span className="font-medium">{schedulingDecision.assignment.title}</span>
+                          <div className="text-sm text-gray-600">
+                            {schedulingDecision.assignment.subject || schedulingDecision.assignment.course_name} • {schedulingDecision.estimatedMinutes} min
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {schedulingDecision.reasoning}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <Badge variant={getCognitiveLoadColor(schedulingDecision.cognitiveLoad)}>
+                            {schedulingDecision.cognitiveLoad}
                           </Badge>
                         </div>
-                        <div className="space-y-2">
-                          {block.tasks.map((task, taskIndex) => (
-                            <div key={taskIndex} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                              <div>
-                                <span className="font-medium">{task.assignment.title}</span>
-                                <div className="text-sm text-gray-600">
-                                  {task.assignment.subject} • {task.allocated_minutes} min
-                                </div>
-                              </div>
-                              <div className="flex gap-2">
-                                {getStatusBadge(task.assignment.completion_status)}
-                                <Badge className={getTaskTypeColor(task.assignment.task_type)}>
-                                  {task.assignment.task_type}
-                                </Badge>
-                                <Badge variant={getCognitiveLoadColor(task.assignment.cognitive_load)}>
-                                  {task.assignment.cognitive_load}
-                                </Badge>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="mt-2 text-sm text-gray-600">
-                          Used: {block.used_minutes}min / {block.total_minutes}min 
-                          (Buffer: {block.total_minutes - block.used_minutes - block.buffer_minutes}min)
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
 
             {/* Unscheduled Tasks */}
-            {decision.unscheduled_tasks.length > 0 && (
+            {decision.unscheduledAssignments.length > 0 && (
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold text-orange-600">Unscheduled Tasks</h3>
-                {decision.unscheduled_tasks.map((task, index) => (
+                {decision.unscheduledAssignments.map((task, index) => (
                   <Card key={index} className="border-l-4 border-l-orange-500">
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="font-medium">{task.title}</span>
                           <div className="text-sm text-gray-600">
-                            {task.subject} • {task.estimated_time} min • Due: {task.due_date?.toLocaleDateString() || 'No due date'}
+                            {task.subject || task.course_name} • {task.estimated_time_minutes || 'No estimate'} min • Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          {getStatusBadge(task.completion_status)}
-                          <Badge className={getTaskTypeColor(task.task_type)}>
-                            {task.task_type}
-                          </Badge>
-                          <Badge variant={getCognitiveLoadColor(task.cognitive_load)}>
-                            {task.cognitive_load}
+                          <Badge variant={getCognitiveLoadColor(task.cognitive_load || 'medium')}>
+                            {task.cognitive_load || 'medium'}
                           </Badge>
                         </div>
                       </div>

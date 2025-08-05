@@ -5,7 +5,7 @@ import { StudentSection } from '@/components/StudentSection';
 import { ManualAssignmentForm } from '@/components/ManualAssignmentForm';
 import { startOfWeek, endOfWeek, addWeeks, isWithinInterval, getDay } from 'date-fns';
 
-import { SchedulingPreview } from '@/components/SchedulingPreview';
+import { UnifiedScheduler } from '@/components/UnifiedScheduler';
 import { EditableAssignment } from '@/components/EditableAssignment';
 import { CoopAdministrativeChecklist } from '@/components/CoopAdministrativeChecklist';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -208,12 +208,14 @@ const ParentDashboard = () => {
 
         {/* Smart Scheduling Preview */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <SchedulingPreview 
+          <UnifiedScheduler 
             studentName="Abigail" 
+            mode="preview"
             onSchedulingComplete={handleAssignmentAdded}
           />
-          <SchedulingPreview 
+          <UnifiedScheduler 
             studentName="Khalil" 
+            mode="preview"
             onSchedulingComplete={handleAssignmentAdded}
           />
         </div>

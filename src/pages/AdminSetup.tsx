@@ -7,10 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { RefreshCw, Calendar, ChevronDown, Database, Settings, CheckCircle, AlertCircle, Clock, BookOpen, AlertTriangle } from 'lucide-react';
-import { RunScheduler } from '@/components/RunScheduler';
-import { EnhancedScheduler } from '@/components/EnhancedScheduler';
-import { DebugScheduler } from '@/components/DebugScheduler';
-import { TestScheduler } from '@/components/TestScheduler';
+import { UnifiedScheduler } from '@/components/UnifiedScheduler';
 
 const AdminSetup = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -285,14 +282,23 @@ const AdminSetup = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Calendar className="h-5 w-5" />
-                    Manual Scheduler
+                    Unified Scheduler - Full Mode
                   </CardTitle>
                   <CardDescription>
-                    Run the assignment scheduler manually for testing
+                    Complete scheduling system with all options and controls
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <RunScheduler studentName="Abigail" />
+                  <UnifiedScheduler 
+                    studentName="Abigail" 
+                    mode="full"
+                    onSchedulingComplete={() => {
+                      toast({
+                        title: "Schedule updated",
+                        description: "Unified scheduler has updated the assignments."
+                      });
+                    }}
+                  />
                 </CardContent>
               </Card>
 
@@ -300,51 +306,20 @@ const AdminSetup = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Settings className="h-5 w-5" />
-                    Enhanced Scheduler
+                    Unified Scheduler - Today Only
                   </CardTitle>
                   <CardDescription>
-                    Advanced scheduling with detailed controls
+                    Quick scheduling for today's assignments only
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <EnhancedScheduler studentName="Abigail" />
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5" />
-                    Debug Scheduler
-                  </CardTitle>
-                  <CardDescription>
-                    Debug scheduler operations with detailed logging
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <DebugScheduler />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Test Scheduler
-                  </CardTitle>
-                  <CardDescription>
-                    Simple manual scheduling tool for testing assignment placement
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <TestScheduler 
-                    studentName="Abigail"
+                  <UnifiedScheduler 
+                    studentName="Abigail" 
+                    mode="today"
                     onSchedulingComplete={() => {
                       toast({
-                        title: "Schedule updated",
-                        description: "Test scheduler has updated the assignments."
+                        title: "Today's schedule updated",
+                        description: "Today's assignments have been scheduled."
                       });
                     }}
                   />

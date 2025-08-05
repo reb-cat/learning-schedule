@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, CheckCircle, Clock, Zap } from 'lucide-react';
-import { blockSharingScheduler } from '@/services/blockSharingScheduler';
+import { unifiedScheduler } from '@/services/unifiedScheduler';
 import { useToast } from '@/hooks/use-toast';
 
 interface BackgroundSchedulerProps {
@@ -30,9 +30,11 @@ export function BackgroundScheduler({ studentName, onSchedulingComplete }: Backg
         let totalScheduled = 0;
         
         for (const student of students) {
-          const result = await blockSharingScheduler.analyzeAndSchedule(student, 7);
-          await blockSharingScheduler.executeSchedule(result);
-          totalScheduled += result.academic_blocks?.reduce((acc, block) => acc + block.tasks.length, 0) || 0;
+          const result = await unifiedScheduler.analyzeAndSchedule(student, {
+            autoExecute: true,
+            daysAhead: 7
+          });
+          totalScheduled += result.stats.scheduledTasks;
         }
         
         setScheduledCount(totalScheduled);
