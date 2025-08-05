@@ -14,7 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TimeEstimationSection } from '@/components/forms/TimeEstimationSection';
 import { Calendar as CalendarIcon, User, Clock, Plus, ChevronDown, Repeat, Settings, MapPin } from 'lucide-react';
-import { addDays, format, parseISO } from 'date-fns';
+import { addDays, format, parseISO, isWeekend } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 interface ManualAssignmentFormProps {
@@ -27,6 +27,12 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  // Smart default date function
+  const getDefaultDueDate = () => {
+    const tomorrow = addDays(new Date(), 1);
+    return format(tomorrow, 'yyyy-MM-dd');
+  };
+
   const [formData, setFormData] = useState({
     student_name: '',
     title: '',
@@ -34,7 +40,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
     assignment_type: 'life_skills',
     estimated_time_minutes: 45,
     priority: 'medium',
-    due_date: '',
+    due_date: getDefaultDueDate(),
     end_date: '',
     notes: '',
     is_recurring: false,
@@ -104,10 +110,10 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.student_name || !formData.title || !formData.subject) {
+    if (!formData.student_name || !formData.title || !formData.subject || !formData.due_date) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields (Student, Title, Subject, and Due Date)",
         variant: "destructive"
       });
       return;
@@ -173,7 +179,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
           source: 'manual',
           estimated_time_minutes: formData.estimated_time_minutes,
           priority: formData.priority,
-          due_date: formData.due_date || null,
+          due_date: formData.due_date,
           notes: formData.assignment_type === 'volunteer_events' && formData.volunteer_organization
             ? `${formData.notes || ''}\nVolunteer Organization: ${formData.volunteer_organization}\nVolunteer Hours: ${formData.volunteer_hours || formData.estimated_time_minutes / 60}`
             : formData.notes || null,
@@ -225,7 +231,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
         assignment_type: 'life_skills',
         estimated_time_minutes: 45,
         priority: 'medium',
-        due_date: '',
+        due_date: getDefaultDueDate(),
         end_date: '',
         notes: '',
         is_recurring: false,
@@ -423,7 +429,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">
-                    {isAppointment ? 'Date' : 'Due Date'}
+                    {isAppointment ? 'Date *' : 'Due Date *'}
                   </Label>
                   <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
                     <PopoverTrigger asChild>
@@ -435,7 +441,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {formData.due_date ? format(parseISO(formData.due_date), "PPP") : "Pick a date"}
+                        {formData.due_date ? format(parseISO(formData.due_date), "PPP") : "Select due date (required)"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -586,7 +592,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
                   assignment_type: 'life_skills',
                   estimated_time_minutes: 45,
                   priority: 'medium',
-                  due_date: '',
+                  due_date: getDefaultDueDate(),
                   end_date: '',
                   notes: '',
                   is_recurring: false,
