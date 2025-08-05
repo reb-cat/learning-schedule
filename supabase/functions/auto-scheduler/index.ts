@@ -196,12 +196,22 @@ function isAdministrativeTask(assignment: any): boolean {
   const title = assignment.title?.toLowerCase() || '';
   
   // Exclude complex administrative tasks that require substantial time
-  if (title.includes('packet') || title.includes('application') || title.includes('notarization')) {
+  const complexTaskIndicators = ['packet', 'application', 'notarization', 'complete and', 'hours', 'several'];
+  if (complexTaskIndicators.some(indicator => title.includes(indicator))) {
     return false;
   }
   
-  const adminKeywords = ['fee', 'permission', 'bring', 'deliver', 'submit form', 'turn in', 'payment'];
-  return adminKeywords.some(keyword => title.includes(keyword));
+  // Exclude tasks with significant time estimates (over 30 minutes)
+  if (assignment.estimated_time_minutes && assignment.estimated_time_minutes > 30) {
+    return false;
+  }
+  
+  // Use word boundaries to avoid partial matches (e.g., 'pack' shouldn't match 'packet')
+  const adminKeywords = ['fee', 'form', 'permission', 'payment', 'sign'];
+  const actionKeywords = ['bring ', 'pack ', 'deliver ', 'turn in', 'submit form'];
+  
+  return adminKeywords.some(keyword => title.includes(keyword)) ||
+         actionKeywords.some(keyword => title.includes(keyword));
 }
 
 // Detect fixed-date events that should be all-day events

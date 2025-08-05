@@ -456,8 +456,20 @@ class SmartScheduler {
   }
 
   private isAdministrativeTask(title: string): boolean {
-    const adminKeywords = ['fee', 'form', 'permission', 'bring', 'pack', 'payment', 'sign', 'deliver', 'turn in'];
-    return adminKeywords.some(keyword => title.includes(keyword));
+    const titleLower = title.toLowerCase();
+    
+    // Exclude tasks that clearly require substantial time (complex administrative work)
+    const complexTaskIndicators = ['packet', 'application', 'notarization', 'complete and', 'hours', 'several'];
+    if (complexTaskIndicators.some(indicator => titleLower.includes(indicator))) {
+      return false;
+    }
+    
+    // Use word boundaries to avoid partial matches (e.g., 'pack' shouldn't match 'packet')
+    const adminKeywords = ['fee', 'form', 'permission', 'payment', 'sign'];
+    const actionKeywords = ['bring ', 'pack ', 'deliver ', 'turn in', 'submit form'];
+    
+    return adminKeywords.some(keyword => titleLower.includes(keyword)) ||
+           actionKeywords.some(keyword => titleLower.includes(keyword));
   }
 
   private isFixedDateEvent(assignment: Assignment): boolean {
