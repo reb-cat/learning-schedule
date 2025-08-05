@@ -76,17 +76,15 @@ const ParentDashboard = () => {
     }
   };
 
-  // Smart week-based assignment filtering with Friday preview logic
+  // Extended assignment filtering - shows next 2 weeks
   const getWeeklyAssignments = (assignments: any[]) => {
     const now = new Date();
-    const dayOfWeek = getDay(now); // 0 = Sunday, 5 = Friday
     
     // Define current week boundaries (Monday to Friday)
     const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
     const currentWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
     
-    // If it's Friday, also show next week assignments
-    const showNextWeek = dayOfWeek === 5; // Friday
+    // Always show next week assignments (extended from Friday-only)
     const nextWeekStart = addWeeks(currentWeekStart, 1);
     const nextWeekEnd = addWeeks(currentWeekEnd, 1);
     
@@ -101,13 +99,13 @@ const ParentDashboard = () => {
       if (isWithinInterval(dueDate, { start: currentWeekStart, end: currentWeekEnd })) {
         currentWeekAssignments.push(assignment);
       }
-      // If showing next week and assignment falls in next week
-      else if (showNextWeek && isWithinInterval(dueDate, { start: nextWeekStart, end: nextWeekEnd })) {
+      // Check if assignment falls in next week (always show now)
+      else if (isWithinInterval(dueDate, { start: nextWeekStart, end: nextWeekEnd })) {
         nextWeekAssignments.push(assignment);
       }
     });
     
-    return { currentWeekAssignments, nextWeekAssignments, showNextWeek };
+    return { currentWeekAssignments, nextWeekAssignments, showNextWeek: true };
   };
 
   const abigailWeeklyData = getWeeklyAssignments(abigailAssignments);
