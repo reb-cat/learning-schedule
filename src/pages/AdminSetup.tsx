@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { RefreshCw, Calendar, ChevronDown, Database, Settings, CheckCircle, AlertCircle, Clock, BookOpen, AlertTriangle } from 'lucide-react';
 import { UnifiedScheduler } from '@/components/UnifiedScheduler';
+import { DatabasePermissionTest } from '@/components/DatabasePermissionTest';
 
 const AdminSetup = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -326,6 +327,22 @@ const AdminSetup = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Database Permission Test */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Database Permission Test
+                </CardTitle>
+                <CardDescription>
+                  Verify RLS policies and Supabase client permissions for assignments table
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DatabasePermissionTest />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="diagnostics" className="space-y-6">
