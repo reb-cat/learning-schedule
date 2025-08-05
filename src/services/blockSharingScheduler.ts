@@ -372,11 +372,10 @@ export class BlockSharingScheduler {
       const timeForThisPart = Math.min(remainingTime, maxBlockTime);
       
       // Generate a proper UUID for the split part
-      const splitId = crypto.randomUUID();
-      
+      // Use original task ID for database operations - only add part info for display
       const taskPart: TaskClassification = {
         ...task,
-        id: splitId,
+        id: task.id, // Keep original ID for database operations
         title: `${task.title} (Part ${partNumber}/${numberOfParts})`,
         estimated_time: timeForThisPart,
         parent_assignment_id: task.id,

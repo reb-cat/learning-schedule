@@ -221,16 +221,24 @@ class UnifiedScheduler {
             continue;
           }
 
-          // Get current state for potential rollback
+          // Check if assignment exists in database
           const { data: currentState, error: fetchError } = await supabase
             .from('assignments')
             .select('id, scheduled_block, scheduled_date, scheduled_day')
             .eq('id', baseId)
-            .single();
+            .maybeSingle();
 
           if (fetchError) {
-            const errorMsg = `Failed to fetch current state: ${fetchError.message}`;
-            console.error(`❌ FETCH ERROR for assignment ${update.id}:`, fetchError);
+            const errorMsg = `Failed to fetch assignment: ${fetchError.message}`;
+            console.error(`❌ FETCH ERROR for assignment ${baseId}:`, fetchError);
+            executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
+            errorCount++;
+            continue;
+          }
+
+          if (!currentState) {
+            const errorMsg = `Assignment not found in database: ${baseId}`;
+            console.error(`❌ ASSIGNMENT NOT FOUND: ${baseId}`);
             executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
             errorCount++;
             continue;
@@ -311,18 +319,10 @@ class UnifiedScheduler {
         }
       }
 
-      // Check if we need to rollback due to partial failures
-      const failureRate = updates.length > 0 ? (errorCount / updates.length) : 0;
-      if (failureRate > 0.5 && successCount > 0) {
-        console.warn(`⚠️ High failure rate detected (${(failureRate * 100).toFixed(1)}%), initiating rollback...`);
-        const rollbackResult = await this.rollbackUpdates(successfulUpdates);
-        
-        if (rollbackResult.success) {
-          executionErrors.unshift(`Rollback completed due to high failure rate (${(failureRate * 100).toFixed(1)}%)`);
-          successCount = 0; // Reset success count as we rolled back
-        } else {
-          executionErrors.unshift(`Rollback failed: ${rollbackResult.error}`);
-        }
+      // Don't rollback - allow partial successes to persist
+      console.log(`📈 Final execution results: ${successCount}/${updates.length} successful (${(successCount/updates.length*100).toFixed(1)}%)`);
+      if (errorCount > 0) {
+        console.warn(`⚠️ ${errorCount} assignments failed to update but keeping ${successCount} successful updates`);
       }
 
       console.log(`🎉 UNIFIED SCHEDULER EXECUTION COMPLETE:`, {
@@ -330,7 +330,6 @@ class UnifiedScheduler {
         successCount,
         errorCount,
         successRate: updates.length > 0 ? (successCount / updates.length * 100).toFixed(1) + '%' : '0%',
-        rolledBack: failureRate > 0.5 && successfulUpdates.length > 0,
         timestamp: new Date().toISOString()
       });
 
@@ -484,26 +483,13 @@ class UnifiedScheduler {
   }
 
   /**
-   * Format date as YYYY-MM-DD string consistently using date-fns
+   * Format date as YYYY-MM-DD string
    */
   private formatDateString(date: Date): string {
-    // Validate the date first
-    if (!isValid(date)) {
-      console.error('❌ Invalid date provided to formatDateString:', date);
-      return format(new Date(), 'yyyy-MM-dd');
-    }
-    
-    const formatted = format(date, 'yyyy-MM-dd');
-    
-    console.log('📅 Date formatting:', {
-      inputDate: date.toISOString(),
-      formatted,
-      isAugust2025: date.getFullYear() === 2025 && date.getMonth() === 7,
-      currentYear: date.getFullYear(),
-      currentMonth: date.getMonth() + 1 // 0-indexed, so +1 for human readable
-    });
-    
-    return formatted;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   /**
