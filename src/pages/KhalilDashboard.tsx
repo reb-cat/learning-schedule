@@ -48,23 +48,35 @@ const KhalilDashboard = () => {
 
   // Check for all-day events and get effective schedule
   const checkEffectiveSchedule = useCallback(async () => {
+    console.log('🔄 Starting effective schedule check for Khalil');
     setIsCheckingAllDayEvent(true);
+    
     try {
-      const schedule = await getEffectiveScheduleForDay(
+      // Add timeout wrapper to the entire check
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout: Schedule check took too long')), 8000);
+      });
+      
+      const schedulePromise = getEffectiveScheduleForDay(
         "Khalil", 
         currentDay, 
         formattedDate,
         (student, day) => getScheduleForStudentAndDay(student, day)
       );
       
+      const schedule = await Promise.race([schedulePromise, timeoutPromise]);
+      
+      console.log('✅ Effective schedule check completed for Khalil');
       // Batch state updates to prevent flicker
       setEffectiveSchedule(schedule);
       setHasAllDayEvent(schedule === null);
-      setIsCheckingAllDayEvent(false);
     } catch (error) {
-      console.error('Error checking effective schedule:', error);
+      console.error('❌ Error or timeout checking effective schedule:', error);
+      // Fallback to base schedule
       setEffectiveSchedule(baseTodaySchedule);
       setHasAllDayEvent(false);
+    } finally {
+      // Always reset loading state
       setIsCheckingAllDayEvent(false);
     }
   }, [currentDay, formattedDate, baseTodaySchedule]);

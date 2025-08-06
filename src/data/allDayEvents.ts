@@ -18,18 +18,33 @@ export interface AllDayEvent {
  * Get all-day events for a specific student on a specific date
  */
 export async function getAllDayEventsForDate(studentName: string, date: string): Promise<AllDayEvent[]> {
-  const { data, error } = await supabase
-    .from('all_day_events')
-    .select('*')
-    .eq('student_name', studentName)
-    .eq('event_date', date);
+  try {
+    console.log(`🔍 Checking all-day events for ${studentName} on ${date}`);
+    
+    // Add timeout to prevent hanging
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout: All-day event check took too long')), 5000);
+    });
+    
+    const queryPromise = supabase
+      .from('all_day_events')
+      .select('*')
+      .eq('student_name', studentName)
+      .eq('event_date', date);
+    
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
-  if (error) {
-    console.error('Error fetching all-day events:', error);
+    if (error) {
+      console.error('Error fetching all-day events:', error);
+      return [];
+    }
+
+    console.log(`✅ All-day events check completed for ${studentName}: ${data?.length || 0} events found`);
+    return data || [];
+  } catch (error) {
+    console.error('Error or timeout in getAllDayEventsForDate:', error);
     return [];
   }
-
-  return data || [];
 }
 
 /**
