@@ -39,7 +39,6 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
   const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
   const [includeAdminTasks, setIncludeAdminTasks] = useState(true);
   const [previewOnly, setPreviewOnly] = useState(false);
-  const [continueUnfinished, setContinueUnfinished] = useState(true);
   
   const [result, setResult] = useState<UnifiedSchedulingResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -67,7 +66,6 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
   }, [dateRange, customDate]);
 
   const getDateRangeDisplay = useCallback(() => {
-    const days = getDaysAhead();
     switch (dateRange) {
       case 'today':
         return 'Today Only';
@@ -78,39 +76,26 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
       case 'custom':
         return customDate ? `Until ${format(customDate, 'MMM dd')}` : 'Custom';
       default:
-        return `${days} day${days > 1 ? 's' : ''}`;
+        return 'Today Only';
     }
-  }, [dateRange, customDate, getDaysAhead]);
+  }, [dateRange, customDate]);
 
   const handleAnalyze = useCallback(async () => {
     setIsAnalyzing(true);
     try {
-      console.log('🔍 Consolidated Scheduler: Starting analysis', {
-        selectedStudent,
-        dateRange,
-        daysAhead: getDaysAhead(),
-        includeAdminTasks,
-        continueUnfinished
-      });
-
       const options: SchedulerOptions = {
         daysAhead: getDaysAhead(),
-        previewOnly: true, // Always preview first
+        previewOnly: true,
         includeAdminTasks,
         autoExecute: false
       };
 
-      // Handle "Both" students by analyzing them together
       let schedulingResult: UnifiedSchedulingResult;
       
       if (selectedStudent === 'Both') {
-        // For now, we'll analyze Abigail and Khalil separately and combine results
-        // This is a simplified approach - in a more advanced implementation,
-        // we could modify the scheduler to handle multiple students natively
         const abigailResult = await unifiedScheduler.analyzeAndSchedule('Abigail', options);
         const khalilResult = await unifiedScheduler.analyzeAndSchedule('Khalil', options);
         
-        // Combine results (simplified approach)
         schedulingResult = {
           ...abigailResult,
           stats: {
@@ -146,7 +131,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
     } finally {
       setIsAnalyzing(false);
     }
-  }, [selectedStudent, dateRange, getDaysAhead, includeAdminTasks, continueUnfinished, toast]);
+  }, [selectedStudent, getDaysAhead, includeAdminTasks, toast]);
 
   const handleAutoSchedule = useCallback(async () => {
     setIsAnalyzing(true);
@@ -161,15 +146,12 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
       let schedulingResult: UnifiedSchedulingResult;
       
       if (selectedStudent === 'Both') {
-        // Execute for both students
         const abigailResult = await unifiedScheduler.analyzeAndSchedule('Abigail', options);
         const khalilResult = await unifiedScheduler.analyzeAndSchedule('Khalil', options);
         
-        // Execute both
         await unifiedScheduler.executeSchedule(abigailResult, 'Abigail');
         await unifiedScheduler.executeSchedule(khalilResult, 'Khalil');
         
-        // Combine for display
         schedulingResult = {
           ...abigailResult,
           stats: {
@@ -200,7 +182,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
     } finally {
       setIsAnalyzing(false);
     }
-  }, [selectedStudent, getDaysAhead, includeAdminTasks, continueUnfinished, onSchedulingComplete, toast]);
+  }, [selectedStudent, getDaysAhead, includeAdminTasks, onSchedulingComplete, toast]);
 
   const handleExecute = useCallback(async () => {
     if (!result) return;
@@ -208,8 +190,6 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
     setIsExecuting(true);
     try {
       if (selectedStudent === 'Both') {
-        // This is a simplified implementation - in reality, we'd need to properly
-        // separate the results for each student
         toast({
           title: "Execution Notice",
           description: "For 'Both' students mode, please use individual student scheduling for execution.",
@@ -255,7 +235,6 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
     }
   };
 
-  // Group decisions by date for timeline display
   const groupedDecisions = useMemo(() => {
     if (!result?.decisions) return [];
     
@@ -290,66 +269,90 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
   }, [result?.decisions]);
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
-          Unified Assignment Scheduler
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Dynamic scheduling with student selection and flexible date ranges
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Configuration Panel */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
-          {/* Student Selector */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              Student
-            </Label>
-            <Select value={selectedStudent} onValueChange={(value: StudentOption) => setSelectedStudent(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Abigail">Abigail</SelectItem>
-                <SelectItem value="Khalil">Khalil</SelectItem>
-                <SelectItem value="Both">Both Students</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Date Range Selector */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium flex items-center gap-1">
-              <CalendarIcon className="h-3 w-3" />
-              Time Range
-            </Label>
-            <Select value={dateRange} onValueChange={(value: DateRangeOption) => setDateRange(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Today Only</SelectItem>
-                <SelectItem value="next3days">Next 3 Days</SelectItem>
-                <SelectItem value="nextweek">Next Week</SelectItem>
-                <SelectItem value="custom">Custom Date</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Custom Date Picker */}
-          {dateRange === 'custom' && (
+    <div className="space-y-6">
+      {/* Configuration Card */}
+      <Card className="border-2">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Scheduler Configuration</CardTitle>
+          <p className="text-sm text-muted-foreground">Configure your scheduling preferences</p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Main Controls Row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Student Selector */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">End Date</Label>
+              <Label className="text-sm font-medium flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                Student
+              </Label>
+              <Select value={selectedStudent} onValueChange={(value: StudentOption) => setSelectedStudent(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Abigail">Abigail</SelectItem>
+                  <SelectItem value="Khalil">Khalil</SelectItem>
+                  <SelectItem value="Both">Both Students</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Date Range Selector */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-1">
+                <CalendarIcon className="h-3 w-3" />
+                Time Range
+              </Label>
+              <Select value={dateRange} onValueChange={(value: DateRangeOption) => setDateRange(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today Only</SelectItem>
+                  <SelectItem value="next3days">Next 3 Days</SelectItem>
+                  <SelectItem value="nextweek">Next Week</SelectItem>
+                  <SelectItem value="custom">Custom Date</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Options */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-1">
+                <Settings className="h-3 w-3" />
+                Options
+              </Label>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="admin-tasks" className="text-xs">Admin Tasks</Label>
+                  <Switch
+                    id="admin-tasks"
+                    checked={includeAdminTasks}
+                    onCheckedChange={setIncludeAdminTasks}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="preview-only" className="text-xs">Preview Only</Label>
+                  <Switch
+                    id="preview-only"
+                    checked={previewOnly}
+                    onCheckedChange={setPreviewOnly}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Custom Date Picker (only when custom is selected) */}
+          {dateRange === 'custom' && (
+            <div className="border-t pt-4">
+              <Label className="text-sm font-medium mb-2 block">Select End Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      "justify-start text-left font-normal",
+                      "w-[240px] justify-start text-left font-normal",
                       !customDate && "text-muted-foreground"
                     )}
                   >
@@ -371,236 +374,207 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
             </div>
           )}
 
-          {/* Options */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium flex items-center gap-1">
-              <Settings className="h-3 w-3" />
-              Options
-            </Label>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="admin-tasks" className="text-xs">Admin Tasks</Label>
-                <Switch
-                  id="admin-tasks"
-                  checked={includeAdminTasks}
-                  onCheckedChange={setIncludeAdminTasks}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="preview-only" className="text-xs">Preview Only</Label>
-                <Switch
-                  id="preview-only"
-                  checked={previewOnly}
-                  onCheckedChange={setPreviewOnly}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="continue-unfinished" className="text-xs">Continue Unfinished</Label>
-                <Switch
-                  id="continue-unfinished"
-                  checked={continueUnfinished}
-                  onCheckedChange={setContinueUnfinished}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-3">
-          <Button 
-            onClick={handleAnalyze} 
-            disabled={isAnalyzing || isExecuting}
-            variant="outline"
-            className="flex-1"
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <Eye className="mr-2 h-4 w-4" />
-                Analyze Schedule
-              </>
-            )}
-          </Button>
-
-          <Button 
-            onClick={handleAutoSchedule} 
-            disabled={isAnalyzing || isExecuting}
-            className="flex-1"
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Auto-Scheduling...
-              </>
-            ) : (
-              <>
-                <Play className="mr-2 h-4 w-4" />
-                Auto-Schedule
-              </>
-            )}
-          </Button>
-
-          {result && !previewOnly && (
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-2">
             <Button 
-              onClick={handleExecute} 
-              disabled={isExecuting || isAnalyzing}
-              variant="secondary"
+              onClick={handleAnalyze} 
+              disabled={isAnalyzing || isExecuting}
+              variant="outline"
+              className="flex-1"
             >
-              {isExecuting ? (
+              {isAnalyzing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Executing...
+                  Analyzing...
                 </>
               ) : (
                 <>
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Execute Schedule
+                  <Eye className="mr-2 h-4 w-4" />
+                  Analyze Schedule
                 </>
               )}
             </Button>
-          )}
-        </div>
 
-        {/* Current Configuration Display */}
-        <div className="text-sm text-muted-foreground bg-background border rounded-lg p-3">
-          <div className="flex items-center gap-4 flex-wrap">
-            <span><strong>Student:</strong> {selectedStudent}</span>
-            <span><strong>Range:</strong> {getDateRangeDisplay()}</span>
-            <span><strong>Admin Tasks:</strong> {includeAdminTasks ? 'Yes' : 'No'}</span>
-            <span><strong>Continue Unfinished:</strong> {continueUnfinished ? 'Yes' : 'No'}</span>
+            <Button 
+              onClick={handleAutoSchedule} 
+              disabled={isAnalyzing || isExecuting}
+              className="flex-1"
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Auto-Scheduling...
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-4 w-4" />
+                  Auto-Schedule
+                </>
+              )}
+            </Button>
+
+            {result && !previewOnly && (
+              <Button 
+                onClick={handleExecute} 
+                disabled={isExecuting || isAnalyzing}
+                variant="secondary"
+              >
+                {isExecuting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Executing...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Execute Schedule
+                  </>
+                )}
+              </Button>
+            )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Current Configuration Display */}
+      <div className="text-sm text-muted-foreground bg-background border rounded-lg p-3">
+        <div className="flex items-center gap-4 flex-wrap">
+          <span><strong>Student:</strong> {selectedStudent}</span>
+          <span><strong>Range:</strong> {getDateRangeDisplay()}</span>
+          <span><strong>Admin Tasks:</strong> {includeAdminTasks ? 'Yes' : 'No'}</span>
+          <span><strong>Preview Only:</strong> {previewOnly ? 'Yes' : 'No'}</span>
         </div>
+      </div>
 
-        {/* Results */}
-        {result && (
-          <Tabs defaultValue="summary" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="summary">Summary</TabsTrigger>
-              <TabsTrigger value="timeline">Timeline</TabsTrigger>
-              <TabsTrigger value="details">Details</TabsTrigger>
-              <TabsTrigger value="admin">Admin Tasks</TabsTrigger>
-            </TabsList>
+      {/* Results */}
+      {result && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Scheduling Results</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="summary" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="summary">Summary</TabsTrigger>
+                <TabsTrigger value="timeline">Timeline</TabsTrigger>
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="admin">Admin Tasks</TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="summary" className="space-y-4">
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{result.stats.scheduledTasks}</div>
-                  <div className="text-sm text-blue-700">Scheduled Tasks</div>
+              <TabsContent value="summary" className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{result.stats.scheduledTasks}</div>
+                    <div className="text-sm text-blue-700">Scheduled Tasks</div>
+                  </div>
+                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{result.stats.totalBlocks}</div>
+                    <div className="text-sm text-green-700">Time Blocks</div>
+                  </div>
+                  <div className="text-center p-4 bg-purple-50 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600">{Math.round(totalMinutes / 60 * 10) / 10}h</div>
+                    <div className="text-sm text-purple-700">Total Time</div>
+                  </div>
+                  <div className="text-center p-4 bg-orange-50 rounded-lg">
+                    <div className="text-2xl font-bold text-orange-600">{urgencyCounts.high}</div>
+                    <div className="text-sm text-orange-700">High Priority</div>
+                  </div>
                 </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">{result.stats.totalBlocks}</div>
-                  <div className="text-sm text-green-700">Time Blocks</div>
-                </div>
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-600">{Math.round(totalMinutes / 60 * 10) / 10}h</div>
-                  <div className="text-sm text-purple-700">Total Time</div>
-                </div>
-                <div className="text-center p-4 bg-orange-50 rounded-lg">
-                  <div className="text-2xl font-bold text-orange-600">{urgencyCounts.high}</div>
-                  <div className="text-sm text-orange-700">High Priority</div>
-                </div>
-              </div>
 
-              {result.warnings.length > 0 && (
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    <div className="space-y-1">
-                      {result.warnings.map((warning, index) => (
-                        <div key={index}>{warning}</div>
+                {result.warnings.length > 0 && (
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      <div className="space-y-1">
+                        {result.warnings.map((warning, index) => (
+                          <div key={index}>{warning}</div>
+                        ))}
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </TabsContent>
+
+              <TabsContent value="timeline" className="space-y-4">
+                {groupedDecisions.map(({ date, decisions }) => (
+                  <div key={date} className="space-y-2">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4" />
+                      {format(new Date(date), 'EEEE, MMM d')}
+                    </h4>
+                    <div className="space-y-2 ml-6">
+                      {decisions.map((decision, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Badge variant="outline">Block {decision.targetBlock}</Badge>
+                            <span className="font-medium">{decision.assignment.title}</span>
+                            <Badge variant={getUrgencyColor(decision.assignment.urgency || 'medium')}>
+                              {decision.assignment.urgency || 'medium'}
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {decision.assignment.estimated_time_minutes}min
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  </AlertDescription>
-                </Alert>
-              )}
-            </TabsContent>
+                  </div>
+                ))}
+              </TabsContent>
 
-            
-            <TabsContent value="timeline" className="space-y-4">
-              {groupedDecisions.map(({ date, decisions }) => (
-                <div key={date} className="space-y-2">
-                  <h4 className="font-medium text-sm flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    {format(new Date(date), 'EEEE, MMM d')}
-                  </h4>
-                  <div className="space-y-2 ml-6">
-                    {decisions.map((decision, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Badge variant="outline">Block {decision.targetBlock}</Badge>
-                          <span className="font-medium">{decision.assignment.title}</span>
-                          <Badge variant={getUrgencyColor(decision.assignment.urgency || 'medium')}>
-                            {decision.assignment.urgency || 'medium'}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {decision.assignment.estimated_time_minutes}min
-                        </div>
+              <TabsContent value="details" className="space-y-4">
+                {result.decisions.map((decision, index) => (
+                  <div key={index} className="p-4 border rounded-lg space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">{decision.assignment.title}</h4>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={getUrgencyColor(decision.assignment.urgency || 'medium')}>
+                          {decision.assignment.urgency || 'medium'}
+                        </Badge>
+                        <Badge variant={getCognitiveLoadColor(decision.assignment.cognitive_load || 'medium')}>
+                          <Brain className="w-3 h-3 mr-1" />
+                          {decision.assignment.cognitive_load || 'medium'}
+                        </Badge>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </TabsContent>
-
-            <TabsContent value="details" className="space-y-4">
-              {result.decisions.map((decision, index) => (
-                <div key={index} className="p-4 border rounded-lg space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">{decision.assignment.title}</h4>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={getUrgencyColor(decision.assignment.urgency || 'medium')}>
-                        {decision.assignment.urgency || 'medium'}
-                      </Badge>
-                      <Badge variant={getCognitiveLoadColor(decision.assignment.cognitive_load || 'medium')}>
-                        <Brain className="w-3 h-3 mr-1" />
-                        {decision.assignment.cognitive_load || 'medium'}
-                      </Badge>
                     </div>
-                  </div>
-                  <div className="text-sm text-muted-foreground grid grid-cols-2 md:grid-cols-4 gap-2">
-                    <span><Clock className="w-3 h-3 inline mr-1" />{decision.assignment.estimated_time_minutes}min</span>
-                    <span>Block {decision.targetBlock}</span>
-                    <span>{format(new Date(decision.targetDate), 'MMM d')}</span>
-                    <span>{decision.assignment.course_name}</span>
-                  </div>
-                  <p className="text-sm">{decision.reasoning}</p>
-                </div>
-              ))}
-            </TabsContent>
-
-            <TabsContent value="admin" className="space-y-4">
-              {result.administrativeTasks && result.administrativeTasks.length > 0 ? (
-                result.administrativeTasks.map((task, index) => (
-                  <div key={index} className="p-4 border rounded-lg bg-amber-50 border-amber-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-amber-900">{task.title}</h4>
-                      <Badge variant="secondary">{task.priority || 'medium'}</Badge>
+                    <div className="text-sm text-muted-foreground grid grid-cols-2 md:grid-cols-4 gap-2">
+                      <span><Clock className="w-3 h-3 inline mr-1" />{decision.assignment.estimated_time_minutes}min</span>
+                      <span>Block {decision.targetBlock}</span>
+                      <span>{format(new Date(decision.targetDate), 'MMM d')}</span>
+                      <span>{decision.assignment.course_name}</span>
                     </div>
-                    <p className="text-sm text-amber-800">{task.notes || 'Administrative task'}</p>
-                    {task.due_date && (
-                      <p className="text-xs text-amber-700 mt-1">
-                        Due: {format(new Date(task.due_date), 'MMM d, yyyy')}
-                      </p>
-                    )}
+                    <p className="text-sm">{decision.reasoning}</p>
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No administrative tasks found</p>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        )}
-      </CardContent>
-    </Card>
+                ))}
+              </TabsContent>
+
+              <TabsContent value="admin" className="space-y-4">
+                {result.administrativeTasks && result.administrativeTasks.length > 0 ? (
+                  result.administrativeTasks.map((task, index) => (
+                    <div key={index} className="p-4 border rounded-lg bg-amber-50 border-amber-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-amber-900">{task.title}</h4>
+                        <Badge variant="secondary">{task.priority || 'medium'}</Badge>
+                      </div>
+                      <p className="text-sm text-amber-800">{task.notes || 'Administrative task'}</p>
+                      {task.due_date && (
+                        <p className="text-xs text-amber-700 mt-1">
+                          Due: {format(new Date(task.due_date), 'MMM d, yyyy')}
+                        </p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No administrative tasks found</p>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }
