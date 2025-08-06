@@ -96,24 +96,70 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
   const handleAnalyze = useCallback(async () => {
     setIsAnalyzing(true);
     setShowDateAdjustmentSuggestion(false);
+    setResult(null);
     
     try {
-      // Check if date adjustment is needed
-      const { adjustedRange, adjustedDate, needsAdjustment } = getAdjustedDateRange(
-        dateRange, 
-        customDate, 
-        currentTime
-      );
+      // Time awareness check - force tomorrow if all today's blocks have passed
+      const now = new Date();
+      const currentHour = now.getHours();
+      let actualRange = dateRange;
+      let actualCustomDate = customDate;
+      let forceTimeAwareness = false;
       
-      if (needsAdjustment) {
-        setShowDateAdjustmentSuggestion(true);
-        setIsAnalyzing(false);
-        return;
+      // If it's after 8 PM and user selected "Today Only", force to tomorrow
+      if (currentHour >= 20 && dateRange === 'today') {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        actualCustomDate = tomorrow;
+        actualRange = 'custom';
+        forceTimeAwareness = true;
+        
+        toast({
+          title: "Time Awareness Active",
+          description: "⚠️ All blocks for today have passed. Scheduling for tomorrow instead.",
+          variant: "default"
+        });
       }
       
+      // Check if date adjustment is needed (only if not already forced by time awareness)
+      if (!forceTimeAwareness) {
+        const { adjustedRange, adjustedDate, needsAdjustment } = getAdjustedDateRange(
+          dateRange, 
+          customDate, 
+          currentTime
+        );
+        
+        if (needsAdjustment) {
+          setShowDateAdjustmentSuggestion(true);
+          setIsAnalyzing(false);
+          return;
+        }
+      }
+      
+      // Calculate days ahead based on actual range
+      const getDaysAheadForRange = (range: DateRangeOption, customDt?: Date) => {
+        switch (range) {
+          case 'today':
+            return 1;
+          case 'next3days':
+            return 3;
+          case 'nextweek':
+            return 7;
+          case 'custom':
+            if (customDt) {
+              const diffTime = customDt.getTime() - new Date().getTime();
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              return Math.max(1, diffDays);
+            }
+            return 1;
+          default:
+            return 1;
+        }
+      };
+      
       const options: SchedulerOptions = {
-        daysAhead: getDaysAhead(),
-        startDate: dateRange === 'custom' && customDate ? customDate : new Date(),
+        daysAhead: getDaysAheadForRange(actualRange, actualCustomDate),
+        startDate: actualRange === 'custom' && actualCustomDate ? actualCustomDate : new Date(),
         previewOnly: true,
         includeAdminTasks,
         autoExecute: false,
@@ -161,7 +207,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
     } finally {
       setIsAnalyzing(false);
     }
-  }, [selectedStudent, getDaysAhead, includeAdminTasks, customDate, dateRange, currentTime, toast]);
+  }, [selectedStudent, dateRange, customDate, includeAdminTasks, currentTime, toast]);
 
   const handleAutoSchedule = useCallback(async () => {
     setIsAnalyzing(true);
