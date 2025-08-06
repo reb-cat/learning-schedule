@@ -4,7 +4,8 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 const Index = () => {
-  console.log('📱 Index page is rendering...');
+  console.log('📱 Index page is rendering at:', new Date().toISOString());
+  console.log('📱 Index page route - should NOT load student data');
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-6">
       <div className="text-center max-w-md w-full space-y-8">
