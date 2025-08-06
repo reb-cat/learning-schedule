@@ -56,7 +56,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const { toast } = useToast();
-  const { clearScheduling, getScheduledAssignments, isClearing } = useClearAssignmentScheduling();
+  const { clearScheduling, isClearing } = useClearAssignmentScheduling();
 
   const getDaysAhead = useCallback(() => {
     switch (dateRange) {
