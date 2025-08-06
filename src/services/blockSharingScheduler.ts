@@ -106,15 +106,18 @@ export class BlockSharingScheduler {
 
   async analyzeAndSchedule(studentName: string, daysAhead: number = 7, startDate?: Date, currentTime?: Date): Promise<SchedulingDecision> {
     try {
-      // Check cache first
+      // PERFORMANCE TEST: Cache temporarily disabled
+      const startTime = performance.now();
+      console.log('🚀 PERFORMANCE TEST: Starting fresh analyzeAndSchedule for:', studentName, { currentTime: currentTime?.toISOString() });
+      
+      /* CACHE DISABLED FOR TESTING
       const cacheKey = this.generateCacheKey(studentName, daysAhead, startDate);
       const cached = this.getCachedResult(cacheKey);
       if (cached) {
         console.log('Using cached scheduling result for:', studentName);
         return cached;
       }
-
-      console.log('Starting fresh analyzeAndSchedule for:', studentName, { currentTime: currentTime?.toISOString() });
+      */
       
       // 1. Fetch all unscheduled tasks (filter to current timeframe)
       const allTasks = await this.getClassifiedTasks(studentName);
@@ -206,8 +209,20 @@ export class BlockSharingScheduler {
         warnings
       };
 
+      /* CACHE DISABLED FOR TESTING
       // Cache the result
       this.setCachedResult(cacheKey, result);
+      */
+      
+      const endTime = performance.now();
+      const duration = endTime - startTime;
+      console.log(`⚡ PERFORMANCE TEST: analyzeAndSchedule completed in ${duration.toFixed(2)}ms (${(duration/1000).toFixed(3)}s)`);
+      
+      if (duration > 1000) {
+        console.log('🐌 SLOW QUERY DETECTED: Consider optimizing');
+      } else if (duration < 100) {
+        console.log('🚀 BLAZING FAST: Cache might be unnecessary');
+      }
       
       return result;
     } catch (error) {
