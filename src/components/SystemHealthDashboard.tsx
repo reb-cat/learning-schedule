@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -41,8 +42,9 @@ export function SystemHealthDashboard({ studentName }: SystemHealthDashboardProp
       const validation = await validateData();
       setValidationResults(validation);
       
-      // Fix: Check for both possible properties (isValid or valid)
-      const isValidResult = validation.isValid ?? validation.valid;
+      // Fix: Safely check validation status using type guards
+      const isValidResult = 'isValid' in validation ? validation.isValid : 
+                           'valid' in validation ? validation.valid : false;
       if (!isValidResult) {
         console.warn('🔧 Data validation found issues:', validation);
       }
@@ -76,9 +78,12 @@ export function SystemHealthDashboard({ studentName }: SystemHealthDashboardProp
   const getHealthStatus = () => {
     if (loading) return { status: 'checking', color: 'secondary', icon: RefreshCw };
     if (error && !assignments.length) return { status: 'critical', color: 'destructive', icon: XCircle };
-    // Fix: Check for both possible validation result properties
-    const isValidResult = validationResults?.isValid ?? validationResults?.valid;
-    if (validationResults && !isValidResult) return { status: 'warning', color: 'secondary', icon: AlertTriangle };
+    // Fix: Safely check validation status using type guards
+    if (validationResults) {
+      const isValidResult = 'isValid' in validationResults ? validationResults.isValid : 
+                           'valid' in validationResults ? validationResults.valid : false;
+      if (!isValidResult) return { status: 'warning', color: 'secondary', icon: AlertTriangle };
+    }
     if (assignments.length > 0) return { status: 'healthy', color: 'default', icon: CheckCircle };
     return { status: 'unknown', color: 'outline', icon: AlertTriangle };
   };
@@ -125,17 +130,21 @@ export function SystemHealthDashboard({ studentName }: SystemHealthDashboardProp
           </div>
           {validationResults ? (
             <div className="space-y-2">
-              {/* Fix: Handle both error formats */}
-              {(validationResults.errors?.length > 0 || validationResults.issues?.length > 0) && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-destructive">
-                    {validationResults.errors?.length || validationResults.issues?.length || 0} critical errors
-                  </span>
-                  <Button variant="outline" size="sm" onClick={handleRepairData}>
-                    Repair
-                  </Button>
-                </div>
-              )}
+              {/* Fix: Handle both error formats safely */}
+              {(() => {
+                const errorCount = validationResults.errors?.length || 
+                                 validationResults.issues?.length || 0;
+                return errorCount > 0 ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-destructive">
+                      {errorCount} critical errors
+                    </span>
+                    <Button variant="outline" size="sm" onClick={handleRepairData}>
+                      Repair
+                    </Button>
+                  </div>
+                ) : null;
+              })()}
               {validationResults.warnings?.length > 0 && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-orange-600">
@@ -146,10 +155,14 @@ export function SystemHealthDashboard({ studentName }: SystemHealthDashboardProp
                   </Button>
                 </div>
               )}
-              {/* Fix: Check for both validation result properties */}
-              {(validationResults.isValid || validationResults.valid) && (
-                <span className="text-sm text-green-600">All data valid</span>
-              )}
+              {/* Fix: Check for validation status safely */}
+              {(() => {
+                const isValidResult = 'isValid' in validationResults ? validationResults.isValid : 
+                                     'valid' in validationResults ? validationResults.valid : false;
+                return isValidResult ? (
+                  <span className="text-sm text-green-600">All data valid</span>
+                ) : null;
+              })()}
             </div>
           ) : (
             <span className="text-sm text-muted-foreground">Not checked</span>
