@@ -89,9 +89,10 @@ const AbigailDashboard = () => {
     }
   }, [currentDay, formattedDate]);
 
-  useEffect(() => {
-    checkEffectiveSchedule();
-  }, [checkEffectiveSchedule]);
+  // DISABLED: checkEffectiveSchedule effect
+  // useEffect(() => {
+  //   checkEffectiveSchedule();
+  // }, [checkEffectiveSchedule]);
 
   // Use effective schedule or fallback to base schedule
   const todaySchedule = effectiveSchedule || baseTodaySchedule;
@@ -165,9 +166,10 @@ const AbigailDashboard = () => {
     }, [stableGetScheduledAssignment, formattedDate, assignmentBlocks, scheduledAssignments]);
 
 
-  useEffect(() => {
-    loadScheduledAssignments();
-  }, [loadScheduledAssignments]);
+  // DISABLED: loadScheduledAssignments effect
+  // useEffect(() => {
+  //   loadScheduledAssignments();
+  // }, [loadScheduledAssignments]);
 
   // Debounced update handler to prevent rapid successive calls
   const handleEventUpdate = useCallback(() => {
@@ -181,22 +183,22 @@ const AbigailDashboard = () => {
     }, 100);
   }, [checkEffectiveSchedule, loadScheduledAssignments]);
 
-    // Handle critical errors that would cause blank pages
-    useEffect(() => {
-      if (assignmentsError && !assignments.length && !assignmentsLoading) {
-        // Only show critical error if we have no data at all
-        const isCritical = assignmentsError.includes('timeout') || 
-                          assignmentsError.includes('network') || 
-                          assignmentsError.includes('connection') ||
-                          !assignmentsError.includes('cached');
-        
-        if (isCritical) {
-          setCriticalError(assignmentsError);
-        }
-      } else {
-        setCriticalError(null);
-      }
-    }, [assignmentsError, assignments.length, assignmentsLoading]);
+    // DISABLED: critical error effect
+    // useEffect(() => {
+    //   if (assignmentsError && !assignments.length && !assignmentsLoading) {
+    //     // Only show critical error if we have no data at all
+    //     const isCritical = assignmentsError.includes('timeout') || 
+    //                       assignmentsError.includes('network') || 
+    //                       assignmentsError.includes('connection') ||
+    //                       !assignmentsError.includes('cached');
+    //     
+    //     if (isCritical) {
+    //       setCriticalError(assignmentsError);
+    //     }
+    //   } else {
+    //     setCriticalError(null);
+    //   }
+    // }, [assignmentsError, assignments.length, assignmentsLoading]);
 
     // Show error fallback for critical errors
     if (criticalError) {
