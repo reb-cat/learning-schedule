@@ -25,10 +25,10 @@ export function ParentTasksSection({ tasks, onTaskComplete }: ParentTasksSection
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'destructive';
-      case 'medium': return 'default';
-      case 'low': return 'secondary';
-      default: return 'secondary';
+      case 'high': return 'secondary'; // Changed from destructive to secondary for admin tasks
+      case 'medium': return 'outline';
+      case 'low': return 'outline';
+      default: return 'outline';
     }
   };
 

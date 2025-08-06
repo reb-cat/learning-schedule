@@ -91,13 +91,13 @@ export function EditableAdministrativeNotification({
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
-        return 'destructive';
+        return 'secondary'; // Changed from destructive to secondary for admin tasks
       case 'medium':
-        return 'secondary';
+        return 'outline';
       case 'low':
         return 'outline';
       default:
-        return 'secondary';
+        return 'outline';
     }
   };
 
