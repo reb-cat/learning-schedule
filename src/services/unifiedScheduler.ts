@@ -1,7 +1,15 @@
 import { Assignment } from '@/hooks/useAssignments';
 import { supabase } from '@/integrations/supabase/client';
-import { blockSharingScheduler, SchedulingDecision, TaskClassification } from './blockSharingScheduler';
-import { format, isValid } from 'date-fns';
+import { getScheduleForStudentAndDay } from '@/data/scheduleData';
+import { format, isValid, parseISO } from 'date-fns';
+import { 
+  inferCognitiveLoad, 
+  inferDuration, 
+  getOptimalSchedulingTime,
+  updateLearningPattern,
+  inferSubjectFromTitle 
+} from './intelligentInference';
+import { blockSharingScheduler } from './blockSharingScheduler';
 
 export interface UnifiedSchedulingDecision {
   assignment: Assignment;
@@ -15,9 +23,9 @@ export interface UnifiedSchedulingDecision {
 
 export interface UnifiedSchedulingResult {
   decisions: UnifiedSchedulingDecision[];
-  splitAssignments: TaskClassification[];
-  unscheduledAssignments: TaskClassification[];
-  administrativeTasks: TaskClassification[];
+  splitAssignments: Assignment[];
+  unscheduledAssignments: Assignment[];
+  administrativeTasks: Assignment[];
   warnings: string[];
   stats: {
     totalBlocks: number;
@@ -37,8 +45,11 @@ export interface SchedulerOptions {
 }
 
 class UnifiedScheduler {
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private cache = new Map<string, { result: UnifiedSchedulingResult; timestamp: number }>();
+
   /**
-   * Main scheduling method - thin merge layer that combines existing schedules with new ones
+   * Main scheduling method that combines the best of all existing schedulers
    */
   async analyzeAndSchedule(
     studentName: string, 
@@ -52,130 +63,58 @@ class UnifiedScheduler {
       autoExecute = false
     } = options;
 
-    console.log(`🚀 Unified Scheduler: Merging schedules for ${studentName}`, { options });
+    console.log(`🚀 Unified Scheduler: Starting analysis for ${studentName}`, { options });
+
+    // Verify current date for August 2025 debugging
+    this.verifyCurrentDate();
+
+    // TEMPORARILY DISABLE CACHE for debugging - force fresh data
+    console.log('🚫 Cache temporarily disabled for debugging');
+    this.invalidateCache(studentName);
 
     try {
-      // Step 1: Get existing scheduled assignments
-      const existingScheduled = await this.getExistingScheduledAssignments(studentName, daysAhead, startDate);
+      // Use the robust block sharing scheduler as the foundation
+      // For custom dates, calculate target date instead of days ahead
+      let targetStartDate = startDate;
+      let targetDaysAhead = daysAhead;
       
-      // Step 2: Get new schedule from blockSharingScheduler (handles unscheduled items)
+      if (options.startDate && options.startDate !== startDate) {
+        targetStartDate = options.startDate;
+        // When using a custom date, we want to schedule for that specific date
+        targetDaysAhead = 1;
+      }
+      
       const blockSharingResult = await blockSharingScheduler.analyzeAndSchedule(
         studentName, 
-        daysAhead, 
-        startDate,
+        targetDaysAhead, 
+        targetStartDate,
         options.currentTime
       );
 
-      // Step 3: Merge existing + new schedules
-      const mergedResult = this.mergeSchedulingResults(existingScheduled, blockSharingResult, studentName);
+      // Transform the result to our unified format
+      const unifiedResult = this.transformToUnifiedFormat(blockSharingResult);
 
-      // Step 4: Auto-execute if requested
-      if (autoExecute && !this.hasCriticalWarnings(mergedResult)) {
+      // Don't cache during debugging - keeping fresh
+      // this.setCachedResult(cacheKey, unifiedResult);
+
+      // Auto-execute if requested and no critical warnings
+      if (autoExecute && !this.hasCriticalWarnings(unifiedResult)) {
         console.log('🔄 Unified Scheduler: Auto-executing schedule');
-        await this.executeSchedule(mergedResult, studentName);
+        await this.executeSchedule(unifiedResult, studentName);
       }
 
-      console.log('✅ Unified Scheduler: Merge complete', {
-        scheduledTasks: mergedResult.stats.scheduledTasks,
-        unscheduledTasks: mergedResult.stats.unscheduledTasks
+      console.log('✅ Unified Scheduler: Analysis complete', {
+        scheduledTasks: unifiedResult.stats.scheduledTasks,
+        unscheduledTasks: unifiedResult.stats.unscheduledTasks,
+        warnings: unifiedResult.warnings.length
       });
 
-      return mergedResult;
+      return unifiedResult;
 
     } catch (error) {
-      console.error('❌ Unified Scheduler: Merge failed', error);
+      console.error('❌ Unified Scheduler: Analysis failed', error);
       throw error;
     }
-  }
-
-  /**
-   * Get existing scheduled assignments to preserve them
-   */
-  private async getExistingScheduledAssignments(
-    studentName: string, 
-    daysAhead: number, 
-    startDate: Date
-  ): Promise<Assignment[]> {
-    const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + daysAhead);
-
-    const { data, error } = await supabase
-      .from('assignments')
-      .select('*')
-      .eq('student_name', studentName)
-      .not('scheduled_block', 'is', null)
-      .gte('scheduled_date', startDate.toISOString().split('T')[0])
-      .lte('scheduled_date', endDate.toISOString().split('T')[0]);
-
-    if (error) {
-      console.error('Failed to fetch existing scheduled assignments:', error);
-      return [];
-    }
-
-    return (data || []) as Assignment[];
-  }
-
-  /**
-   * Merge existing scheduled assignments with new scheduling decisions
-   */
-  private mergeSchedulingResults(
-    existingScheduled: Assignment[], 
-    newResult: SchedulingDecision,
-    studentName: string
-  ): UnifiedSchedulingResult {
-    // Convert existing scheduled to unified format
-    const existingDecisions: UnifiedSchedulingDecision[] = existingScheduled.map(assignment => ({
-      assignment,
-      targetDate: assignment.scheduled_date!,
-      targetBlock: assignment.scheduled_block!,
-      reasoning: 'Previously scheduled',
-      urgencyLevel: this.calculateUrgency(assignment),
-      estimatedMinutes: assignment.estimated_time_minutes || 30,
-      cognitiveLoad: 'medium' as const
-    }));
-
-    // Convert new academic blocks to unified format  
-    const newDecisions: UnifiedSchedulingDecision[] = [];
-    for (const block of newResult.academic_blocks || []) {
-      for (const task of block.tasks || []) {
-        // Convert TaskClassification to Assignment format for unified interface
-        const assignmentFromTask: Assignment = {
-          ...task.assignment,
-          student_name: studentName,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          estimated_time_minutes: task.assignment.estimated_time,
-          due_date: task.assignment.due_date ? task.assignment.due_date.toISOString() : null
-        } as Assignment;
-
-        newDecisions.push({
-          assignment: assignmentFromTask,
-          targetDate: block.date,
-          targetBlock: block.block_number,
-          reasoning: `Block ${block.block_number} on ${block.day}`,
-          urgencyLevel: this.calculateUrgencyFromTask(task.assignment),
-          estimatedMinutes: task.allocated_minutes || task.assignment.estimated_time || 30,
-          cognitiveLoad: 'medium' as const
-        });
-      }
-    }
-
-    // Combine all decisions
-    const allDecisions = [...existingDecisions, ...newDecisions];
-
-    return {
-      decisions: allDecisions,
-      splitAssignments: [], // Not handling splits in simple merge
-      unscheduledAssignments: newResult.unscheduled_tasks,
-      administrativeTasks: newResult.administrative_tasks,
-      warnings: newResult.warnings,
-      stats: {
-        totalBlocks: allDecisions.length,
-        scheduledTasks: allDecisions.length,
-        adminTasks: newResult.administrative_tasks.length,
-        unscheduledTasks: newResult.unscheduled_tasks.length
-      }
-    };
   }
 
   /**
@@ -185,54 +124,355 @@ class UnifiedScheduler {
     result: UnifiedSchedulingResult, 
     studentName: string
   ): Promise<{ success: boolean; errors: string[]; successCount: number; totalCount: number }> {
-    console.log('🚀 Unified Scheduler: Executing schedule', {
+    console.log('🔥🔥🔥 UNIFIED EXECUTE SCHEDULE CALLED 🔥🔥🔥');
+    console.log('🚀 UNIFIED SCHEDULER EXECUTION START', {
       studentName,
-      decisions: result.decisions.length
+      decisions: result.decisions.length,
+      splitAssignments: result.splitAssignments.length,
+      timestamp: new Date().toISOString(),
+      aboutToUpdateAssignments: 'YES - database updates will happen in unified scheduler'
     });
 
     const executionErrors: string[] = [];
     let successCount = 0;
+    let errorCount = 0;
+    const successfulUpdates: Array<{ id: string; previousState: any }> = [];
 
     try {
-      // Only process new scheduling decisions (skip "Previously scheduled" ones)
-      const newDecisions = result.decisions.filter(d => d.reasoning !== 'Previously scheduled');
-      
-      for (const decision of newDecisions) {
-        try {
-          const { error } = await supabase
-            .from('assignments')
-            .update({
-              scheduled_block: decision.targetBlock,
-              scheduled_date: decision.targetDate,
-              scheduled_day: this.formatDayName(new Date(decision.targetDate))
-            })
-            .eq('id', decision.assignment.id);
+      const today = new Date();
+      const updates: Array<{
+        id: string;
+        scheduled_block: number;
+        scheduled_date: string;
+        scheduled_day: string;
+        originalTitle?: string;
+      }> = [];
 
-          if (error) {
-            executionErrors.push(`${decision.assignment.title}: ${error.message}`);
-          } else {
-            successCount++;
+      console.log('📊 Processing scheduling decisions:', result.decisions.length);
+      
+      // Process main scheduling decisions
+      for (const decision of result.decisions) {
+        console.log('🎯 Processing decision:', {
+          assignmentId: decision.assignment.id,
+          title: decision.assignment.title,
+          targetDate: decision.targetDate,
+          targetBlock: decision.targetBlock,
+          isValidUUID: this.isValidUUID(decision.assignment.id)
+        });
+
+        let targetDate = new Date(decision.targetDate);
+        
+        // Apply force next day logic - if the target date is today, move to tomorrow
+        // This ensures "Schedule for Next Day" option is respected
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        targetDate.setHours(0, 0, 0, 0);
+        
+        if (targetDate.getTime() === today.getTime()) {
+          targetDate = new Date(today);
+          targetDate.setDate(today.getDate() + 1);
+          console.log('📅 Force next day applied - moving from today to tomorrow:', {
+            originalDate: decision.targetDate,
+            newDate: targetDate.toISOString(),
+            reason: 'Schedule for Next Day option enabled'
+          });
+        }
+        
+        const dayName = this.formatDayName(targetDate);
+        const formattedDate = this.formatDateString(targetDate);
+        
+        updates.push({
+          id: decision.assignment.id,
+          scheduled_block: decision.targetBlock,
+          scheduled_date: formattedDate,
+          scheduled_day: dayName,
+          originalTitle: decision.assignment.title
+        });
+      }
+
+      console.log('📊 Processing split assignments:', result.splitAssignments.length);
+      
+      // Process split assignments
+      for (const assignment of result.splitAssignments) {
+        console.log('✂️ Processing split assignment:', {
+          assignmentId: assignment.id,
+          title: assignment.title,
+          scheduledDate: assignment.scheduled_date,
+          scheduledBlock: assignment.scheduled_block,
+          isValidUUID: this.isValidUUID(assignment.id)
+        });
+
+        if (assignment.scheduled_date && assignment.scheduled_block) {
+          let targetDate = new Date(assignment.scheduled_date);
+          
+          // Apply force next day logic for split assignments too
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          targetDate.setHours(0, 0, 0, 0);
+          
+          if (targetDate.getTime() === today.getTime()) {
+            targetDate = new Date(today);
+            targetDate.setDate(today.getDate() + 1);
+            console.log('📅 Force next day applied to split assignment:', {
+              assignmentId: assignment.id,
+              originalDate: assignment.scheduled_date,
+              newDate: targetDate.toISOString()
+            });
           }
-        } catch (updateError: any) {
-          executionErrors.push(`${decision.assignment.title}: ${updateError.message}`);
+          
+          const dayName = this.formatDayName(targetDate);
+          const formattedDate = this.formatDateString(targetDate);
+          
+          updates.push({
+            id: assignment.id,
+            scheduled_block: assignment.scheduled_block,
+            scheduled_date: formattedDate,
+            scheduled_day: dayName,
+            originalTitle: assignment.title
+          });
         }
       }
+
+      console.log('💾 Total updates to execute:', updates.length);
+      console.log('📋 Full update list:', updates);
+
+      // Execute all updates with detailed error collection
+      for (const update of updates) {
+        console.log(`🔄 Executing update ${successCount + errorCount + 1}/${updates.length}:`, {
+          id: update.id,
+          title: update.originalTitle,
+          scheduled_block: update.scheduled_block,
+          scheduled_date: update.scheduled_date,
+          scheduled_day: update.scheduled_day
+        });
+
+        try {
+          // Extract base UUID for split assignments and validate
+          const baseId = this.extractBaseUUID(update.id);
+          console.log(`🔍 UUID extraction and validation:`, {
+            originalId: update.id,
+            extractedBaseId: baseId,
+            isValidUUID: this.isValidUUID(baseId),
+            containsPartSuffix: update.id.includes('_part_')
+          });
+
+          if (!this.isValidUUID(baseId)) {
+            const errorMsg = `Invalid UUID format: ${update.id} -> ${baseId}`;
+            console.warn(`⚠️ ${errorMsg}`);
+            executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
+            errorCount++;
+            continue;
+          }
+
+          // Check if assignment exists in database
+          const { data: currentState, error: fetchError } = await supabase
+            .from('assignments')
+            .select('id, scheduled_block, scheduled_date, scheduled_day')
+            .eq('id', baseId)
+            .maybeSingle();
+
+          if (fetchError) {
+            const errorMsg = `Failed to fetch assignment: ${fetchError.message}`;
+            console.error(`❌ FETCH ERROR for assignment ${baseId}:`, fetchError);
+            executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
+            errorCount++;
+            continue;
+          }
+
+          if (!currentState) {
+            const errorMsg = `Assignment not found in database: ${baseId}`;
+            console.error(`❌ ASSIGNMENT NOT FOUND: ${baseId}`);
+            executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
+            errorCount++;
+            continue;
+          }
+
+          console.log(`✅ UUID validation passed for: ${baseId}`);
+
+          const { data, error } = await supabase
+            .from('assignments')
+            .update({
+              scheduled_block: update.scheduled_block,
+              scheduled_date: update.scheduled_date,
+              scheduled_day: update.scheduled_day
+            })
+            .eq('id', baseId)
+            .select();
+
+          console.log(`📝 Supabase update result for ${baseId}:`, {
+            error: error?.message || null,
+            rowsAffected: data?.length || 0,
+            data: data?.[0] || null
+          });
+
+          if (error) {
+            const errorMsg = `Database error: ${error.message} (Code: ${error.code || 'unknown'})`;
+            console.error(`❌ SUPABASE ERROR for assignment ${update.id}:`, {
+              error,
+              code: error.code,
+              message: error.message,
+              details: error.details,
+              hint: error.hint
+            });
+            executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
+            errorCount++;
+            continue;
+          }
+
+          if (!data || data.length === 0) {
+            const errorMsg = `Assignment not found in database`;
+            console.error(`❌ NO ROWS UPDATED for assignment ${update.id} - Assignment might not exist`);
+            executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
+            errorCount++;
+            continue;
+          }
+
+          // Verify the update was applied correctly
+          const verificationResult = await this.verifyUpdate(baseId, {
+            scheduled_block: update.scheduled_block,
+            scheduled_date: update.scheduled_date,
+            scheduled_day: update.scheduled_day
+          });
+
+          if (!verificationResult.success) {
+            const errorMsg = `Update verification failed: ${verificationResult.error}`;
+            console.error(`❌ VERIFICATION FAILED for assignment ${update.id}:`, verificationResult);
+            executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
+            errorCount++;
+            continue;
+          }
+
+          // Store successful update for potential rollback
+          successfulUpdates.push({
+            id: baseId,
+            previousState: currentState
+          });
+
+          console.log(`✅ Successfully updated and verified assignment ${update.id}`);
+          successCount++;
+
+        } catch (updateError: any) {
+          const errorMsg = `Unexpected error: ${updateError.message || 'Unknown error'}`;
+          console.error(`💥 EXCEPTION during update for ${update.id}:`, {
+            error: updateError.message,
+            stack: updateError.stack
+          });
+          executionErrors.push(`${update.originalTitle || update.id}: ${errorMsg}`);
+          errorCount++;
+        }
+      }
+
+      // Don't rollback - allow partial successes to persist
+      console.log(`📈 Final execution results: ${successCount}/${updates.length} successful (${(successCount/updates.length*100).toFixed(1)}%)`);
+      if (errorCount > 0) {
+        console.warn(`⚠️ ${errorCount} assignments failed to update but keeping ${successCount} successful updates`);
+      }
+
+      console.log(`🎉 UNIFIED SCHEDULER EXECUTION COMPLETE:`, {
+        totalUpdates: updates.length,
+        successCount,
+        errorCount,
+        successRate: updates.length > 0 ? (successCount / updates.length * 100).toFixed(1) + '%' : '0%',
+        timestamp: new Date().toISOString()
+      });
 
       return {
         success: successCount > 0,
         errors: executionErrors,
         successCount,
-        totalCount: newDecisions.length
+        totalCount: updates.length
       };
 
     } catch (error: any) {
-      console.error('❌ Unified Scheduler: Execution failed', error);
+      console.error('💥 CRITICAL ERROR in executeSchedule:', error);
+      
+      // Attempt rollback on critical error
+      if (successfulUpdates.length > 0) {
+        console.log('🔄 Attempting rollback due to critical error...');
+        await this.rollbackUpdates(successfulUpdates);
+      }
+      
       return {
         success: false,
-        errors: [`Critical execution error: ${error.message}`],
+        errors: [`Critical execution error: ${error.message || 'Unknown error'}`],
         successCount: 0,
         totalCount: 0
       };
+    }
+  }
+
+  /**
+   * Verify that an update was applied correctly
+   */
+  private async verifyUpdate(
+    assignmentId: string, 
+    expectedValues: { scheduled_block: number; scheduled_date: string; scheduled_day: string }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('assignments')
+        .select('scheduled_block, scheduled_date, scheduled_day')
+        .eq('id', assignmentId)
+        .single();
+
+      if (error) {
+        return { success: false, error: `Failed to fetch for verification: ${error.message}` };
+      }
+
+      if (!data) {
+        return { success: false, error: 'Assignment not found during verification' };
+      }
+
+      const matches = 
+        data.scheduled_block === expectedValues.scheduled_block &&
+        data.scheduled_date === expectedValues.scheduled_date &&
+        data.scheduled_day === expectedValues.scheduled_day;
+
+      if (!matches) {
+        return { 
+          success: false, 
+          error: `Values don't match. Expected: ${JSON.stringify(expectedValues)}, Got: ${JSON.stringify(data)}` 
+        };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: `Verification exception: ${error.message}` };
+    }
+  }
+
+  /**
+   * Rollback successful updates
+   */
+  private async rollbackUpdates(
+    successfulUpdates: Array<{ id: string; previousState: any }>
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log(`🔄 Rolling back ${successfulUpdates.length} successful updates...`);
+
+      for (const update of successfulUpdates) {
+        const { error } = await supabase
+          .from('assignments')
+          .update({
+            scheduled_block: update.previousState.scheduled_block,
+            scheduled_date: update.previousState.scheduled_date,
+            scheduled_day: update.previousState.scheduled_day
+          })
+          .eq('id', update.id);
+
+        if (error) {
+          console.error(`❌ Failed to rollback assignment ${update.id}:`, error);
+          return { success: false, error: `Rollback failed for assignment ${update.id}: ${error.message}` };
+        }
+
+        console.log(`✅ Rolled back assignment ${update.id}`);
+      }
+
+      console.log(`✅ Successfully rolled back all ${successfulUpdates.length} updates`);
+      return { success: true };
+    } catch (error: any) {
+      console.error('💥 Exception during rollback:', error);
+      return { success: false, error: `Rollback exception: ${error.message}` };
     }
   }
 
@@ -248,45 +488,60 @@ class UnifiedScheduler {
   }
 
   /**
-   * Calculate urgency level for an assignment
+   * Extract base UUID from potentially split assignment IDs
    */
-  private calculateUrgency(assignment: Assignment): 'critical' | 'high' | 'medium' | 'low' {
-    if (!assignment.due_date) return 'low';
+  private extractBaseUUID(id: string): string {
+    // Handle split assignment IDs like "uuid_part_1"
+    const parts = id.split('_part_');
+    const baseId = parts[0];
     
-    const dueDate = new Date(assignment.due_date);
-    const today = new Date();
-    const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    console.log('🔧 UNIFIED UUID extraction:', {
+      originalId: id,
+      splitParts: parts,
+      extractedBaseId: baseId,
+      hadPartSuffix: parts.length > 1
+    });
     
-    if (daysDiff < 0) return 'critical';
-    if (daysDiff <= 1) return 'high';
-    if (daysDiff <= 3) return 'medium';
-    return 'low';
+    return baseId;
   }
 
   /**
-   * Calculate urgency level for a task classification
+   * Validate UUID format
    */
-  private calculateUrgencyFromTask(task: TaskClassification): 'critical' | 'high' | 'medium' | 'low' {
-    if (!task.due_date) return 'low';
+  private isValidUUID(uuid: string): boolean {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const isValid = uuidRegex.test(uuid);
     
-    const dueDate = new Date(task.due_date);
-    const today = new Date();
-    const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (!isValid) {
+      console.warn('🔍 UNIFIED UUID VALIDATION DETAILS:', {
+        uuid,
+        length: uuid.length,
+        containsUnderscorePart: uuid.includes('_part_'),
+        startsWithValidChar: /^[0-9a-f]/.test(uuid),
+        format: 'Expected: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+      });
+    }
     
-    if (daysDiff < 0) return 'critical';
-    if (daysDiff <= 1) return 'high';
-    if (daysDiff <= 3) return 'medium';
-    return 'low';
+    return isValid;
   }
 
   /**
-   * Check if result has critical warnings
+   * Format date as YYYY-MM-DD string using date-fns to avoid timezone issues
    */
-  private hasCriticalWarnings(result: UnifiedSchedulingResult): boolean {
-    return result.warnings.some(warning => 
-      warning.toLowerCase().includes('critical') || 
-      warning.toLowerCase().includes('overdue')
-    );
+  private formatDateString(date: Date): string {
+    const result = format(date, 'yyyy-MM-dd');
+    
+    // Debug logging to track the date formatting issue
+    console.log('📅 formatDateString Debug:', {
+      inputDate: date.toISOString(),
+      inputLocalString: date.toString(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      timezoneOffset: date.getTimezoneOffset(),
+      formattedResult: result,
+      manualFormat: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    });
+    
+    return result;
   }
 
   /**
@@ -298,7 +553,155 @@ class UnifiedScheduler {
       return format(new Date(), 'EEEE');
     }
     
-    return format(date, 'EEEE');
+    const dayName = format(date, 'EEEE');
+    
+    console.log('📅 Day name formatting:', {
+      inputDate: date.toISOString(),
+      dayName,
+      dayOfWeek: date.getDay(),
+      isValidDate: isValid(date)
+    });
+    
+    return dayName;
+  }
+
+  /**
+   * Verify current system date for debugging August 2025 scenarios
+   */
+  private verifyCurrentDate(): void {
+    const now = new Date();
+    const isAugust2025 = now.getFullYear() === 2025 && now.getMonth() === 7; // August is month 7 (0-indexed)
+    
+    console.log('📅 Current System Date Verification:', {
+      currentDate: now.toISOString(),
+      formattedDate: this.formatDateString(now),
+      dayName: this.formatDayName(now),
+      year: now.getFullYear(),
+      month: now.getMonth() + 1, // 1-indexed for human readable
+      monthName: format(now, 'MMMM'),
+      date: now.getDate(),
+      isAugust2025,
+      expectedScenario: 'Should be August 2025 for testing'
+    });
+  }
+
+  /**
+   * Clear cache for a specific student or all students
+   */
+  invalidateCache(studentName?: string): void {
+    if (studentName) {
+      for (const [key] of this.cache) {
+        if (key.includes(studentName)) {
+          this.cache.delete(key);
+        }
+      }
+    } else {
+      this.cache.clear();
+    }
+    console.log(`🗑️ Unified Scheduler: Cache invalidated for ${studentName || 'all students'}`);
+  }
+
+  private generateCacheKey(studentName: string, options: SchedulerOptions): string {
+    const optionsStr = JSON.stringify(options);
+    return `${studentName}-${optionsStr}`;
+  }
+
+  private getCachedResult(cacheKey: string): UnifiedSchedulingResult | null {
+    const cached = this.cache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      return cached.result;
+    }
+    if (cached) {
+      this.cache.delete(cacheKey);
+    }
+    return null;
+  }
+
+  private setCachedResult(cacheKey: string, result: UnifiedSchedulingResult): void {
+    this.cache.set(cacheKey, {
+      result,
+      timestamp: Date.now()
+    });
+  }
+
+  private transformToUnifiedFormat(blockSharingResult: any): UnifiedSchedulingResult {
+    const decisions: UnifiedSchedulingDecision[] = [];
+    const splitAssignments: Assignment[] = [];
+    const unscheduledAssignments: Assignment[] = [];
+    const administrativeTasks: Assignment[] = [];
+
+    // Transform academic blocks to decisions
+    for (const block of blockSharingResult.academic_blocks || []) {
+      for (const task of block.tasks || []) {
+        decisions.push({
+          assignment: task.assignment,
+          targetDate: block.date,
+          targetBlock: block.block_number,
+          reasoning: `Block ${block.block_number} on ${block.day}`,
+          urgencyLevel: this.calculateUrgency(task.assignment),
+          estimatedMinutes: task.allocated_minutes || task.assignment.estimated_time_minutes || 30,
+          cognitiveLoad: task.assignment.cognitive_load || 'medium'
+        });
+      }
+    }
+
+    // Add administrative tasks
+    for (const task of blockSharingResult.administrative_tasks || []) {
+      administrativeTasks.push(task);
+    }
+
+    // Add unscheduled tasks
+    for (const task of blockSharingResult.unscheduled_tasks || []) {
+      unscheduledAssignments.push(task);
+    }
+
+    const stats = {
+      totalBlocks: blockSharingResult.academic_blocks?.length || 0,
+      scheduledTasks: decisions.length,
+      adminTasks: administrativeTasks.length,
+      unscheduledTasks: unscheduledAssignments.length
+    };
+
+    return {
+      decisions,
+      splitAssignments,
+      unscheduledAssignments,
+      administrativeTasks,
+      warnings: blockSharingResult.warnings || [],
+      stats
+    };
+  }
+
+  private calculateUrgency(assignment: Assignment): 'critical' | 'high' | 'medium' | 'low' {
+    if (!assignment.due_date) return 'low';
+
+    const dueDate = new Date(assignment.due_date);
+    const today = new Date();
+    const daysUntilDue = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    console.log('⏰ Urgency calculation:', {
+      assignmentTitle: assignment.title,
+      dueDate: assignment.due_date,
+      dueDateParsed: dueDate.toISOString(),
+      today: today.toISOString(),
+      todayFormatted: this.formatDateString(today),
+      daysUntilDue,
+      isAugust2025: today.getFullYear() === 2025 && today.getMonth() === 7
+    });
+
+    if (daysUntilDue <= 0) return 'critical';      // Overdue
+    if (daysUntilDue === 1) return 'critical';     // Due tomorrow
+    if (daysUntilDue === 2) return 'high';         // Due day after tomorrow
+    if (daysUntilDue <= 4) return 'medium';        // Due this week
+    return 'low';                                  // Due later
+  }
+
+  private hasCriticalWarnings(result: UnifiedSchedulingResult): boolean {
+    return result.warnings.some(warning => 
+      warning.includes('overdue') || 
+      warning.includes('critical') ||
+      warning.includes('heavy cognitive load')
+    );
   }
 }
 

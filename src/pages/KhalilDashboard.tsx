@@ -9,7 +9,7 @@ import { useAssignments } from "@/hooks/useAssignments";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { CoopChecklist } from "@/components/CoopChecklist";
 import { OptimizedStudentBlockDisplay } from "@/components/OptimizedStudentBlockDisplay";
-
+import { BackgroundScheduler } from "@/components/BackgroundScheduler";
 import { AllDayEventForm } from "@/components/AllDayEventForm";
 import { AllDayEventsList } from "@/components/AllDayEventsList";
 import { getEffectiveScheduleForDay } from "@/data/allDayEvents";
@@ -22,12 +22,6 @@ const KhalilDashboard = () => {
   const dateParam = searchParams.get('date');
   
   const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch, cacheStats, cleanupData } = useAssignments('Khalil');
-  
-  // DISABLED: All automatic fetching to stop auth loop
-  // useEffect(() => {
-  //   console.log('🔴 Manual fetch on mount ONLY for Khalil');
-  //   refetch();
-  // }, []); // Empty deps - runs once only
   const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
   const [criticalError, setCriticalError] = useState<string | null>(null);
@@ -84,10 +78,9 @@ const KhalilDashboard = () => {
     }
   }, [currentDay, formattedDate]);
 
-  // DISABLED: checkEffectiveSchedule effect
-  // useEffect(() => {
-  //   checkEffectiveSchedule();
-  // }, [checkEffectiveSchedule]);
+  useEffect(() => {
+    checkEffectiveSchedule();
+  }, [checkEffectiveSchedule]);
 
   // Use effective schedule or fallback to base schedule
   const todaySchedule = effectiveSchedule || baseTodaySchedule;
@@ -160,43 +153,38 @@ const KhalilDashboard = () => {
       }
     }, [stableGetScheduledAssignment, formattedDate, assignmentBlocks, scheduledAssignments]);
 
-  // DISABLED: loadScheduledAssignments effect
-  // useEffect(() => {
-  //   loadScheduledAssignments();
-  // }, [loadScheduledAssignments]);
+  useEffect(() => {
+    loadScheduledAssignments();
+  }, [loadScheduledAssignments]);
 
   // Debounced update handler to prevent rapid successive calls
   const handleEventUpdate = useCallback(() => {
     // Clear cache to force fresh data
     assignmentCacheRef.current = {};
     
-    // DISABLED setTimeout to prevent auth loop
-    // setTimeout(() => {
-    //   checkEffectiveSchedule();
-    //   loadScheduledAssignments();
-    // }, 100);
-    
-    // Direct call instead of setTimeout
-    checkEffectiveSchedule();
-    loadScheduledAssignments();
+    // Use setTimeout to batch updates
+    setTimeout(() => {
+      checkEffectiveSchedule();
+      loadScheduledAssignments();
+    }, 100);
   }, [checkEffectiveSchedule, loadScheduledAssignments]);
 
-  // DISABLED: critical error effect
-  // useEffect(() => {
-  //   if (assignmentsError && !assignments.length && !assignmentsLoading) {
-  //     // Only show critical error if we have no data at all
-  //     const isCritical = assignmentsError.includes('timeout') || 
-  //                       assignmentsError.includes('network') || 
-  //                       assignmentsError.includes('connection') ||
-  //                       !assignmentsError.includes('cached');
-  //     
-  //     if (isCritical) {
-  //       setCriticalError(assignmentsError);
-  //     }
-  //   } else {
-  //     setCriticalError(null);
-  //   }
-  // }, [assignmentsError, assignments.length, assignmentsLoading]);
+  // Handle critical errors that would cause blank pages
+  useEffect(() => {
+    if (assignmentsError && !assignments.length && !assignmentsLoading) {
+      // Only show critical error if we have no data at all
+      const isCritical = assignmentsError.includes('timeout') || 
+                        assignmentsError.includes('network') || 
+                        assignmentsError.includes('connection') ||
+                        !assignmentsError.includes('cached');
+      
+      if (isCritical) {
+        setCriticalError(assignmentsError);
+      }
+    } else {
+      setCriticalError(null);
+    }
+  }, [assignmentsError, assignments.length, assignmentsLoading]);
 
   // Show error fallback for critical errors
   if (criticalError) {
@@ -244,6 +232,11 @@ const KhalilDashboard = () => {
           </TabsList>
 
           <TabsContent value="schedule" className="space-y-6">
+            {/* Background scheduler - runs silently */}
+            <BackgroundScheduler 
+              studentName="Khalil" 
+              onSchedulingComplete={handleEventUpdate}
+            />
             
             {/* Co-op Checklist - only shows on co-op days */}
             <CoopChecklist 

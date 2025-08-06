@@ -15,9 +15,7 @@ interface CacheOptions {
 export const useAssignmentCache = (options: CacheOptions = {}) => {
   const { ttl = 5 * 60 * 1000, maxSize = 10 } = options; // 5 minutes default TTL
   const cache = useRef<Map<string, CacheEntry>>(new Map());
-  const cacheStatsRef = useRef({ hits: 0, misses: 0 });
-  
-  console.log('🗄️ useAssignmentCache initialized/re-rendered');
+  const [cacheStats, setCacheStats] = useState({ hits: 0, misses: 0 });
 
   const generateHash = useCallback((data: Assignment[]): string => {
     const hashData = data.map(a => `${a.id}-${a.updated_at}`).join('|');
@@ -29,21 +27,18 @@ export const useAssignmentCache = (options: CacheOptions = {}) => {
     const entry = cache.current.get(key);
     
     if (!entry) {
-      cacheStatsRef.current.misses++;
-      console.log('💔 Cache miss for:', studentName);
+      setCacheStats(prev => ({ ...prev, misses: prev.misses + 1 }));
       return null;
     }
 
     const isExpired = Date.now() - entry.timestamp > ttl;
     if (isExpired) {
       cache.current.delete(key);
-      cacheStatsRef.current.misses++;
-      console.log('⏰ Cache expired for:', studentName);
+      setCacheStats(prev => ({ ...prev, misses: prev.misses + 1 }));
       return null;
     }
 
-    cacheStatsRef.current.hits++;
-    console.log('✅ Cache hit for:', studentName);
+    setCacheStats(prev => ({ ...prev, hits: prev.hits + 1 }));
     return entry.data;
   }, [ttl]);
 
@@ -81,17 +76,13 @@ export const useAssignmentCache = (options: CacheOptions = {}) => {
     }
   }, []);
 
-  const getStats = useCallback(() => {
-    const stats = cacheStatsRef.current;
-    return {
-      hits: stats.hits,
-      misses: stats.misses,
-      size: cache.current.size,
-      hitRate: stats.hits + stats.misses > 0 
-        ? (stats.hits / (stats.hits + stats.misses) * 100).toFixed(1) + '%'
-        : '0%'
-    };
-  }, []);
+  const getStats = useCallback(() => ({
+    ...cacheStats,
+    size: cache.current.size,
+    hitRate: cacheStats.hits + cacheStats.misses > 0 
+      ? (cacheStats.hits / (cacheStats.hits + cacheStats.misses) * 100).toFixed(1) + '%'
+      : '0%'
+  }), [cacheStats]);
 
   return {
     get,

@@ -16,33 +16,13 @@ import { getEffectiveScheduleForDay } from "@/data/allDayEvents";
 import { ErrorFallback } from "@/components/ErrorFallback";
 
 const AbigailDashboard = () => {
-  // STACK TRACE DEBUG - at the VERY top
-  console.trace('🔴 ABIGAIL RENDER STACK TRACE');
-  
-  // RENDER COUNTER DEBUG
-  const renderCount = useRef(0);
-  renderCount.current++;
-  console.log('🔴 ABIGAIL RENDER COUNT:', renderCount.current);
-  
-  // Debugger for excessive renders
-  if (renderCount.current > 10) {
-    debugger; // This will pause execution
-  }
-  
   console.log('🏠 AbigailDashboard rendering...');
   
   try {
     const [searchParams] = useSearchParams();
-    console.log('🔴 ABIGAIL SEARCH PARAMS:', searchParams.toString());
     const dateParam = searchParams.get('date');
     
   const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch, cacheStats, cleanupData } = useAssignments('Abigail');
-  
-  // DISABLED: All automatic fetching to stop auth loop
-  // useEffect(() => {
-  //   console.log('🔴 Manual fetch on mount ONLY for Abigail');
-  //   refetch();
-  // }, []); // Empty deps - runs once only
   const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
   const [criticalError, setCriticalError] = useState<string | null>(null);
@@ -99,10 +79,9 @@ const AbigailDashboard = () => {
     }
   }, [currentDay, formattedDate]);
 
-  // DISABLED: checkEffectiveSchedule effect
-  // useEffect(() => {
-  //   checkEffectiveSchedule();
-  // }, [checkEffectiveSchedule]);
+  useEffect(() => {
+    checkEffectiveSchedule();
+  }, [checkEffectiveSchedule]);
 
   // Use effective schedule or fallback to base schedule
   const todaySchedule = effectiveSchedule || baseTodaySchedule;
@@ -176,43 +155,38 @@ const AbigailDashboard = () => {
     }, [stableGetScheduledAssignment, formattedDate, assignmentBlocks, scheduledAssignments]);
 
 
-  // DISABLED: loadScheduledAssignments effect
-  // useEffect(() => {
-  //   loadScheduledAssignments();
-  // }, [loadScheduledAssignments]);
+  useEffect(() => {
+    loadScheduledAssignments();
+  }, [loadScheduledAssignments]);
 
   // Debounced update handler to prevent rapid successive calls
   const handleEventUpdate = useCallback(() => {
     // Clear cache to force fresh data
     assignmentCacheRef.current = {};
     
-    // DISABLED setTimeout to prevent auth loop
-    // setTimeout(() => {
-    //   checkEffectiveSchedule();
-    //   loadScheduledAssignments();
-    // }, 100);
-    
-    // Direct call instead of setTimeout
-    checkEffectiveSchedule();
-    loadScheduledAssignments();
+    // Use setTimeout to batch updates
+    setTimeout(() => {
+      checkEffectiveSchedule();
+      loadScheduledAssignments();
+    }, 100);
   }, [checkEffectiveSchedule, loadScheduledAssignments]);
 
-    // DISABLED: critical error effect
-    // useEffect(() => {
-    //   if (assignmentsError && !assignments.length && !assignmentsLoading) {
-    //     // Only show critical error if we have no data at all
-    //     const isCritical = assignmentsError.includes('timeout') || 
-    //                       assignmentsError.includes('network') || 
-    //                       assignmentsError.includes('connection') ||
-    //                       !assignmentsError.includes('cached');
-    //     
-    //     if (isCritical) {
-    //       setCriticalError(assignmentsError);
-    //     }
-    //   } else {
-    //     setCriticalError(null);
-    //   }
-    // }, [assignmentsError, assignments.length, assignmentsLoading]);
+    // Handle critical errors that would cause blank pages
+    useEffect(() => {
+      if (assignmentsError && !assignments.length && !assignmentsLoading) {
+        // Only show critical error if we have no data at all
+        const isCritical = assignmentsError.includes('timeout') || 
+                          assignmentsError.includes('network') || 
+                          assignmentsError.includes('connection') ||
+                          !assignmentsError.includes('cached');
+        
+        if (isCritical) {
+          setCriticalError(assignmentsError);
+        }
+      } else {
+        setCriticalError(null);
+      }
+    }, [assignmentsError, assignments.length, assignmentsLoading]);
 
     // Show error fallback for critical errors
     if (criticalError) {

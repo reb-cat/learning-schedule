@@ -10,19 +10,9 @@ import AdminSetup from "./pages/AdminSetup";
 import ParentDashboard from "./pages/ParentDashboard";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-      retry: false,
-    },
-  },
-});
+const queryClient = new QueryClient();
 
 const App = () => {
-  console.log('🔴 APP RENDER', window.location.pathname);
   console.log('🚀 App component is loading...');
   console.log('🔍 Checking if components render...');
   return (
