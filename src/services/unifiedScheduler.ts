@@ -707,3 +707,6 @@ class UnifiedScheduler {
 
 // Export singleton instance
 export const unifiedScheduler = new UnifiedScheduler();
+
+// Make it globally accessible for debugging
+(window as any).unifiedScheduler = unifiedScheduler;
