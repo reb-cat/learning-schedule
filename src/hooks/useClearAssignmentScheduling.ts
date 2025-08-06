@@ -18,11 +18,34 @@ export const useClearAssignmentScheduling = () => {
           .from('assignments')
           .select('id')
           .eq('student_name', studentNameOrIds)
-          .or('scheduled_date.not.is.null,scheduled_block.not.is.null,scheduled_day.not.is.null');
+          .not('scheduled_date', 'is', null);
 
         if (fetchError) throw fetchError;
+
+        const { data: scheduledAssignments2, error: fetchError2 } = await supabase
+          .from('assignments') 
+          .select('id')
+          .eq('student_name', studentNameOrIds)
+          .not('scheduled_block', 'is', null);
+
+        if (fetchError2) throw fetchError2;
+
+        const { data: scheduledAssignments3, error: fetchError3 } = await supabase
+          .from('assignments')
+          .select('id')
+          .eq('student_name', studentNameOrIds)
+          .not('scheduled_day', 'is', null);
+
+        if (fetchError3) throw fetchError3;
+
+        // Combine and deduplicate the results
+        const allScheduledIds = [...new Set([
+          ...(scheduledAssignments || []).map(a => a.id),
+          ...(scheduledAssignments2 || []).map(a => a.id), 
+          ...(scheduledAssignments3 || []).map(a => a.id)
+        ])];
         
-        if (!scheduledAssignments || scheduledAssignments.length === 0) {
+        if (allScheduledIds.length === 0) {
           return { 
             success: true, 
             data: [], 
@@ -30,21 +53,42 @@ export const useClearAssignmentScheduling = () => {
           };
         }
 
-        assignmentIdsToUpdate = scheduledAssignments.map(a => a.id);
+        assignmentIdsToUpdate = allScheduledIds;
       } else {
         // No parameter - find all scheduled assignments
         const { data: scheduledAssignments, error: fetchError } = await supabase
           .from('assignments')
           .select('id')
-          .or('scheduled_date.not.is.null,scheduled_block.not.is.null,scheduled_day.not.is.null');
+          .not('scheduled_date', 'is', null);
 
         if (fetchError) throw fetchError;
-        
-        if (!scheduledAssignments || scheduledAssignments.length === 0) {
+
+        const { data: scheduledAssignments2, error: fetchError2 } = await supabase
+          .from('assignments') 
+          .select('id')
+          .not('scheduled_block', 'is', null);
+
+        if (fetchError2) throw fetchError2;
+
+        const { data: scheduledAssignments3, error: fetchError3 } = await supabase
+          .from('assignments')
+          .select('id') 
+          .not('scheduled_day', 'is', null);
+
+        if (fetchError3) throw fetchError3;
+
+        // Combine and deduplicate the results
+        const allScheduledIds = [...new Set([
+          ...(scheduledAssignments || []).map(a => a.id),
+          ...(scheduledAssignments2 || []).map(a => a.id), 
+          ...(scheduledAssignments3 || []).map(a => a.id)
+        ])];
+
+        if (allScheduledIds.length === 0) {
           return { success: true, data: [], message: 'No assignments with scheduling data found' };
         }
 
-        assignmentIdsToUpdate = scheduledAssignments.map(a => a.id);
+        assignmentIdsToUpdate = allScheduledIds;
       }
 
       const { data, error } = await supabase
