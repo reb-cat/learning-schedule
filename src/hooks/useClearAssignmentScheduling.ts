@@ -9,7 +9,7 @@ export const useClearAssignmentScheduling = () => {
       .from('assignments')
       .select('id, title, scheduled_date, scheduled_block, scheduled_day')
       .eq('student_name', studentName)
-      .or('scheduled_date.is.not.null,scheduled_block.is.not.null,scheduled_day.is.not.null');
+      .or('scheduled_date.not.is.null,scheduled_block.not.is.null,scheduled_day.not.is.null');
 
     if (error) {
       throw error;
