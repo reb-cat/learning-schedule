@@ -333,7 +333,13 @@ export class BlockSharingScheduler {
       const dayName = format(date, 'EEEE');
       const dateStr = format(date, 'yyyy-MM-dd');
       
-      console.log(`📅 Processing day ${day}: ${dayName} ${dateStr}`);
+      console.log(`📅 Processing day ${day}: ${dayName} ${dateStr}`, {
+        today: today.toISOString(),
+        addDaysResult: date.toISOString(),
+        dayOffset: day,
+        startDay,
+        todaysBlocksPassed
+      });
       
       // Skip weekends
       if (dayName === 'Saturday' || dayName === 'Sunday') continue;
