@@ -45,9 +45,11 @@ export function SystemStatusCard({ showDetails = false, onStatusClick }: SystemS
   };
 
   useEffect(() => {
+    console.log('🔧 SystemStatusCard useEffect - DISABLED to debug auth loop');
     fetchSystemStatus();
-    const interval = setInterval(fetchSystemStatus, 60000); // Update every minute
-    return () => clearInterval(interval);
+    // TEMPORARILY DISABLED - DEBUGGING AUTH LOOP
+    // const interval = setInterval(fetchSystemStatus, 60000); // Update every minute
+    // return () => clearInterval(interval);
   }, []);
 
   const getStatusBadge = (status: string) => {
