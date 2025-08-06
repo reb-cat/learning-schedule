@@ -22,6 +22,16 @@ const KhalilDashboard = () => {
   const dateParam = searchParams.get('date');
   
   const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch, cleanupData } = useAssignments('Khalil');
+  
+  // Listen for assignment clearing events
+  useEffect(() => {
+    const handleAssignmentsCleared = () => {
+      refetch();
+    };
+    
+    window.addEventListener('assignmentsCleared', handleAssignmentsCleared);
+    return () => window.removeEventListener('assignmentsCleared', handleAssignmentsCleared);
+  }, [refetch]);
   const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
   const [criticalError, setCriticalError] = useState<string | null>(null);

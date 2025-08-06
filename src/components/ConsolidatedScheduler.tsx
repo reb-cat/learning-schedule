@@ -630,6 +630,8 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
                     });
                   }
                   
+                  // Trigger refresh event for dashboards
+                  window.dispatchEvent(new CustomEvent('assignmentsCleared'));
                   onSchedulingComplete?.();
                 } catch (error) {
                   toast({
