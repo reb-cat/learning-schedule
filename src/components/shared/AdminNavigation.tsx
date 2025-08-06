@@ -1,6 +1,5 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Settings, Users, ChevronRight } from 'lucide-react';
@@ -14,40 +13,37 @@ export function AdminNavigation() {
   const isAdminActive = currentPath === '/admin';
 
   return (
-    <Card className="mb-6">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Administration</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-4">
-          <Button 
-            variant={isParentActive ? "default" : "outline"}
-            onClick={() => navigate('/parent')}
-            className="flex items-center gap-2"
-          >
-            <Users className="h-4 w-4" />
-            Parent Dashboard
-            {isParentActive && <Badge variant="secondary" className="ml-2">Current</Badge>}
-          </Button>
-          
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          
-          <Button 
-            variant={isAdminActive ? "default" : "outline"}
-            onClick={() => navigate('/admin')}
-            className="flex items-center gap-2"
-          >
-            <Settings className="h-4 w-4" />
-            Technical Admin
-            {isAdminActive && <Badge variant="secondary" className="ml-2">Current</Badge>}
-          </Button>
-        </div>
+    <div className="flex items-center justify-between mb-4 pb-2 border-b">
+      <div className="flex items-center gap-2 text-sm">
+        <Button 
+          variant={isParentActive ? "default" : "ghost"}
+          size="sm"
+          onClick={() => navigate('/parent')}
+          className="h-7 px-2 text-xs"
+        >
+          <Users className="h-3 w-3 mr-1" />
+          Parent
+          {isParentActive && <Badge variant="secondary" className="ml-1 text-xs px-1">Current</Badge>}
+        </Button>
         
-        <div className="mt-3 text-sm text-muted-foreground">
-          {isParentActive && "Monitor student progress and manage daily tasks"}
-          {isAdminActive && "System operations, diagnostics, and technical controls"}
-        </div>
-      </CardContent>
-    </Card>
+        <ChevronRight className="h-3 w-3 text-muted-foreground" />
+        
+        <Button 
+          variant={isAdminActive ? "default" : "ghost"}
+          size="sm"
+          onClick={() => navigate('/admin')}
+          className="h-7 px-2 text-xs"
+        >
+          <Settings className="h-3 w-3 mr-1" />
+          Admin
+          {isAdminActive && <Badge variant="secondary" className="ml-1 text-xs px-1">Current</Badge>}
+        </Button>
+      </div>
+      
+      <div className="text-xs text-muted-foreground">
+        {isParentActive && "Student progress & task management"}
+        {isAdminActive && "System operations & diagnostics"}
+      </div>
+    </div>
   );
 }
