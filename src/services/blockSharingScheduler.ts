@@ -322,10 +322,18 @@ export class BlockSharingScheduler {
     const today = startDate || new Date();
     const timeToCheck = currentTime || new Date();
     
-    for (let day = 0; day < daysAhead; day++) {
+    // Check if all today's blocks have passed and we should start from tomorrow
+    const todaysBlocksPassed = allTodaysBlocksPassed(studentName, scheduleData, timeToCheck);
+    const startDay = todaysBlocksPassed ? 1 : 0; // Start from tomorrow if today's blocks passed
+    
+    console.log(`📅 Block scheduling: ${todaysBlocksPassed ? 'All today\'s blocks passed, starting from tomorrow' : 'Starting from today'}`);
+    
+    for (let day = startDay; day < daysAhead + startDay; day++) {
       const date = addDays(today, day);
       const dayName = format(date, 'EEEE');
       const dateStr = format(date, 'yyyy-MM-dd');
+      
+      console.log(`📅 Processing day ${day}: ${dayName} ${dateStr}`);
       
       // Skip weekends
       if (dayName === 'Saturday' || dayName === 'Sunday') continue;
@@ -333,8 +341,8 @@ export class BlockSharingScheduler {
       // Get the actual schedule for this student and day
       let daySchedule = getScheduleForStudentAndDay(studentName, dayName);
       
-      // Apply time awareness: filter out past blocks for today
-      if (day === 0) { // Only filter for today
+      // Apply time awareness: filter out past blocks only for today (day 0)
+      if (day === 0 && !todaysBlocksPassed) { // Only filter for today if we're starting from today
         daySchedule = filterPastBlocks(daySchedule, timeToCheck);
         console.log(`⏰ Time awareness: Filtered out past blocks for today (${dayName}). Remaining: ${daySchedule.length} blocks`);
       }
