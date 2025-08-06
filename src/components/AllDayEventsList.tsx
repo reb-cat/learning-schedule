@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Trash2, Edit3 } from 'lucide-react';
-import { format, parseISO, isToday, isFuture } from 'date-fns';
+import { format, parseISO, isToday, isFuture, parse } from 'date-fns';
 import { getAllDayEventsForDate, AllDayEvent } from '@/data/allDayEvents';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -93,7 +93,7 @@ export function AllDayEventsList({ studentName, selectedDate, onEventUpdate }: A
     return null;
   }
 
-  const dateObj = parseISO(selectedDate);
+  const dateObj = parse(selectedDate, 'yyyy-MM-dd', new Date());
   const isDateToday = isToday(dateObj);
   const isDateFuture = isFuture(dateObj);
 
@@ -127,7 +127,7 @@ export function AllDayEventsList({ studentName, selectedDate, onEventUpdate }: A
                   </div>
                   
                   <div className="text-xs text-muted-foreground mb-1">
-                    {format(parseISO(event.event_date), "EEEE, MMMM d, yyyy")}
+                    {format(parse(event.event_date, 'yyyy-MM-dd', new Date()), "EEEE, MMMM d, yyyy")}
                   </div>
                   
                   {event.description && (
