@@ -319,24 +319,33 @@ export class BlockSharingScheduler {
     // Use real schedule data instead of mock data
     const { getScheduleForStudentAndDay } = await import('../data/scheduleData');
     const blocks: BlockComposition[] = [];
-    const today = startDate || new Date();
-    // Ensure we're working with local date, not UTC
-    const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    // If after 8 PM, force tomorrow as starting date
+    let effectiveStartDate = startDate || new Date();
+    if (!startDate && currentHour >= 20) {
+      effectiveStartDate = new Date();
+      effectiveStartDate.setDate(effectiveStartDate.getDate() + 1);
+      effectiveStartDate.setHours(0, 0, 0, 0);
+      console.log(`🌙 After 8 PM: Forcing start date to tomorrow ${effectiveStartDate.toDateString()}`);
+    }
+    
     const timeToCheck = currentTime || new Date();
     
     // Check if all today's blocks have passed and we should start from tomorrow
-    const todaysBlocksPassed = allTodaysBlocksPassed(studentName, scheduleData, timeToCheck);
+    const todaysBlocksPassed = allTodaysBlocksPassed(studentName, scheduleData, timeToCheck) || currentHour >= 20;
     const startDay = todaysBlocksPassed ? 1 : 0; // Start from tomorrow if today's blocks passed
     
     console.log(`📅 Block scheduling: ${todaysBlocksPassed ? 'All today\'s blocks passed, starting from tomorrow' : 'Starting from today'}`);
     
     for (let day = startDay; day < daysAhead + startDay; day++) {
-      const date = addDays(localToday, day);
+      const date = addDays(effectiveStartDate, day);
       const dayName = format(date, 'EEEE');
       const dateStr = format(date, 'yyyy-MM-dd');
       
       console.log(`📅 Processing day ${day}: ${dayName} ${dateStr}`, {
-        today: today.toISOString(),
+        effectiveStartDate: effectiveStartDate.toISOString(),
         addDaysResult: date.toISOString(),
         dayOffset: day,
         startDay,
