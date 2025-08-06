@@ -25,10 +25,10 @@ export function ParentTasksSection({ tasks, onTaskComplete }: ParentTasksSection
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'secondary'; // Changed from destructive to secondary for admin tasks
-      case 'medium': return 'outline';
-      case 'low': return 'outline';
-      default: return 'outline';
+      case 'high': return 'bg-orange-500 text-white';
+      case 'medium': return 'bg-yellow-500 text-black';
+      case 'low': return 'bg-blue-500 text-white';
+      default: return 'bg-blue-500 text-white';
     }
   };
 
@@ -63,7 +63,7 @@ export function ParentTasksSection({ tasks, onTaskComplete }: ParentTasksSection
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-medium text-foreground">{task.title}</span>
-                  <Badge variant={getPriorityColor(task.priority)} className="text-xs">
+                  <Badge className={`text-xs ${getPriorityColor(task.priority)}`}>
                     {task.priority}
                   </Badge>
                 </div>

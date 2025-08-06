@@ -91,13 +91,13 @@ export function EditableAdministrativeNotification({
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
-        return 'secondary'; // Changed from destructive to secondary for admin tasks
+        return 'bg-orange-500 text-white';
       case 'medium':
-        return 'outline';
+        return 'bg-yellow-500 text-black';
       case 'low':
-        return 'outline';
+        return 'bg-blue-500 text-white';
       default:
-        return 'outline';
+        return 'bg-blue-500 text-white';
     }
   };
 
@@ -148,7 +148,7 @@ export function EditableAdministrativeNotification({
           
           <div className="flex items-center gap-1">
             <div className="flex flex-col items-end gap-1">
-              <Badge variant={getPriorityColor(notification.priority)}>
+              <Badge className={`${getPriorityColor(notification.priority)}`}>
                 {notification.priority}
               </Badge>
               {notification.amount && (

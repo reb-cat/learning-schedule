@@ -52,13 +52,13 @@ export const CoopAdministrativeChecklist: React.FC<CoopAdministrativeChecklistPr
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
-        return 'secondary'; // Changed from destructive to secondary for admin tasks
+        return 'bg-orange-500 text-white';
       case 'medium':
-        return 'outline';
+        return 'bg-yellow-500 text-black';
       case 'low':
-        return 'outline';
+        return 'bg-blue-500 text-white';
       default:
-        return 'outline';
+        return 'bg-blue-500 text-white';
     }
   };
 
