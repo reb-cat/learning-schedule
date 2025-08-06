@@ -320,6 +320,8 @@ export class BlockSharingScheduler {
     const { getScheduleForStudentAndDay } = await import('../data/scheduleData');
     const blocks: BlockComposition[] = [];
     const today = startDate || new Date();
+    // Ensure we're working with local date, not UTC
+    const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const timeToCheck = currentTime || new Date();
     
     // Check if all today's blocks have passed and we should start from tomorrow
@@ -329,7 +331,7 @@ export class BlockSharingScheduler {
     console.log(`📅 Block scheduling: ${todaysBlocksPassed ? 'All today\'s blocks passed, starting from tomorrow' : 'Starting from today'}`);
     
     for (let day = startDay; day < daysAhead + startDay; day++) {
-      const date = addDays(today, day);
+      const date = addDays(localToday, day);
       const dayName = format(date, 'EEEE');
       const dateStr = format(date, 'yyyy-MM-dd');
       
