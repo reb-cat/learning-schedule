@@ -256,27 +256,6 @@ const ParentDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                Split Assignment Cleanup
-                <Button 
-                  onClick={handleFixSplitAssignments}
-                  disabled={cleaningUp}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <Database size={16} />
-                  {cleaningUp ? 'Cleaning...' : 'Fix Split Assignments'}
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Clean up duplicate split assignment parts and mark originals as complete if any part is done.
-              </p>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Smart Scheduling Preview */}

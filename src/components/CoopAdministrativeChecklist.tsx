@@ -52,13 +52,13 @@ export const CoopAdministrativeChecklist: React.FC<CoopAdministrativeChecklistPr
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
-        return 'destructive';
+        return 'secondary'; // Changed from destructive to secondary for admin tasks
       case 'medium':
-        return 'secondary';
+        return 'outline';
       case 'low':
         return 'outline';
       default:
-        return 'secondary';
+        return 'outline';
     }
   };
 
@@ -172,33 +172,35 @@ export const CoopAdministrativeChecklist: React.FC<CoopAdministrativeChecklistPr
           </div>
         )}
 
-        {/* Completed Tasks */}
+        {/* Completed Tasks - Show collapsed recent completions */}
         {completedNotifications.length > 0 && (
-          <div className="space-y-3">
-            <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-              Recently Completed
-            </h4>
-            {completedNotifications.slice(0, 3).map((notification) => (
-              <div 
-                key={notification.id}
-                className="flex items-start gap-3 p-3 rounded-lg border border-border bg-muted/30"
-              >
-                <CheckCircle className="h-5 w-5 text-primary mt-1" />
-                
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    {getTypeIcon(notification.notification_type)}
-                    <span className="font-medium line-through text-muted-foreground">
-                      {notification.title}
-                    </span>
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Completed: {formatDate(notification.completed_at)}
+          <details className="space-y-3">
+            <summary className="font-medium text-sm text-muted-foreground uppercase tracking-wide cursor-pointer hover:text-foreground transition-colors">
+              Recently Completed ({completedNotifications.length})
+            </summary>
+            <div className="space-y-2 mt-3">
+              {completedNotifications.slice(0, 5).map((notification) => (
+                <div 
+                  key={notification.id}
+                  className="flex items-start gap-3 p-2 rounded-lg border border-border bg-muted/20 text-sm"
+                >
+                  <CheckCircle className="h-4 w-4 text-primary mt-0.5" />
+                  
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      {getTypeIcon(notification.notification_type)}
+                      <span className="font-medium line-through text-muted-foreground text-sm">
+                        {notification.title}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Completed: {formatDate(notification.completed_at)}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </details>
         )}
         
         <AddAdministrativeTaskForm onAdd={handleAddTask} />
