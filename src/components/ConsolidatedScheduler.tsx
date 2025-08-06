@@ -56,7 +56,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const { toast } = useToast();
-  const { clearScheduling } = useClearAssignmentScheduling();
+  const { clearScheduling, getScheduledAssignments, isClearing } = useClearAssignmentScheduling();
 
   const getDaysAhead = useCallback(() => {
     switch (dateRange) {
@@ -459,11 +459,22 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
             <Button 
               onClick={async () => {
                 try {
-                  await clearScheduling(['20b60480-f710-491b-b782-3fbafb9f81b1', 'c5994b9d-d762-47df-9384-611a29a0e851']);
-                  toast({
-                    title: "Scheduling Cleared",
-                    description: "Manual assignments are now available for scheduling.",
-                  });
+                  const result = await clearScheduling(selectedStudent === 'Both' ? 'Abigail' : selectedStudent);
+                  
+                  if (selectedStudent === 'Both') {
+                    const khalilResult = await clearScheduling('Khalil');
+                    toast({
+                      title: "Cleared Scheduling",
+                      description: `${result.message} and ${khalilResult.message}`
+                    });
+                  } else {
+                    toast({
+                      title: "Cleared Scheduling", 
+                      description: result.message
+                    });
+                  }
+                  
+                  onSchedulingComplete?.();
                 } catch (error) {
                   toast({
                     title: "Error",
@@ -474,8 +485,16 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
               }}
               variant="outline"
               size="sm"
+              disabled={isClearing}
             >
-              Clear Manual Assignment Scheduling
+              {isClearing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Clearing...
+                </>
+              ) : (
+                `Clear ${selectedStudent} Assignment Scheduling`
+              )}
             </Button>
           </div>
 
