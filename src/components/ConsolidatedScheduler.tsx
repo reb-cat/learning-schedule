@@ -25,6 +25,7 @@ import { unifiedScheduler, UnifiedSchedulingResult, SchedulerOptions } from "@/s
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays } from 'date-fns';
 import { cn } from "@/lib/utils";
+import { useClearAssignmentScheduling } from "@/hooks/useClearAssignmentScheduling";
 
 interface ConsolidatedSchedulerProps {
   onSchedulingComplete?: () => void;
@@ -44,6 +45,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const { toast } = useToast();
+  const { clearScheduling } = useClearAssignmentScheduling();
 
   const getDaysAhead = useCallback(() => {
     switch (dateRange) {
@@ -85,6 +87,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
     try {
       const options: SchedulerOptions = {
         daysAhead: getDaysAhead(),
+        startDate: dateRange === 'custom' && customDate ? customDate : new Date(),
         previewOnly: true,
         includeAdminTasks,
         autoExecute: false
@@ -138,6 +141,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
     try {
       const options: SchedulerOptions = {
         daysAhead: getDaysAhead(),
+        startDate: dateRange === 'custom' && customDate ? customDate : new Date(),
         previewOnly: false,
         includeAdminTasks,
         autoExecute: true
@@ -373,6 +377,31 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
               </Popover>
             </div>
           )}
+
+          {/* Clear Scheduling Button */}
+          <div className="border-t pt-4">
+            <Button 
+              onClick={async () => {
+                try {
+                  await clearScheduling(['20b60480-f710-491b-b782-3fbafb9f81b1', 'c5994b9d-d762-47df-9384-611a29a0e851']);
+                  toast({
+                    title: "Scheduling Cleared",
+                    description: "Manual assignments are now available for scheduling.",
+                  });
+                } catch (error) {
+                  toast({
+                    title: "Error",
+                    description: "Failed to clear assignment scheduling.",
+                    variant: "destructive"
+                  });
+                }
+              }}
+              variant="outline"
+              size="sm"
+            >
+              Clear Manual Assignment Scheduling
+            </Button>
+          </div>
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-2">

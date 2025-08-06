@@ -77,10 +77,20 @@ class UnifiedScheduler {
 
     try {
       // Use the robust block sharing scheduler as the foundation
+      // For custom dates, calculate target date instead of days ahead
+      let targetStartDate = startDate;
+      let targetDaysAhead = daysAhead;
+      
+      if (options.startDate && options.startDate !== startDate) {
+        targetStartDate = options.startDate;
+        // When using a custom date, we want to schedule for that specific date
+        targetDaysAhead = 1;
+      }
+      
       const blockSharingResult = await blockSharingScheduler.analyzeAndSchedule(
         studentName, 
-        daysAhead, 
-        startDate
+        targetDaysAhead, 
+        targetStartDate
       );
 
       // Transform the result to our unified format
