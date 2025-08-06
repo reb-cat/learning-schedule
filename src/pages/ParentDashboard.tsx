@@ -3,16 +3,15 @@ import { useAssignments } from '@/hooks/useAssignments';
 import { AlertBanner } from '@/components/AlertBanner';
 import { StudentSection } from '@/components/StudentSection';
 import { ManualAssignmentForm } from '@/components/ManualAssignmentForm';
-import { startOfWeek, endOfWeek, addWeeks, isWithinInterval } from 'date-fns';
-
-import { EditableAssignment } from '@/components/EditableAssignment';
 import { CoopAdministrativeChecklist } from '@/components/CoopAdministrativeChecklist';
 import { AdminNavigation } from '@/components/shared/AdminNavigation';
 import { SystemStatusCard } from '@/components/shared/SystemStatusCard';
 import { SharedSchedulerService } from '@/components/shared/SharedSchedulerService';
+import { useAdministrativeNotifications } from '@/hooks/useAdministrativeNotifications';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Calendar } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Calendar, CheckSquare } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -25,6 +24,9 @@ const ParentDashboard = () => {
   // Fetch assignments for both students
   const { assignments: abigailAssignments, loading: abigailLoading, refetch: refetchAbigail, forceRefresh: forceRefreshAbigail } = useAssignments('Abigail');
   const { assignments: khalilAssignments, loading: khalilLoading, refetch: refetchKhalil, forceRefresh: forceRefreshKhalil } = useAssignments('Khalil');
+  
+  // Fetch administrative notifications for badge count
+  const { notifications } = useAdministrativeNotifications();
   
   // Filter function to remove split assignments - only show parent assignments
   const filterParentAssignments = (assignments: any[]) => {
@@ -50,42 +52,9 @@ const ParentDashboard = () => {
 
 
 
-  // Extended assignment filtering - shows next 2 weeks (parent assignments only)
-  const getWeeklyAssignments = (assignments: any[]) => {
-    // Filter to only show parent assignments (no split parts)
-    const parentAssignments = filterParentAssignments(assignments);
-    const now = new Date();
-    
-    // Define current week boundaries (Monday to Friday)
-    const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const currentWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    
-    // Always show next week assignments (extended from Friday-only)
-    const nextWeekStart = addWeeks(currentWeekStart, 1);
-    const nextWeekEnd = addWeeks(currentWeekEnd, 1);
-    
-    const currentWeekAssignments: any[] = [];
-    const nextWeekAssignments: any[] = [];
-    
-    parentAssignments.forEach(assignment => {
-      if (!assignment.due_date) return;
-      const dueDate = new Date(assignment.due_date);
-      
-      // Check if assignment falls in current week
-      if (isWithinInterval(dueDate, { start: currentWeekStart, end: currentWeekEnd })) {
-        currentWeekAssignments.push(assignment);
-      }
-      // Check if assignment falls in next week (always show now)
-      else if (isWithinInterval(dueDate, { start: nextWeekStart, end: nextWeekEnd })) {
-        nextWeekAssignments.push(assignment);
-      }
-    });
-    
-    return { currentWeekAssignments, nextWeekAssignments, showNextWeek: true };
-  };
 
-  const abigailWeeklyData = getWeeklyAssignments(abigailAssignments);
-  const khalilWeeklyData = getWeeklyAssignments(khalilAssignments);
+  // Calculate pending admin tasks count for badge
+  const pendingTasksCount = notifications.filter(notification => !notification.completed).length;
 
 
   return (
@@ -102,10 +71,19 @@ const ParentDashboard = () => {
 
         {/* Main Tabs */}
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               Student Overview
+            </TabsTrigger>
+            <TabsTrigger value="admin-tasks" className="flex items-center gap-2">
+              <CheckSquare className="h-4 w-4" />
+              Admin Tasks
+              {pendingTasksCount > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">
+                  {pendingTasksCount}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="scheduling" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
@@ -148,91 +126,14 @@ const ParentDashboard = () => {
               />
             </div>
 
-            {/* Assignment Management - Weekly view */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Abigail's Upcoming Assignments</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* This Week Section */}
-                  {abigailWeeklyData.currentWeekAssignments.length > 0 && (
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">This Week</h4>
-                      {abigailWeeklyData.currentWeekAssignments.map((assignment) => (
-                        <EditableAssignment 
-                          key={assignment.id} 
-                          assignment={assignment} 
-                          onUpdate={handleAssignmentAdded}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Next Week Preview */}
-                  {abigailWeeklyData.showNextWeek && abigailWeeklyData.nextWeekAssignments.length > 0 && (
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Next Week Preview</h4>
-                      {abigailWeeklyData.nextWeekAssignments.map((assignment) => (
-                        <EditableAssignment 
-                          key={assignment.id} 
-                          assignment={assignment} 
-                          onUpdate={handleAssignmentAdded}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* No assignments message */}
-                  {abigailWeeklyData.currentWeekAssignments.length === 0 && 
-                   (!abigailWeeklyData.showNextWeek || abigailWeeklyData.nextWeekAssignments.length === 0) && (
-                    <p className="text-muted-foreground text-center py-4">No upcoming assignments this week</p>
-                  )}
-                </CardContent>
-              </Card>
+          </TabsContent>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Khalil's Upcoming Assignments</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* This Week Section */}
-                  {khalilWeeklyData.currentWeekAssignments.length > 0 && (
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">This Week</h4>
-                      {khalilWeeklyData.currentWeekAssignments.map((assignment) => (
-                        <EditableAssignment 
-                          key={assignment.id} 
-                          assignment={assignment} 
-                          onUpdate={handleAssignmentAdded}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Next Week Preview */}
-                  {khalilWeeklyData.showNextWeek && khalilWeeklyData.nextWeekAssignments.length > 0 && (
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Next Week Preview</h4>
-                      {khalilWeeklyData.nextWeekAssignments.map((assignment) => (
-                        <EditableAssignment 
-                          key={assignment.id} 
-                          assignment={assignment} 
-                          onUpdate={handleAssignmentAdded}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* No assignments message */}
-                  {khalilWeeklyData.currentWeekAssignments.length === 0 && 
-                   (!khalilWeeklyData.showNextWeek || khalilWeeklyData.nextWeekAssignments.length === 0) && (
-                    <p className="text-muted-foreground text-center py-4">No upcoming assignments this week</p>
-                  )}
-                </CardContent>
-              </Card>
+          <TabsContent value="admin-tasks" className="space-y-6">
+            <div className="text-center space-y-2 mb-6">
+              <h2 className="text-2xl font-bold">Administrative Tasks</h2>
+              <p className="text-muted-foreground">Manage fees, forms, and administrative requirements</p>
             </div>
-
+            
             {/* Co-op Administrative Checklists */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <CoopAdministrativeChecklist studentName="Abigail" />
