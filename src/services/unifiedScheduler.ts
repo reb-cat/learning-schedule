@@ -491,13 +491,22 @@ class UnifiedScheduler {
   }
 
   /**
-   * Format date as YYYY-MM-DD string
+   * Format date as YYYY-MM-DD string using date-fns to avoid timezone issues
    */
   private formatDateString(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const result = format(date, 'yyyy-MM-dd');
+    
+    // Debug logging to track the date formatting issue
+    console.log('📅 formatDateString Debug:', {
+      inputDate: date.toISOString(),
+      inputLocalString: date.toString(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      timezoneOffset: date.getTimezoneOffset(),
+      formattedResult: result,
+      manualFormat: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    });
+    
+    return result;
   }
 
   /**
