@@ -71,6 +71,50 @@ export function filterPastBlocks(
 }
 
 /**
+ * Auto-adjust date range when all blocks for selected date have passed
+ */
+export function getAdjustedDateRange(
+  selectedRange: string,
+  selectedDate: Date | null,
+  currentTime: Date = new Date()
+): { adjustedRange: string; adjustedDate: Date | null; needsAdjustment: boolean } {
+  const hours = currentTime.getHours();
+  
+  // After 8 PM, suggest tomorrow for "today" selections
+  if (hours >= 20 && selectedRange === 'today') {
+    const tomorrow = new Date(currentTime);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return {
+      adjustedRange: 'custom',
+      adjustedDate: tomorrow,
+      needsAdjustment: true
+    };
+  }
+  
+  // If custom date is today and all blocks have passed, suggest tomorrow
+  if (selectedRange === 'custom' && selectedDate) {
+    const today = format(currentTime, 'yyyy-MM-dd');
+    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+    
+    if (selectedDateStr === today && hours >= 20) {
+      const tomorrow = new Date(currentTime);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return {
+        adjustedRange: 'custom',
+        adjustedDate: tomorrow,
+        needsAdjustment: true
+      };
+    }
+  }
+  
+  return {
+    adjustedRange: selectedRange,
+    adjustedDate: selectedDate,
+    needsAdjustment: false
+  };
+}
+
+/**
  * Check if all today's assignment blocks have passed
  */
 export function allTodaysBlocksPassed(

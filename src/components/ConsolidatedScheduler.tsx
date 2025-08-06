@@ -29,7 +29,8 @@ import { useClearAssignmentScheduling } from "@/hooks/useClearAssignmentScheduli
 import { 
   getSmartDefaultRange, 
   shouldRestrictToFutureDates, 
-  getCurrentTimeDisplay 
+  getCurrentTimeDisplay,
+  getAdjustedDateRange
 } from "@/utils/timeAwareness";
 
 interface ConsolidatedSchedulerProps {
@@ -41,11 +42,15 @@ type StudentOption = 'Abigail' | 'Khalil' | 'Both';
 
 export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSchedulerProps) {
   const [selectedStudent, setSelectedStudent] = useState<StudentOption>('Abigail');
-  const [dateRange, setDateRange] = useState<DateRangeOption>(getSmartDefaultRange());
+  const [dateRange, setDateRange] = useState<DateRangeOption>(() => {
+    const now = new Date();
+    return getSmartDefaultRange(now);
+  });
   const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
   const [includeAdminTasks, setIncludeAdminTasks] = useState(true);
   const [previewOnly, setPreviewOnly] = useState(false);
   const [currentTime] = useState(new Date()); // Capture current time when component loads
+  const [showDateAdjustmentSuggestion, setShowDateAdjustmentSuggestion] = useState(false);
   
   const [result, setResult] = useState<UnifiedSchedulingResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -90,7 +95,22 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
 
   const handleAnalyze = useCallback(async () => {
     setIsAnalyzing(true);
+    setShowDateAdjustmentSuggestion(false);
+    
     try {
+      // Check if date adjustment is needed
+      const { adjustedRange, adjustedDate, needsAdjustment } = getAdjustedDateRange(
+        dateRange, 
+        customDate, 
+        currentTime
+      );
+      
+      if (needsAdjustment) {
+        setShowDateAdjustmentSuggestion(true);
+        setIsAnalyzing(false);
+        return;
+      }
+      
       const options: SchedulerOptions = {
         daysAhead: getDaysAhead(),
         startDate: dateRange === 'custom' && customDate ? customDate : new Date(),
@@ -289,6 +309,51 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
           <p className="text-sm text-muted-foreground">Configure your scheduling preferences</p>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Current Time Display */}
+          <div className="p-3 bg-secondary/50 rounded-lg border">
+            <div className="text-sm font-medium text-secondary-foreground">
+              Current Time: {getCurrentTimeDisplay(currentTime)}
+            </div>
+            {shouldRestrictToFutureDates(currentTime) && (
+              <div className="text-xs text-orange-600 mt-1">
+                ⚠️ After 8 PM - Future dates recommended
+              </div>
+            )}
+          </div>
+
+          {/* Date Adjustment Suggestion */}
+          {showDateAdjustmentSuggestion && (
+            <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <div className="text-sm font-medium text-orange-800 mb-2">
+                📅 Date Adjustment Suggested
+              </div>
+              <div className="text-xs text-orange-700 mb-3">
+                It's after 8 PM and all today's blocks have likely passed. Consider scheduling for tomorrow instead.
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  onClick={() => {
+                    const tomorrow = new Date(currentTime);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    setDateRange('custom');
+                    setCustomDate(tomorrow);
+                    setShowDateAdjustmentSuggestion(false);
+                  }}
+                >
+                  Switch to Tomorrow
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => setShowDateAdjustmentSuggestion(false)}
+                >
+                  Continue with Today
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Main Controls Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Student Selector */}

@@ -151,6 +151,19 @@ export class BlockSharingScheduler {
       const availableBlocks = await this.getAvailableBlocks(studentName, daysAhead, today, currentTime);
       console.log('Available blocks:', availableBlocks.length);
       
+      // Check if no blocks are available due to time restrictions
+      if (availableBlocks.length === 0) {
+        const timeWarning = generatePassedBlocksWarning(studentName, scheduleData, currentTime || new Date());
+        const warnings = timeWarning ? [timeWarning] : ['No available blocks found for the selected time period.'];
+        
+        return {
+          academic_blocks: [],
+          administrative_tasks: administrativeTasks,
+          unscheduled_tasks: [...academicTasks, ...quickReviewTasks],
+          warnings
+        };
+      }
+      
       // 3. Schedule academic tasks into available blocks
       const scheduledBlocks = await this.scheduleAcademicTasks(academicTasks, availableBlocks);
       console.log('After academic scheduling, blocks with tasks:', scheduledBlocks.filter(b => b.tasks.length > 0).length);
