@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Play, Database, Plus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { cleanupSplitAssignments } from "@/utils/splitAssignmentCleanup";
+// Split assignment cleanup removed - using continuation system now
 
 
 const ParentDashboard = () => {
@@ -90,34 +90,7 @@ const ParentDashboard = () => {
     }
   };
 
-  const handleCleanupSplitAssignments = async () => {
-    setCleaningUp(true);
-    try {
-      // Clean up both students
-      const abigailResult = await cleanupSplitAssignments('Abigail');
-      const khalilResult = await cleanupSplitAssignments('Khalil');
-      
-      const totalCleaned = abigailResult.cleaned + khalilResult.cleaned;
-      const allErrors = [...abigailResult.errors, ...khalilResult.errors];
-      
-      if (totalCleaned > 0) {
-        toast.success(`Cleaned up ${totalCleaned} split assignment(s)!`);
-        handleAssignmentAdded(); // Refresh data
-      } else {
-        toast.info("No split assignments needed cleanup");
-      }
-      
-      if (allErrors.length > 0) {
-        console.warn('Cleanup errors:', allErrors);
-        toast.warning(`Cleanup completed with ${allErrors.length} warning(s) - check console`);
-      }
-    } catch (error) {
-      console.error('Split assignment cleanup failed:', error);
-      toast.error("Cleanup failed. Check console for details.");
-    } finally {
-      setCleaningUp(false);
-    }
-  };
+  // Split assignment cleanup removed - using continuation system now
 
   // Extended assignment filtering - shows next 2 weeks
   const getWeeklyAssignments = (assignments: any[]) => {
@@ -204,7 +177,7 @@ const ParentDashboard = () => {
         </div>
 
         {/* Control Panel */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -248,27 +221,7 @@ const ParentDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                Split Assignment Cleanup
-                <Button 
-                  onClick={handleCleanupSplitAssignments}
-                  disabled={cleaningUp}
-                  variant="secondary"
-                  className="flex items-center gap-2"
-                >
-                  <Database size={16} />
-                  {cleaningUp ? 'Cleaning...' : 'Fix Split Assignments'}
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Mark parent assignments as complete when all split parts are finished. Fixes stale "at risk" alerts.
-              </p>
-            </CardContent>
-          </Card>
+          {/* Split assignment controls removed - using continuation system now */}
         </div>
 
         {/* Smart Scheduling Preview */}

@@ -15,10 +15,9 @@ export const AlertBanner = ({ abigailAssignments, khalilAssignments }: AlertBann
   const getAllCriticalAlerts = () => {
     const allAssignments = [...abigailAssignments, ...khalilAssignments];
     
-    // Filter out split assignment parts - only track the parent assignments
-    const trackableAssignments = allAssignments.filter(assignment => 
-      !assignment.is_split_assignment || !assignment.parent_assignment_id
-    );
+    // With continuation logic, we don't have split assignments anymore
+    // All assignments are standalone records
+    const trackableAssignments = allAssignments;
     
     const blocked = trackableAssignments.filter(assignment => 
       assignment.urgency === 'overdue' && 

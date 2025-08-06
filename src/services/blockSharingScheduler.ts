@@ -361,67 +361,31 @@ export class BlockSharingScheduler {
           console.log(`  ❌ No suitable block found for task`);
         }
       } else {
-        console.log(`  🔄 Task too large (${task.estimated_time} > 45 min) - splitting across multiple blocks`);
-        this.splitAndScheduleTask(task, updatedBlocks);
+        console.log(`  📅 Task too large (${task.estimated_time} > 45 min) - scheduling as continuation`);
+        this.scheduleTaskContinuation(task, updatedBlocks);
       }
     }
     
     return updatedBlocks;
   }
 
-  private splitAndScheduleTask(task: TaskClassification, blocks: BlockComposition[]): void {
+  private scheduleTaskContinuation(task: TaskClassification, blocks: BlockComposition[]): void {
     const maxBlockTime = 45;
     const totalTime = task.estimated_time;
-    const numberOfParts = Math.ceil(totalTime / maxBlockTime);
     
-    console.log(`  🔄 Splitting task \"${task.title}\" (${totalTime} min) into ${numberOfParts} parts`);
+    console.log(`  📅 Scheduling continuation for \"${task.title}\" (${totalTime} min) across multiple blocks`);
     
-    // SEQUENTIAL SPLIT SCHEDULING: Find consecutive available blocks
-    const availableBlocks = blocks
-      .filter(block => this.getRemainingMinutes(block) >= 15) // At least 15 minutes
-      .sort((a, b) => {
-        // Sort by date first, then by block number (sequential order)
-        if (a.date !== b.date) {
-          return new Date(a.date).getTime() - new Date(b.date).getTime();
-        }
-        return a.block_number - b.block_number;
-      });
+    // Find the best first block for this task
+    const bestBlock = this.findBestBlockForTask(task, blocks);
     
-    let remainingTime = totalTime;
-    let partNumber = 1;
-    let scheduledParts = 0;
-    
-    // Try to place split parts in sequential blocks
-    for (const block of availableBlocks) {
-      if (remainingTime <= 0 || partNumber > numberOfParts) break;
-      
-      const timeForThisPart = Math.min(remainingTime, maxBlockTime);
-      
-      const taskPart: TaskClassification = {
-        ...task,
-        id: task.id, // Keep original ID for database operations
-        title: `${task.title} (Part ${partNumber}/${numberOfParts})`,
-        estimated_time: timeForThisPart,
-        parent_assignment_id: task.id,
-        is_split_assignment: true,
-        split_part_number: partNumber,
-        total_split_parts: numberOfParts
-      };
-      
-      console.log(`    📝 Creating part ${partNumber}: ${timeForThisPart} min`);
-      
-      if (this.canFitInBlock(taskPart, block)) {
-        console.log(`    ✅ Scheduled part ${partNumber} in Block ${block.block_number} on ${block.day}`);
-        this.addTaskToBlock(taskPart, block);
-        remainingTime -= timeForThisPart;
-        partNumber++;
-        scheduledParts++;
-      } else {
-        console.log(`    ❌ Could not fit part ${partNumber} in Block ${block.block_number} - checking next block`);
-      }
+    if (bestBlock) {
+      // Schedule the original task in the first available block
+      // The task will continue in subsequent blocks until marked complete
+      this.addTaskToBlock(task, bestBlock);
+      console.log(`  ✅ Scheduled continuation starting in Block ${bestBlock.block_number} on ${bestBlock.day}`);
+    } else {
+      console.log(`  ❌ No suitable block found for continuation of "${task.title}"`);
     }
-    
-    console.log(`  📊 Split task result: ${scheduledParts}/${numberOfParts} parts scheduled, ${remainingTime} min remaining`);
   }
 
   private async addQuickReviewTasks(

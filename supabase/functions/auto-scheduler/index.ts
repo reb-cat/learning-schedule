@@ -262,41 +262,51 @@ function getIntelligentTimeEstimate(assignment: any): number {
   return assignment.actual_estimated_minutes || assignment.estimated_time_minutes || 45;
 }
 
-// Split large assignments into multiple parts
-async function createSplitAssignment(assignment: any, parts: number, stagingMode: boolean = false): Promise<string[]> {
+// Schedule assignment continuation across multiple blocks if needed
+async function scheduleAssignmentContinuation(assignment: any, availableBlocks: any[], stagingMode: boolean = false): Promise<boolean> {
   const assignmentsTable = stagingMode ? 'assignments_staging' : 'assignments';
-  const splitIds = [];
   const estimatedMinutes = assignment.actual_estimated_minutes || assignment.estimated_time_minutes || 45;
-  const minutesPerPart = Math.ceil(estimatedMinutes / parts);
+  const maxBlockTime = 45; // Standard block length
   
-  for (let i = 1; i <= parts; i++) {
-    const { data, error } = await supabase
+  // If assignment fits in one block, schedule normally
+  if (estimatedMinutes <= maxBlockTime) {
+    return false; // Let normal scheduling handle this
+  }
+  
+  console.log(`📅 Scheduling continuation for "${assignment.title}" (${estimatedMinutes} min) across multiple blocks`);
+  
+  // Find consecutive available blocks for continuation
+  let remainingMinutes = estimatedMinutes;
+  let blocksUsed = 0;
+  
+  for (const block of availableBlocks) {
+    if (remainingMinutes <= 0) break;
+    
+    // Schedule the same assignment in this block
+    const { error } = await supabase
       .from(assignmentsTable)
-      .insert({
-        student_name: assignment.student_name,
-        title: `${assignment.title} (Part ${i}/${parts})`,
-        course_name: assignment.course_name,
-        subject: assignment.subject,
-        due_date: assignment.due_date,
-        estimated_time_minutes: minutesPerPart,
-        actual_estimated_minutes: minutesPerPart,
-        cognitive_load: assignment.cognitive_load,
-        category: assignment.category,
-        task_type: assignment.task_type,
-        is_split_assignment: true,
-        split_part_number: i,
-        total_split_parts: parts,
-        parent_assignment_id: assignment.id,
-        priority: assignment.priority,
-        eligible_for_scheduling: true
+      .update({
+        scheduled_block: block.block,
+        scheduled_date: block.date,
+        scheduled_day: block.day,
+        estimated_time_minutes: Math.min(remainingMinutes, maxBlockTime)
       })
-      .select('id')
-      .single();
+      .eq('id', assignment.id);
       
     if (error) {
-      console.error(`❌ Error creating split assignment part ${i}:`, error);
-      continue;
+      console.error(`❌ Error scheduling continuation:`, error);
+      return false;
     }
+    
+    remainingMinutes -= maxBlockTime;
+    blocksUsed++;
+    
+    console.log(`✅ Scheduled "${assignment.title}" in Block ${block.block} on ${block.day} (${blocksUsed} blocks used)`);
+    
+    // For continuation scheduling, we only need to set the first block
+    // The assignment will appear in student's schedule until marked complete
+    return true;
+  }
     
     splitIds.push(data.id);
   }
