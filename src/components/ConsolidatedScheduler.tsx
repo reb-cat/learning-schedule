@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,7 @@ import {
   getCurrentTimeDisplay,
   getAdjustedDateRange
 } from "@/utils/timeAwareness";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ConsolidatedSchedulerProps {
   onSchedulingComplete?: () => void;
@@ -99,20 +100,46 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
     setResult(null);
     
     try {
-      // Time awareness check - force tomorrow if all today's blocks have passed
       const now = new Date();
       const currentHour = now.getHours();
+      const currentMinutes = now.getMinutes();
+      
+      // DEBUG: Log all time-related calculations
+      console.log('=== TIME DEBUG ===');
+      console.log('Current time:', now.toLocaleString());
+      console.log('Selected dateRange:', dateRange);
+      console.log('Custom date:', customDate);
+      console.log('Current hour:', currentHour);
+      console.log('Current minutes:', currentMinutes);
+      
+      // Check what getDaysAhead is actually returning
+      const calculatedDaysAhead = getDaysAhead();
+      console.log('Days ahead calculated:', calculatedDaysAhead);
+      
+      // Check what date the scheduler will actually target
+      const targetDate = new Date();
+      if (dateRange === 'custom' && customDate) {
+        console.log('Using custom date:', customDate.toDateString());
+      } else {
+        targetDate.setDate(targetDate.getDate() + calculatedDaysAhead - 1);
+        console.log('Target date will be:', targetDate.toDateString());
+      }
+      
+      // Time awareness check - force tomorrow if all today's blocks have passed
       let actualRange = dateRange;
       let actualCustomDate = customDate;
       let forceTimeAwareness = false;
       
       // If it's after 8 PM and user selected "Today Only", force to tomorrow
       if (currentHour >= 20 && dateRange === 'today') {
+        console.log('AFTER 8PM - Forcing tomorrow');
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         actualCustomDate = tomorrow;
         actualRange = 'custom';
         forceTimeAwareness = true;
+        
+        console.log('Forced tomorrow date:', tomorrow.toDateString());
         
         toast({
           title: "Time Awareness Active",
@@ -129,7 +156,10 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
           currentTime
         );
         
+        console.log('Date adjustment check:', { adjustedRange, adjustedDate, needsAdjustment });
+        
         if (needsAdjustment) {
+          console.log('Date adjustment needed - showing suggestion');
           setShowDateAdjustmentSuggestion(true);
           setIsAnalyzing(false);
           return;
@@ -157,14 +187,20 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
         }
       };
       
+      const finalDaysAhead = getDaysAheadForRange(actualRange, actualCustomDate);
+      console.log('Final days ahead:', finalDaysAhead);
+      
       const options: SchedulerOptions = {
-        daysAhead: getDaysAheadForRange(actualRange, actualCustomDate),
+        daysAhead: finalDaysAhead,
         startDate: actualRange === 'custom' && actualCustomDate ? actualCustomDate : new Date(),
         previewOnly: true,
         includeAdminTasks,
         autoExecute: false,
         currentTime // Pass current time for time awareness
       };
+      
+      console.log('Final scheduler options:', options);
+      console.log('=== END TIME DEBUG ===');
 
       let schedulingResult: UnifiedSchedulingResult;
       
@@ -191,6 +227,16 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
         schedulingResult = await unifiedScheduler.analyzeAndSchedule(selectedStudent, options);
       }
 
+      // DEBUG: Log what the scheduler actually returned
+      console.log('=== SCHEDULER RESULTS DEBUG ===');
+      console.log('Results:', schedulingResult);
+      if (schedulingResult.decisions) {
+        schedulingResult.decisions.forEach(decision => {
+          console.log(`Assignment: ${decision.assignment.title} -> ${decision.targetDate} Block ${decision.targetBlock}`);
+        });
+      }
+      console.log('=== END SCHEDULER RESULTS DEBUG ===');
+
       setResult(schedulingResult);
 
       toast({
@@ -207,7 +253,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
     } finally {
       setIsAnalyzing(false);
     }
-  }, [selectedStudent, dateRange, customDate, includeAdminTasks, currentTime, toast]);
+  }, [selectedStudent, dateRange, customDate, includeAdminTasks, currentTime, getDaysAhead, toast]);
 
   const handleAutoSchedule = useCallback(async () => {
     setIsAnalyzing(true);
@@ -345,6 +391,40 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
       return acc;
     }, { high: 0, medium: 0, low: 0 });
   }, [result?.decisions]);
+
+  
+  // Debug function for all-day events
+  const debugAllDayEvents = useCallback(async () => {
+    console.log('=== ALL-DAY EVENTS DEBUG ===');
+    
+    const { data: events, error } = await supabase
+      .from('all_day_events')
+      .select('*')
+      .order('event_date');
+      
+    if (error) {
+      console.error('Error fetching all-day events:', error);
+      return;
+    }
+    
+    events?.forEach(event => {
+      console.log(`Event: ${event.event_title}`);
+      console.log(`  Database date: ${event.event_date}`);
+      console.log(`  Created: ${event.created_at}`);
+      
+      // Check what day this date actually represents
+      const eventDate = new Date(event.event_date + 'T00:00:00');
+      console.log(`  Parsed as: ${eventDate.toDateString()}`);
+      console.log(`  Day of week: ${eventDate.getDay()} (0=Sunday, 1=Monday, etc.)`);
+    });
+    
+    console.log('=== END ALL-DAY EVENTS DEBUG ===');
+  }, []);
+
+  // Call debug function on component mount
+  useEffect(() => {
+    debugAllDayEvents();
+  }, [debugAllDayEvents]);
 
   return (
     <div className="space-y-6">
