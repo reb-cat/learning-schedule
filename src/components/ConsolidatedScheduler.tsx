@@ -676,7 +676,10 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
             </Button>
 
             <Button 
-              onClick={handleAutoSchedule} 
+              onClick={() => {
+                console.log('🚨 BUTTON CLICKED - RAW EVENT');
+                handleAutoSchedule();
+              }}
               disabled={isAnalyzing || isExecuting}
               className="flex-1"
             >
