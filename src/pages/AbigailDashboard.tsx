@@ -42,6 +42,13 @@ const AbigailDashboard = () => {
     
   const dateDisplay = format(displayDate, "EEEE, MMMM d, yyyy");
   const formattedDate = format(displayDate, 'yyyy-MM-dd');
+  
+  console.log('=== DASHBOARD DATE DEBUG ===');
+  console.log('Date param:', dateParam);
+  console.log('Display date:', displayDate);
+  console.log('Formatted date being passed to AllDayEventsList:', formattedDate);
+  console.log('Date display string:', dateDisplay);
+  console.log('=== END DASHBOARD DATE DEBUG ===');
   const currentDay = format(displayDate, "EEEE");
   const isWeekend = currentDay === "Saturday" || currentDay === "Sunday";
   const baseTodaySchedule = getScheduleForStudentAndDay("Abigail", currentDay);

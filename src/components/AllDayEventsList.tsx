@@ -32,9 +32,15 @@ export function AllDayEventsList({ studentName, selectedDate, onEventUpdate }: A
   const loadEvents = async () => {
     if (!selectedDate) return;
     
+    console.log('=== ALLDAY EVENTS DATE DEBUG ===');
+    console.log('Selected date received:', selectedDate);
+    console.log('Current actual date:', new Date().toISOString().split('T')[0]);
+    console.log('Today is:', format(new Date(), 'EEEE, MMMM d, yyyy'));
+    
     setLoading(true);
     try {
       const eventsData = await getAllDayEventsForDate(studentName, selectedDate);
+      console.log('Events loaded for date', selectedDate, ':', eventsData);
       setEvents(eventsData);
     } catch (error) {
       console.error('Error loading all-day events:', error);
@@ -127,7 +133,7 @@ export function AllDayEventsList({ studentName, selectedDate, onEventUpdate }: A
                   </div>
                   
                   <div className="text-xs text-muted-foreground mb-1">
-                    {format(parse(event.event_date, 'yyyy-MM-dd', new Date()), "EEEE, MMMM d, yyyy")}
+                    Database: {event.event_date} | Display: {format(parse(event.event_date, 'yyyy-MM-dd', new Date()), "EEEE, MMMM d, yyyy")}
                   </div>
                   
                   {event.description && (
