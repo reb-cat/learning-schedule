@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAssignmentCache } from './useAssignmentCache';
 import { useMemoryManager } from './useMemoryManager';
 import { useDataValidator } from './useDataValidator';
+import { useGlobalAssignmentStore } from './useGlobalAssignmentStore';
 import { DataCleanupService } from '@/services/dataCleanupService';
 import { IntelligentInference } from '@/services/intelligentInference';
 
@@ -54,22 +55,47 @@ export interface Assignment {
 }
 
 export const useAssignments = (studentName: string) => {
+  console.log('🔄 useAssignments rendering for:', studentName, new Date().toISOString());
+  
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastFetch, setLastFetch] = useState<number>(0);
+  const lastFetchRef = useRef<number>(0);
   const cache = useAssignmentCache();
+  const globalStore = useGlobalAssignmentStore();
   const memoryManager = useMemoryManager({ maxCacheSize: 25, gcThreshold: 75 });
   const dataValidator = useDataValidator();
 
   const fetchAssignments = useCallback(async (forceRefresh = false) => {
+    console.log('🔴 FETCH CALLED - manual only mode for:', studentName);
     try {
+      // Check for pending requests first to prevent duplicates
+      if (!forceRefresh && globalStore.hasPendingRequest(studentName)) {
+        console.log(`⏳ Waiting for pending request for ${studentName}`);
+        const pendingResult = await globalStore.getPendingRequest(studentName);
+        if (pendingResult) {
+          setAssignments(pendingResult);
+          setLoading(false);
+          return;
+        }
+      }
+
       // Check cache first unless forcing refresh
       if (!forceRefresh) {
         const cachedData = cache.get(studentName);
         if (cachedData) {
           console.log(`📋 Using cached assignments for ${studentName}`);
           setAssignments(cachedData);
+          setLoading(false);
+          return;
+        }
+        
+        // Check global store for very fresh data
+        const globalData = globalStore.get(studentName);
+        if (globalData) {
+          console.log(`🌐 Using global store data for ${studentName}`);
+          setAssignments(globalData);
+          cache.set(studentName, globalData);
           setLoading(false);
           return;
         }
@@ -80,12 +106,20 @@ export const useAssignments = (studentName: string) => {
       
       console.log(`🔍 Fetching assignments from assignments table for ${studentName}`);
       
-      // Add retry logic for network issues
-      const maxRetries = 3;
-      let lastError: Error | null = null;
-      
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
+      // Create promise for deduplication
+      const fetchPromise = (async (): Promise<Assignment[]> => {
+        // Add retry logic for network issues
+        const maxRetries = 3;
+        let lastError: Error | null = null;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+          // GUARD: Prevent database calls to stop auth loop
+          if (typeof window !== 'undefined' && (window as any).SAFE_MODE) {
+            console.log('🛡️ SAFE MODE: Skipping database call');
+            return [];
+          }
+          
           const query = supabase
             .from('assignments')
             .select('*')
@@ -106,33 +140,41 @@ export const useAssignments = (studentName: string) => {
             IntelligentInference.applyInferenceToAssignment(assignment)
           );
           
-          // Update cache and state
+          // Update global store, cache and state
+          globalStore.set(studentName, assignmentData);
           cache.set(studentName, assignmentData);
           setAssignments(assignmentData);
-          setLastFetch(Date.now());
+          lastFetchRef.current = Date.now();
           
-          return;
-        } catch (err) {
-          lastError = err instanceof Error ? err : new Error('Unknown error');
-          console.warn(`Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
-          
-          if (attempt < maxRetries) {
-            // Exponential backoff
-            await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+          return assignmentData;
+          } catch (err) {
+            lastError = err instanceof Error ? err : new Error('Unknown error');
+            console.warn(`Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
+            
+            if (attempt < maxRetries) {
+              // Exponential backoff
+              await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+            }
           }
         }
-      }
+        
+        // All retries failed - use cached data if available instead of failing completely
+        const cachedData = cache.get(studentName);
+        if (cachedData && cachedData.length > 0) {
+          console.warn('Using stale cached data due to fetch failure');
+          setAssignments(cachedData);
+          setError('Using cached data - connection issues detected');
+          return cachedData;
+        }
+        
+        throw lastError || new Error('Failed to fetch assignments after retries');
+      })();
       
-      // All retries failed - use cached data if available instead of failing completely
-      const cachedData = cache.get(studentName);
-      if (cachedData && cachedData.length > 0) {
-        console.warn('Using stale cached data due to fetch failure');
-        setAssignments(cachedData);
-        setError('Using cached data - connection issues detected');
-        return;
-      }
+      // Set as pending request for deduplication
+      globalStore.setPendingRequest(studentName, fetchPromise);
       
-      throw lastError || new Error('Failed to fetch assignments after retries');
+      // Await the result
+      const result = await fetchPromise;
     } catch (err) {
       console.error('Error fetching assignments:', err);
       
@@ -150,7 +192,7 @@ export const useAssignments = (studentName: string) => {
     } finally {
       setLoading(false);
     }
-  }, [studentName, cache]);
+  }, [studentName, cache, globalStore]);
 
   const getScheduledAssignment = useCallback(async (block: number, date: string) => {
     // Add retry logic for scheduled assignments too
@@ -220,16 +262,27 @@ export const useAssignments = (studentName: string) => {
   // Smart refresh logic - only fetch if data is stale or dependencies changed
   const shouldRefresh = useMemo(() => {
     const now = Date.now();
-    const dataAge = now - lastFetch;
+    const dataAge = now - lastFetchRef.current;
     const isStale = dataAge > 2 * 60 * 1000; // 2 minutes
-    return isStale || lastFetch === 0;
-  }, [lastFetch]);
+    const shouldRefreshValue = isStale || lastFetchRef.current === 0;
+    console.log('🔍 shouldRefresh check:', { studentName, isStale, dataAge, shouldRefreshValue });
+    return shouldRefreshValue;
+  }, [studentName]);
 
-  useEffect(() => {
-    if (shouldRefresh) {
-      fetchAssignments();
-    }
-  }, [fetchAssignments, shouldRefresh]);
+  // DISABLED: Comment out all automatic useEffects to stop loops
+  // useEffect(() => {
+  //   console.log('🔄 useEffect triggered:', { studentName, shouldRefresh });
+  //   if (shouldRefresh) {
+  //     console.log('📡 Starting fetchAssignments for:', studentName);
+  //     fetchAssignments();
+  //   }
+  //   
+  //   // Cleanup on unmount
+  //   return () => {
+  //     console.log('🧹 Cleaning up useAssignments for:', studentName);
+  //     globalStore.clear(studentName);
+  //   };
+  // }, [fetchAssignments, shouldRefresh, studentName, globalStore]);
 
   // Invalidate cache when needed
   const invalidateCache = useCallback(() => {

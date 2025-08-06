@@ -19,53 +19,57 @@ export function BackgroundScheduler({ studentName, onSchedulingComplete }: Backg
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!isActive) return;
+    console.log('🔧 BackgroundScheduler useEffect - DISABLED to debug auth loop');
+    // TEMPORARILY DISABLED - DEBUGGING AUTH LOOP
+    // This setInterval was causing the authentication loop by running every 30 minutes
+    
+    // if (!isActive) return;
 
-    const runScheduler = async () => {
-      try {
-        console.log('🤖 Background scheduler running...');
+    // const runScheduler = async () => {
+    //   try {
+    //     console.log('🤖 Background scheduler running...');
         
-        // Run scheduling for specified student or both students
-        const students = studentName ? [studentName] : ['Abigail', 'Khalil'];
-        let totalScheduled = 0;
+    //     // Run scheduling for specified student or both students
+    //     const students = studentName ? [studentName] : ['Abigail', 'Khalil'];
+    //     let totalScheduled = 0;
         
-        for (const student of students) {
-          const result = await unifiedScheduler.analyzeAndSchedule(student, {
-            autoExecute: true,
-            daysAhead: 7
-          });
-          totalScheduled += result.stats.scheduledTasks;
-        }
+    //     for (const student of students) {
+    //       const result = await unifiedScheduler.analyzeAndSchedule(student, {
+    //         autoExecute: true,
+    //         daysAhead: 7
+    //       });
+    //       totalScheduled += result.stats.scheduledTasks;
+    //     }
         
-        setScheduledCount(totalScheduled);
-        setLastRun(new Date());
+    //     setScheduledCount(totalScheduled);
+    //     setLastRun(new Date());
         
-        if (totalScheduled > 0) {
-          toast({
-            title: "Scheduling Complete",
-            description: `Scheduled ${totalScheduled} assignments automatically`,
-          });
-          onSchedulingComplete?.();
-        }
+    //     if (totalScheduled > 0) {
+    //       toast({
+    //         title: "Scheduling Complete",
+    //         description: `Scheduled ${totalScheduled} assignments automatically`,
+    //       });
+    //       onSchedulingComplete?.();
+    //     }
         
-      } catch (error) {
-        console.error('Background scheduler error:', error);
-        toast({
-          title: "Scheduling Error",
-          description: "Background scheduler encountered an error",
-          variant: "destructive"
-        });
-      }
-    };
+    //   } catch (error) {
+    //     console.error('Background scheduler error:', error);
+    //     toast({
+    //       title: "Scheduling Error",
+    //       description: "Background scheduler encountered an error",
+    //       variant: "destructive"
+    //     });
+    //   }
+    // };
 
-    // Run immediately, then every 30 minutes
-    runScheduler();
-    const interval = setInterval(runScheduler, 30 * 60 * 1000);
+    // // Run immediately, then every 30 minutes
+    // runScheduler();
+    // const interval = setInterval(runScheduler, 30 * 60 * 1000);
 
-    // Set next run time
-    setNextRun(new Date(Date.now() + 30 * 60 * 1000));
+    // // Set next run time
+    // setNextRun(new Date(Date.now() + 30 * 60 * 1000));
 
-    return () => clearInterval(interval);
+    // return () => clearInterval(interval);
   }, [isActive, studentName, onSchedulingComplete, toast]);
 
   const toggleScheduler = () => {

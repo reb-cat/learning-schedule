@@ -56,19 +56,21 @@ interface State {
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
 const addToRemoveQueue = (toastId: string) => {
-  if (toastTimeouts.has(toastId)) {
-    return
-  }
+  console.log('🔧 Toast timeout - DISABLED to debug auth loop');
+  // TEMPORARILY DISABLED - DEBUGGING AUTH LOOP
+  // if (toastTimeouts.has(toastId)) {
+  //   return
+  // }
 
-  const timeout = setTimeout(() => {
-    toastTimeouts.delete(toastId)
-    dispatch({
-      type: "REMOVE_TOAST",
-      toastId: toastId,
-    })
-  }, TOAST_REMOVE_DELAY)
+  // const timeout = setTimeout(() => {
+  //   toastTimeouts.delete(toastId)
+  //   dispatch({
+  //     type: "REMOVE_TOAST",
+  //     toastId: toastId,
+  //   })
+  // }, TOAST_REMOVE_DELAY)
 
-  toastTimeouts.set(toastId, timeout)
+  // toastTimeouts.set(toastId, timeout)
 }
 
 export const reducer = (state: State, action: Action): State => {

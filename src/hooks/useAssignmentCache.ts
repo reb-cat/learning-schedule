@@ -15,7 +15,9 @@ interface CacheOptions {
 export const useAssignmentCache = (options: CacheOptions = {}) => {
   const { ttl = 5 * 60 * 1000, maxSize = 10 } = options; // 5 minutes default TTL
   const cache = useRef<Map<string, CacheEntry>>(new Map());
-  const [cacheStats, setCacheStats] = useState({ hits: 0, misses: 0 });
+  const cacheStatsRef = useRef({ hits: 0, misses: 0 });
+  
+  console.log('🗄️ useAssignmentCache initialized/re-rendered');
 
   const generateHash = useCallback((data: Assignment[]): string => {
     const hashData = data.map(a => `${a.id}-${a.updated_at}`).join('|');
@@ -27,18 +29,21 @@ export const useAssignmentCache = (options: CacheOptions = {}) => {
     const entry = cache.current.get(key);
     
     if (!entry) {
-      setCacheStats(prev => ({ ...prev, misses: prev.misses + 1 }));
+      cacheStatsRef.current.misses++;
+      console.log('💔 Cache miss for:', studentName);
       return null;
     }
 
     const isExpired = Date.now() - entry.timestamp > ttl;
     if (isExpired) {
       cache.current.delete(key);
-      setCacheStats(prev => ({ ...prev, misses: prev.misses + 1 }));
+      cacheStatsRef.current.misses++;
+      console.log('⏰ Cache expired for:', studentName);
       return null;
     }
 
-    setCacheStats(prev => ({ ...prev, hits: prev.hits + 1 }));
+    cacheStatsRef.current.hits++;
+    console.log('✅ Cache hit for:', studentName);
     return entry.data;
   }, [ttl]);
 
@@ -76,13 +81,17 @@ export const useAssignmentCache = (options: CacheOptions = {}) => {
     }
   }, []);
 
-  const getStats = useCallback(() => ({
-    ...cacheStats,
-    size: cache.current.size,
-    hitRate: cacheStats.hits + cacheStats.misses > 0 
-      ? (cacheStats.hits / (cacheStats.hits + cacheStats.misses) * 100).toFixed(1) + '%'
-      : '0%'
-  }), [cacheStats]);
+  const getStats = useCallback(() => {
+    const stats = cacheStatsRef.current;
+    return {
+      hits: stats.hits,
+      misses: stats.misses,
+      size: cache.current.size,
+      hitRate: stats.hits + stats.misses > 0 
+        ? (stats.hits / (stats.hits + stats.misses) * 100).toFixed(1) + '%'
+        : '0%'
+    };
+  }, []);
 
   return {
     get,
