@@ -72,8 +72,9 @@ class UnifiedScheduler {
     const cacheKey = this.generateCacheKey(studentName, options);
     const cached = this.getCachedResult(cacheKey);
     if (cached && !autoExecute) {
-      console.log('📋 Unified Scheduler: Using cached result');
-      return cached;
+      console.log('📋 Unified Scheduler: Using cached result - invalidating cache for fresh debug');
+      // For debugging, let's skip cache and get fresh data
+      this.invalidateCache(studentName);
     }
 
     try {

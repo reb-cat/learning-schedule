@@ -209,6 +209,8 @@ export class BlockSharingScheduler {
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
     try {
+      console.log(`🔍 SCHEDULER DEBUG: Fetching tasks for ${studentName}`);
+      
       const { data, error } = await supabase
         .from('assignments')
         .select('*')
@@ -221,6 +223,15 @@ export class BlockSharingScheduler {
 
       clearTimeout(timeoutId);
       if (error) throw error;
+      
+      console.log(`📋 SCHEDULER DEBUG: Found ${data?.length || 0} unscheduled tasks:`, 
+        data?.map(d => ({ 
+          title: d.title, 
+          completion_status: d.completion_status, 
+          eligible_for_scheduling: d.eligible_for_scheduling,
+          scheduled_block: d.scheduled_block 
+        }))
+      );
       
       return data.map(assignment => ({
         id: assignment.id,
