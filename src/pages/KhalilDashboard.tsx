@@ -289,7 +289,7 @@ const KhalilDashboard = () => {
                 <div className="space-y-3">
                   {todaySchedule.map((block, index) => (
                     <OptimizedStudentBlockDisplay
-                      key={`${block.block || index}-${formattedDate}`}
+                      key={`block-${index}-${block.block || 'no-block'}-${formattedDate}`}
                       block={block}
                       assignment={block.isAssignmentBlock ? scheduledAssignments[`${block.block}`] : undefined}
                       studentName="Khalil"
