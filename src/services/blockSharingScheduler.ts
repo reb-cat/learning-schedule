@@ -91,21 +91,25 @@ export class BlockSharingScheduler {
     });
   }
 
-  async analyzeAndSchedule(studentName: string, daysAhead: number = 7, startDate?: Date, currentTime?: Date): Promise<SchedulingDecision> {
+  async analyzeAndSchedule(studentName: string, daysAhead: number = 7, startDate?: Date, currentTime?: Date, bypassCache: boolean = false): Promise<SchedulingDecision> {
     try {
-      // Check cache first
+      // Check cache first (unless bypassing)
       const cacheKey = this.generateCacheKey(studentName, daysAhead, startDate);
-      const cached = this.getCachedResult(cacheKey);
-      if (cached) {
-        console.log('Using cached scheduling result for:', studentName);
-        return cached;
+      if (!bypassCache) {
+        const cached = this.getCachedResult(cacheKey);
+        if (cached) {
+          console.log('🎯 CACHE HIT: Using cached scheduling result for:', studentName, 'age:', (Date.now() - this.cache.get(cacheKey)!.timestamp) / 1000, 'seconds');
+          return cached;
+        }
+      } else {
+        console.log('🚫 CACHE BYPASS: Forcing fresh fetch for:', studentName);
       }
 
-      console.log('Starting fresh analyzeAndSchedule for:', studentName, { currentTime: currentTime?.toISOString() });
+      console.log('🔍 CACHE MISS: Starting fresh analyzeAndSchedule for:', studentName, { currentTime: currentTime?.toISOString() });
       
       // 1. Fetch all unscheduled tasks (filter to current timeframe)
       const allTasks = await this.getClassifiedTasks(studentName);
-      console.log('All tasks fetched:', allTasks.length);
+      console.log('📋 Tasks fetched from database:', allTasks.length, allTasks.map(t => ({ title: t.title, due: t.due_date, eligible: 'eligible_for_scheduling' in t ? t.eligible_for_scheduling : 'N/A' })));
       
       // Use provided startDate for testing, otherwise use current date
       const today = startDate || new Date();

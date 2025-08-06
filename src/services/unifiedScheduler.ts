@@ -42,6 +42,8 @@ export interface SchedulerOptions {
   includeAdminTasks?: boolean;
   autoExecute?: boolean;
   currentTime?: Date;
+  bypassCache?: boolean;
+  preview?: boolean;
 }
 
 class UnifiedScheduler {
@@ -593,12 +595,16 @@ class UnifiedScheduler {
       for (const [key] of this.cache) {
         if (key.includes(studentName)) {
           this.cache.delete(key);
+          console.log('🗑️ Unified Scheduler: Deleted cache entry for key:', key);
         }
       }
     } else {
       this.cache.clear();
     }
     console.log(`🗑️ Unified Scheduler: Cache invalidated for ${studentName || 'all students'}`);
+    
+    // Also invalidate the block sharing scheduler cache
+    blockSharingScheduler.invalidateCache(studentName);
   }
 
   private generateCacheKey(studentName: string, options: SchedulerOptions): string {
