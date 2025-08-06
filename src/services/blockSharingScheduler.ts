@@ -622,11 +622,13 @@ export class BlockSharingScheduler {
   }
 
   async executeSchedule(decision: SchedulingDecision): Promise<{ success: boolean; errors: string[]; successCount: number; totalCount: number }> {
+    console.log('🔥🔥🔥 EXECUTE SCHEDULE CALLED 🔥🔥🔥');
     console.log('🚀 BLOCK SHARING SCHEDULER EXECUTION START:', {
       academicBlocks: decision.academic_blocks?.length || 0,
       administrativeTasks: decision.administrative_tasks?.length || 0,
       unscheduledTasks: decision.unscheduled_tasks?.length || 0,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      aboutToUpdateAssignments: 'YES - database updates will happen'
     });
     
     const executionErrors: string[] = [];
