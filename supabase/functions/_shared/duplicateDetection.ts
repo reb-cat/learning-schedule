@@ -111,9 +111,23 @@ export function isDuplicateNotification(
   const newType = normalizeNotificationType(newNotification.notificationType);
   const existingType = normalizeNotificationType(existing.notificationType);
   
-  // Different normalized types = not duplicate
-  if (newType !== existingType) {
+  // Different normalized types = not duplicate (unless both are fees)
+  if (newType !== existingType && !(newType === 'fee' && existingType === 'fee')) {
     return false;
+  }
+  
+  // ENHANCED: For fee types, check for exact match on student + course + amount
+  if (newType === 'fee' && existingType === 'fee') {
+    const hasSameAmount = newNotification.amount && existing.amount && 
+                         Math.abs(newNotification.amount - existing.amount) < 0.01;
+    const hasSameCourse = newNotification.courseName && existing.courseName && 
+                         newNotification.courseName === existing.courseName;
+    
+    // If same student + same course + same amount = definitely duplicate
+    if (hasSameAmount && hasSameCourse) {
+      console.log(`🚨 EXACT DUPLICATE DETECTED: Same student (${newNotification.studentName}), same course (${newNotification.courseName}), same amount ($${newNotification.amount})`);
+      return true;
+    }
   }
   
   // Check course similarity (if both have courses)
