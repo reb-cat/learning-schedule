@@ -22,6 +22,12 @@ const KhalilDashboard = () => {
   const dateParam = searchParams.get('date');
   
   const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch, cacheStats, cleanupData } = useAssignments('Khalil');
+  
+  // NUCLEAR OPTION: Manual fetch only once on mount  
+  useEffect(() => {
+    console.log('🔴 Manual fetch on mount ONLY for Khalil');
+    refetch();
+  }, []); // Empty deps - runs once only
   const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
   const [criticalError, setCriticalError] = useState<string | null>(null);

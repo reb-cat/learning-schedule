@@ -23,6 +23,12 @@ const AbigailDashboard = () => {
     const dateParam = searchParams.get('date');
     
   const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch, cacheStats, cleanupData } = useAssignments('Abigail');
+  
+  // NUCLEAR OPTION: Manual fetch only once on mount
+  useEffect(() => {
+    console.log('🔴 Manual fetch on mount ONLY for Abigail');
+    refetch();
+  }, []); // Empty deps - runs once only
   const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
   const [criticalError, setCriticalError] = useState<string | null>(null);

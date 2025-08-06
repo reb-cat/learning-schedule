@@ -67,6 +67,7 @@ export const useAssignments = (studentName: string) => {
   const dataValidator = useDataValidator();
 
   const fetchAssignments = useCallback(async (forceRefresh = false) => {
+    console.log('🔴 FETCH CALLED - manual only mode for:', studentName);
     try {
       // Check for pending requests first to prevent duplicates
       if (!forceRefresh && globalStore.hasPendingRequest(studentName)) {
@@ -262,19 +263,20 @@ export const useAssignments = (studentName: string) => {
     return shouldRefreshValue;
   }, [studentName]);
 
-  useEffect(() => {
-    console.log('🔄 useEffect triggered:', { studentName, shouldRefresh });
-    if (shouldRefresh) {
-      console.log('📡 Starting fetchAssignments for:', studentName);
-      fetchAssignments();
-    }
-    
-    // Cleanup on unmount
-    return () => {
-      console.log('🧹 Cleaning up useAssignments for:', studentName);
-      globalStore.clear(studentName);
-    };
-  }, [fetchAssignments, shouldRefresh, studentName, globalStore]);
+  // DISABLED: Comment out all automatic useEffects to stop loops
+  // useEffect(() => {
+  //   console.log('🔄 useEffect triggered:', { studentName, shouldRefresh });
+  //   if (shouldRefresh) {
+  //     console.log('📡 Starting fetchAssignments for:', studentName);
+  //     fetchAssignments();
+  //   }
+  //   
+  //   // Cleanup on unmount
+  //   return () => {
+  //     console.log('🧹 Cleaning up useAssignments for:', studentName);
+  //     globalStore.clear(studentName);
+  //   };
+  // }, [fetchAssignments, shouldRefresh, studentName, globalStore]);
 
   // Invalidate cache when needed
   const invalidateCache = useCallback(() => {
