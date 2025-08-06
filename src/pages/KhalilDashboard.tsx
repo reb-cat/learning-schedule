@@ -229,6 +229,7 @@ const KhalilDashboard = () => {
               studentName="Khalil" 
               assignments={assignments} 
               currentDay={currentDay} 
+              hasAllDayEvent={hasAllDayEvent}
             />
 
             {/* All-Day Events List */}

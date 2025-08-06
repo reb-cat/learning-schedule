@@ -225,6 +225,7 @@ const AbigailDashboard = () => {
                 studentName="Abigail" 
                 assignments={assignments} 
                 currentDay={currentDay} 
+                hasAllDayEvent={hasAllDayEvent}
               />
 
               {/* All-Day Events List */}
