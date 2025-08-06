@@ -4,8 +4,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 const Index = () => {
-  // INDEX RENDER DEBUG - SIMPLIFIED TO PREVENT LOOP
-  console.log('📱 Index page render');
+  console.log('📱 Index page is rendering...');
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-6">
       <div className="text-center max-w-md w-full space-y-8">

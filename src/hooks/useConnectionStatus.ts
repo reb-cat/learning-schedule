@@ -13,11 +13,11 @@ export function useConnectionStatus() {
           .from('assignments')
           .select('id')
           .limit(1);
-          
+        
         const connected = !error;
         setIsConnected(connected);
         setLastCheck(new Date());
-          
+        
         if (!connected) {
           console.warn('Supabase connection check failed:', error);
         }

@@ -4,25 +4,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import Index from "./pages/Index";
-import SafeAbigailDashboard from "./pages/SafeAbigailDashboard";
-import SafeKhalilDashboard from "./pages/SafeKhalilDashboard";
+import AbigailDashboard from "./pages/AbigailDashboard";
+import KhalilDashboard from "./pages/KhalilDashboard";
 import AdminSetup from "./pages/AdminSetup";
 import ParentDashboard from "./pages/ParentDashboard";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-      retry: false,
-    },
-  },
-});
+const queryClient = new QueryClient();
 
 const App = () => {
-  console.log('🔴 APP RENDER', window.location.pathname);
   console.log('🚀 App component is loading...');
   console.log('🔍 Checking if components render...');
   return (
@@ -33,8 +23,8 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/abigail" element={<SafeAbigailDashboard />} />
-              <Route path="/khalil" element={<SafeKhalilDashboard />} />
+              <Route path="/abigail" element={<AbigailDashboard />} />
+              <Route path="/khalil" element={<KhalilDashboard />} />
               <Route path="/admin" element={<AdminSetup />} />
               <Route path="/parent" element={<ParentDashboard />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

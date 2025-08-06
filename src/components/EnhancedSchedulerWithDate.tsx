@@ -204,7 +204,7 @@ export function EnhancedSchedulerWithDate({
                         <div>
                           <span className="font-medium">{task.title}</span>
                           <div className="text-sm text-gray-600">
-                            {task.subject || task.course_name} • {task.estimated_time || 'No estimate'} min • Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}
+                            {task.subject || task.course_name} • {task.estimated_time_minutes || 'No estimate'} min • Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}
                           </div>
                         </div>
                         <div className="flex gap-2">

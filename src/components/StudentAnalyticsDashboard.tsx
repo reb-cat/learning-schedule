@@ -49,12 +49,10 @@ export function StudentAnalyticsDashboard({ studentName }: StudentAnalyticsDashb
       });
 
       // Cognitive load distribution
-      const cognitiveLoads: Record<string, number> = {};
-      assignments.forEach(a => {
-        if (a.cognitive_load) {
-          cognitiveLoads[a.cognitive_load] = (cognitiveLoads[a.cognitive_load] || 0) + 1;
-        }
-      });
+      const cognitiveLoads = assignments.reduce((acc, a) => {
+        if (a.cognitive_load) acc[a.cognitive_load] = (acc[a.cognitive_load] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
       
       const heavyLoadPercentage = assignments.length > 0 ? 
         ((cognitiveLoads.heavy || 0) / assignments.length) * 100 : 0;

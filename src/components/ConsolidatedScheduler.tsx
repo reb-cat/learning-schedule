@@ -21,7 +21,8 @@ import {
   Settings,
   Users
 } from "lucide-react";
-import { blockSharingScheduler, SchedulingDecision } from "@/services/blockSharingScheduler";
+import { unifiedScheduler, UnifiedSchedulingResult, SchedulerOptions } from "@/services/unifiedScheduler";
+import { blockSharingScheduler } from "@/services/blockSharingScheduler";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays } from 'date-fns';
 import { cn } from "@/lib/utils";
@@ -54,7 +55,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
   const [currentTime] = useState(new Date()); // Capture current time when component loads
   const [showDateAdjustmentSuggestion, setShowDateAdjustmentSuggestion] = useState(false);
   
-  const [result, setResult] = useState<SchedulingDecision | null>(null);
+  const [result, setResult] = useState<UnifiedSchedulingResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const { toast } = useToast();
@@ -191,42 +192,58 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
       const finalDaysAhead = getDaysAheadForRange(actualRange, actualCustomDate);
       console.log('Final days ahead:', finalDaysAhead);
       
-      const startDate = forceNextDay ? addDays(new Date(), 1) : (actualRange === 'custom' && actualCustomDate ? actualCustomDate : new Date());
+      const options: SchedulerOptions = {
+        daysAhead: finalDaysAhead,
+        startDate: forceNextDay ? addDays(new Date(), 1) : (actualRange === 'custom' && actualCustomDate ? actualCustomDate : new Date()),
+        previewOnly: true,
+        includeAdminTasks,
+        autoExecute: false,
+        currentTime // Pass current time for time awareness
+      };
       
-      console.log('Final scheduler startDate:', startDate);
+      console.log('Final scheduler options:', options);
       console.log('=== END TIME DEBUG ===');
 
-      let schedulingResult: SchedulingDecision;
+      let schedulingResult: UnifiedSchedulingResult;
       
       if (selectedStudent === 'Both') {
-        const abigailResult = await blockSharingScheduler.analyzeAndSchedule('Abigail', finalDaysAhead, startDate, currentTime);
-        const khalilResult = await blockSharingScheduler.analyzeAndSchedule('Khalil', finalDaysAhead, startDate, currentTime);
+        const abigailResult = await unifiedScheduler.analyzeAndSchedule('Abigail', options);
+        const khalilResult = await unifiedScheduler.analyzeAndSchedule('Khalil', options);
         
         schedulingResult = {
-          academic_blocks: [...abigailResult.academic_blocks, ...khalilResult.academic_blocks],
-          administrative_tasks: [...abigailResult.administrative_tasks, ...khalilResult.administrative_tasks],
-          unscheduled_tasks: [...abigailResult.unscheduled_tasks, ...khalilResult.unscheduled_tasks],
-          warnings: [...abigailResult.warnings, ...khalilResult.warnings]
+          ...abigailResult,
+          stats: {
+            ...abigailResult.stats,
+            scheduledTasks: abigailResult.stats.scheduledTasks + khalilResult.stats.scheduledTasks,
+            totalBlocks: abigailResult.stats.totalBlocks + khalilResult.stats.totalBlocks,
+            adminTasks: abigailResult.stats.adminTasks + khalilResult.stats.adminTasks,
+            unscheduledTasks: abigailResult.stats.unscheduledTasks + khalilResult.stats.unscheduledTasks
+          },
+          decisions: [...abigailResult.decisions, ...khalilResult.decisions],
+          warnings: [...abigailResult.warnings, ...khalilResult.warnings],
+          administrativeTasks: [...abigailResult.administrativeTasks, ...khalilResult.administrativeTasks],
+          splitAssignments: [...abigailResult.splitAssignments, ...khalilResult.splitAssignments],
+          unscheduledAssignments: [...abigailResult.unscheduledAssignments, ...khalilResult.unscheduledAssignments]
         };
       } else {
-        schedulingResult = await blockSharingScheduler.analyzeAndSchedule(selectedStudent, finalDaysAhead, startDate, currentTime);
+        schedulingResult = await unifiedScheduler.analyzeAndSchedule(selectedStudent, options);
       }
 
       // DEBUG: Log what the scheduler actually returned
       console.log('=== SCHEDULER RESULTS DEBUG ===');
       console.log('Results:', schedulingResult);
-      schedulingResult.academic_blocks.forEach(block => {
-        block.tasks.forEach(task => {
-          console.log(`Assignment: ${task.assignment.title} -> ${block.date} Block ${block.block_number}`);
+      if (schedulingResult.decisions) {
+        schedulingResult.decisions.forEach(decision => {
+          console.log(`Assignment: ${decision.assignment.title} -> ${decision.targetDate} Block ${decision.targetBlock}`);
         });
-      });
+      }
       console.log('=== END SCHEDULER RESULTS DEBUG ===');
 
       setResult(schedulingResult);
 
       toast({
         title: "Analysis Complete",
-        description: `Found ${schedulingResult.academic_blocks.length} blocks scheduled for ${selectedStudent}.`
+        description: `Found ${schedulingResult.stats.scheduledTasks} assignments to schedule across ${schedulingResult.stats.totalBlocks} blocks for ${selectedStudent}.`
       });
     } catch (error) {
       console.error('❌ Consolidated Scheduler: Analysis failed', error);
@@ -243,26 +260,35 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
   const handleAutoSchedule = useCallback(async () => {
     setIsAnalyzing(true);
     try {
-      const startDate = forceNextDay ? addDays(new Date(), 1) : (dateRange === 'custom' && customDate ? customDate : new Date());
+      const options: SchedulerOptions = {
+        daysAhead: getDaysAhead(),
+        startDate: forceNextDay ? addDays(new Date(), 1) : (dateRange === 'custom' && customDate ? customDate : new Date()),
+        previewOnly: false,
+        includeAdminTasks,
+        autoExecute: true,
+        currentTime // Pass current time for time awareness
+      };
 
-      let schedulingResult: SchedulingDecision;
+      let schedulingResult: UnifiedSchedulingResult;
       
       if (selectedStudent === 'Both') {
-        const abigailResult = await blockSharingScheduler.analyzeAndSchedule('Abigail', getDaysAhead(), startDate, currentTime);
-        const khalilResult = await blockSharingScheduler.analyzeAndSchedule('Khalil', getDaysAhead(), startDate, currentTime);
+        const abigailResult = await unifiedScheduler.analyzeAndSchedule('Abigail', options);
+        const khalilResult = await unifiedScheduler.analyzeAndSchedule('Khalil', options);
         
-        await blockSharingScheduler.executeSchedule(abigailResult);
-        await blockSharingScheduler.executeSchedule(khalilResult);
+        await unifiedScheduler.executeSchedule(abigailResult, 'Abigail');
+        await unifiedScheduler.executeSchedule(khalilResult, 'Khalil');
         
         schedulingResult = {
-          academic_blocks: [...abigailResult.academic_blocks, ...khalilResult.academic_blocks],
-          administrative_tasks: [...abigailResult.administrative_tasks, ...khalilResult.administrative_tasks],
-          unscheduled_tasks: [...abigailResult.unscheduled_tasks, ...khalilResult.unscheduled_tasks],
-          warnings: [...abigailResult.warnings, ...khalilResult.warnings]
+          ...abigailResult,
+          stats: {
+            ...abigailResult.stats,
+            scheduledTasks: abigailResult.stats.scheduledTasks + khalilResult.stats.scheduledTasks,
+            totalBlocks: abigailResult.stats.totalBlocks + khalilResult.stats.totalBlocks
+          }
         };
       } else {
-        schedulingResult = await blockSharingScheduler.analyzeAndSchedule(selectedStudent, getDaysAhead(), startDate, currentTime);
-        await blockSharingScheduler.executeSchedule(schedulingResult);
+        schedulingResult = await unifiedScheduler.analyzeAndSchedule(selectedStudent, options);
+        await unifiedScheduler.executeSchedule(schedulingResult, selectedStudent);
       }
 
       setResult(schedulingResult);
@@ -270,7 +296,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
 
       toast({
         title: "Auto-Schedule Complete!",
-        description: `Successfully scheduled ${schedulingResult.academic_blocks.length} blocks for ${selectedStudent}.`
+        description: `Successfully scheduled ${schedulingResult.stats.scheduledTasks} assignments for ${selectedStudent}.`
       });
     } catch (error) {
       console.error('❌ Auto-schedule failed', error);
@@ -298,7 +324,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
         return;
       }
 
-      await blockSharingScheduler.executeSchedule(result);
+      await unifiedScheduler.executeSchedule(result, selectedStudent);
       onSchedulingComplete?.();
 
       toast({
@@ -336,29 +362,37 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
   };
 
   const groupedDecisions = useMemo(() => {
-    if (!result?.academic_blocks) return [];
+    if (!result?.decisions) return [];
     
-    return result.academic_blocks.map(block => ({
-      date: block.date,
-      assignments: block.tasks.map(task => task.assignment).sort((a, b) => a.title.localeCompare(b.title))
+    const grouped = result.decisions.reduce((acc, decision) => {
+      const dateKey = decision.targetDate;
+      if (!acc[dateKey]) {
+        acc[dateKey] = [];
+      }
+      acc[dateKey].push(decision);
+      return acc;
+    }, {} as Record<string, typeof result.decisions>);
+
+    return Object.entries(grouped).map(([date, decisions]) => ({
+      date,
+      decisions: decisions.sort((a, b) => a.targetBlock - b.targetBlock)
     }));
-  }, [result?.academic_blocks]);
+  }, [result?.decisions]);
 
   const totalMinutes = useMemo(() => {
-    return result?.academic_blocks.reduce((sum, block) => 
-      sum + block.used_minutes, 0
+    return result?.decisions.reduce((sum, decision) => 
+      sum + (decision.assignment.estimated_time_minutes || 0), 0
     ) || 0;
-  }, [result?.academic_blocks]);
+  }, [result?.decisions]);
 
   const urgencyCounts = useMemo(() => {
-    if (!result?.academic_blocks) return { high: 0, medium: 0, low: 0 };
-    const allTasks = result.academic_blocks.flatMap(block => block.tasks.map(task => task.assignment));
-    return allTasks.reduce((acc, assignment) => {
-      const urgency = assignment.urgency || 'medium';
+    if (!result?.decisions) return { high: 0, medium: 0, low: 0 };
+    return result.decisions.reduce((acc, decision) => {
+      const urgency = decision.assignment.urgency || 'medium';
       acc[urgency as keyof typeof acc] = (acc[urgency as keyof typeof acc] || 0) + 1;
       return acc;
     }, { high: 0, medium: 0, low: 0 });
-  }, [result?.academic_blocks]);
+  }, [result?.decisions]);
 
   
   // Debug function for all-day events
@@ -452,11 +486,12 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
               variant="outline"
               size="sm"
               onClick={() => {
-                // Clear scheduler cache
+                // Clear both scheduler caches
+                unifiedScheduler.invalidateCache();
                 blockSharingScheduler.invalidateCache();
                 toast({
                   title: "Cache Cleared",
-                  description: "🗑️ Cache cleared"
+                  description: "🗑️ All caches cleared"
                 });
               }}
             >
@@ -712,11 +747,11 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
               <TabsContent value="summary" className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">{result.academic_blocks.reduce((sum, block) => sum + block.tasks.length, 0)}</div>
+                    <div className="text-2xl font-bold text-blue-600">{result.stats.scheduledTasks}</div>
                     <div className="text-sm text-blue-700">Scheduled Tasks</div>
                   </div>
                   <div className="text-center p-4 bg-green-50 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">{result.academic_blocks.length}</div>
+                    <div className="text-2xl font-bold text-green-600">{result.stats.totalBlocks}</div>
                     <div className="text-sm text-green-700">Time Blocks</div>
                   </div>
                   <div className="text-center p-4 bg-purple-50 rounded-lg">
@@ -744,7 +779,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
               </TabsContent>
 
               <TabsContent value="timeline" className="space-y-4">
-                {groupedDecisions.map(({ date, assignments }) => {
+                {groupedDecisions.map(({ date, decisions }) => {
                   console.log('📅 Timeline Display Debug:', {
                     originalDate: date,
                     parsedDate: new Date(date).toISOString(),
@@ -759,16 +794,17 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
                       {format(new Date(date), 'EEEE, MMM d')}
                     </h4>
                     <div className="space-y-2 ml-6">
-                      {assignments.map((assignment, index) => (
+                      {decisions.map((decision, index) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div className="flex items-center gap-3">
-                            <span className="font-medium">{assignment.title}</span>
-                            <Badge variant={getUrgencyColor(assignment.urgency || 'medium')}>
-                              {assignment.urgency || 'medium'}
+                            <Badge variant="outline">Block {decision.targetBlock}</Badge>
+                            <span className="font-medium">{decision.assignment.title}</span>
+                            <Badge variant={getUrgencyColor(decision.assignment.urgency || 'medium')}>
+                              {decision.assignment.urgency || 'medium'}
                             </Badge>
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {assignment.estimated_time}min
+                            {decision.assignment.estimated_time_minutes}min
                           </div>
                         </div>
                       ))}
@@ -779,41 +815,40 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
               </TabsContent>
 
               <TabsContent value="details" className="space-y-4">
-                {result.academic_blocks.flatMap(block => 
-                  block.tasks.map((task, index) => (
-                    <div key={`${block.date}-${index}`} className="p-4 border rounded-lg space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">{task.assignment.title}</h4>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={getUrgencyColor(task.assignment.urgency || 'medium')}>
-                            {task.assignment.urgency || 'medium'}
-                          </Badge>
-                          <Badge variant={getCognitiveLoadColor(task.assignment.cognitive_load || 'medium')}>
-                            <Brain className="w-3 h-3 mr-1" />
-                            {task.assignment.cognitive_load || 'medium'}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="text-sm text-muted-foreground grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <span><Clock className="w-3 h-3 inline mr-1" />{task.assignment.estimated_time}min</span>
-                        <span>Block {block.block_number}</span>
-                        <span>{format(new Date(block.date), 'MMM d')}</span>
-                        <span>{task.assignment.course_name}</span>
+                {result.decisions.map((decision, index) => (
+                  <div key={index} className="p-4 border rounded-lg space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">{decision.assignment.title}</h4>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={getUrgencyColor(decision.assignment.urgency || 'medium')}>
+                          {decision.assignment.urgency || 'medium'}
+                        </Badge>
+                        <Badge variant={getCognitiveLoadColor(decision.assignment.cognitive_load || 'medium')}>
+                          <Brain className="w-3 h-3 mr-1" />
+                          {decision.assignment.cognitive_load || 'medium'}
+                        </Badge>
                       </div>
                     </div>
-                  ))
-                )}
+                    <div className="text-sm text-muted-foreground grid grid-cols-2 md:grid-cols-4 gap-2">
+                      <span><Clock className="w-3 h-3 inline mr-1" />{decision.assignment.estimated_time_minutes}min</span>
+                      <span>Block {decision.targetBlock}</span>
+                      <span>{format(new Date(decision.targetDate), 'MMM d')}</span>
+                      <span>{decision.assignment.course_name}</span>
+                    </div>
+                    <p className="text-sm">{decision.reasoning}</p>
+                  </div>
+                ))}
               </TabsContent>
 
               <TabsContent value="admin" className="space-y-4">
-                {result.administrative_tasks && result.administrative_tasks.length > 0 ? (
-                  result.administrative_tasks.map((task, index) => (
+                {result.administrativeTasks && result.administrativeTasks.length > 0 ? (
+                  result.administrativeTasks.map((task, index) => (
                     <div key={index} className="p-4 border rounded-lg bg-amber-50 border-amber-200">
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-medium text-amber-900">{task.title}</h4>
                         <Badge variant="secondary">{task.priority || 'medium'}</Badge>
                       </div>
-                      <p className="text-sm text-amber-800">Administrative task</p>
+                      <p className="text-sm text-amber-800">{task.notes || 'Administrative task'}</p>
                       {task.due_date && (
                         <p className="text-xs text-amber-700 mt-1">
                           Due: {format(new Date(task.due_date), 'MMM d, yyyy')}
