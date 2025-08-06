@@ -27,6 +27,7 @@ const KhalilDashboard = () => {
   const [criticalError, setCriticalError] = useState<string | null>(null);
   const [effectiveSchedule, setEffectiveSchedule] = useState<any[] | null>(null);
   const [hasAllDayEvent, setHasAllDayEvent] = useState<boolean | null>(null);
+  const [isCheckingAllDayEvent, setIsCheckingAllDayEvent] = useState(true);
   const loadingRef = useRef(false);
   const assignmentCacheRef = useRef<{[key: string]: any}>({});
   
@@ -47,6 +48,7 @@ const KhalilDashboard = () => {
 
   // Check for all-day events and get effective schedule
   const checkEffectiveSchedule = useCallback(async () => {
+    setIsCheckingAllDayEvent(true);
     try {
       const schedule = await getEffectiveScheduleForDay(
         "Khalil", 
@@ -55,12 +57,15 @@ const KhalilDashboard = () => {
         (student, day) => getScheduleForStudentAndDay(student, day)
       );
       
+      // Batch state updates to prevent flicker
       setEffectiveSchedule(schedule);
       setHasAllDayEvent(schedule === null);
+      setIsCheckingAllDayEvent(false);
     } catch (error) {
       console.error('Error checking effective schedule:', error);
       setEffectiveSchedule(baseTodaySchedule);
       setHasAllDayEvent(false);
+      setIsCheckingAllDayEvent(false);
     }
   }, [currentDay, formattedDate, baseTodaySchedule]);
 
@@ -230,6 +235,7 @@ const KhalilDashboard = () => {
               assignments={assignments} 
               currentDay={currentDay} 
               hasAllDayEvent={hasAllDayEvent}
+              isCheckingAllDayEvent={isCheckingAllDayEvent}
             />
 
             {/* All-Day Events List */}

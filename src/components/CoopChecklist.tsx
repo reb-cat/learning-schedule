@@ -15,9 +15,10 @@ interface CoopChecklistProps {
   assignments: any[];
   currentDay: string;
   hasAllDayEvent?: boolean | null;
+  isCheckingAllDayEvent?: boolean;
 }
 
-export function CoopChecklist({ studentName, assignments, currentDay, hasAllDayEvent }: CoopChecklistProps) {
+export function CoopChecklist({ studentName, assignments, currentDay, hasAllDayEvent, isCheckingAllDayEvent }: CoopChecklistProps) {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
 
   // Extract and transform checklist items from assignments
@@ -100,7 +101,7 @@ export function CoopChecklist({ studentName, assignments, currentDay, hasAllDayE
 
   const isCoopDay = currentDay === 'Monday' || currentDay === 'Thursday';
 
-  if (!isCoopDay || checklistItems.length === 0 || hasAllDayEvent === true || hasAllDayEvent === null) {
+  if (!isCoopDay || checklistItems.length === 0 || hasAllDayEvent === true || isCheckingAllDayEvent) {
     return null;
   }
 
