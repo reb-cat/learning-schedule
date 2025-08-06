@@ -22,8 +22,8 @@ const ParentDashboard = () => {
   const navigate = useNavigate();
   
   // Fetch assignments for both students
-  const { assignments: abigailAssignments, loading: abigailLoading, refetch: refetchAbigail, forceRefresh: forceRefreshAbigail } = useAssignments('Abigail');
-  const { assignments: khalilAssignments, loading: khalilLoading, refetch: refetchKhalil, forceRefresh: forceRefreshKhalil } = useAssignments('Khalil');
+  const { assignments: abigailAssignments, loading: abigailLoading, refetch: refetchAbigail } = useAssignments('Abigail');
+  const { assignments: khalilAssignments, loading: khalilLoading, refetch: refetchKhalil } = useAssignments('Khalil');
   
   // Fetch administrative notifications for badge count
   const { notifications } = useAdministrativeNotifications();
@@ -34,21 +34,21 @@ const ParentDashboard = () => {
   };
 
   const handleAssignmentAdded = () => {
-    // Force refetch to bypass cache and get fresh data from database
-    forceRefreshAbigail();
-    forceRefreshKhalil();
+    // Refetch fresh data from database
+    refetchAbigail();
+    refetchKhalil();
   };
 
   // Auto-refresh every 30 seconds to keep data current
   useEffect(() => {
     const interval = setInterval(() => {
       // Silently refresh data to catch any updates from student dashboards
-      forceRefreshAbigail();
-      forceRefreshKhalil();
+      refetchAbigail();
+      refetchKhalil();
     }, 30000); // 30 seconds
 
     return () => clearInterval(interval);
-  }, [forceRefreshAbigail, forceRefreshKhalil]);
+  }, [refetchAbigail, refetchKhalil]);
 
 
 

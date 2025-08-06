@@ -22,7 +22,7 @@ const AbigailDashboard = () => {
     const [searchParams] = useSearchParams();
     const dateParam = searchParams.get('date');
     
-  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch, cacheStats, cleanupData } = useAssignments('Abigail');
+  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch, cleanupData } = useAssignments('Abigail');
   const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
   const [criticalError, setCriticalError] = useState<string | null>(null);

@@ -1,7 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAssignmentCache } from './useAssignmentCache';
-import { useMemoryManager } from './useMemoryManager';
 import { useDataValidator } from './useDataValidator';
 import { DataCleanupService } from '@/services/dataCleanupService';
 import { IntelligentInference } from '@/services/intelligentInference';
@@ -57,28 +55,14 @@ export const useAssignments = (studentName: string) => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastFetch, setLastFetch] = useState<number>(0);
-  const cache = useAssignmentCache();
-  const memoryManager = useMemoryManager({ maxCacheSize: 25, gcThreshold: 75 });
   const dataValidator = useDataValidator();
 
-  const fetchAssignments = useCallback(async (forceRefresh = false) => {
+  const fetchAssignments = useCallback(async () => {
     try {
-      // Check cache first unless forcing refresh
-      if (!forceRefresh) {
-        const cachedData = cache.get(studentName);
-        if (cachedData) {
-          console.log(`📋 Using cached assignments for ${studentName}`);
-          setAssignments(cachedData);
-          setLoading(false);
-          return;
-        }
-      }
-
       setLoading(true);
       setError(null);
       
-      console.log(`🔍 Fetching assignments from assignments table for ${studentName}`);
+      console.log(`🔍 Fetching fresh assignments from database for ${studentName}`);
       
       // Add retry logic for network issues
       const maxRetries = 3;
@@ -106,11 +90,7 @@ export const useAssignments = (studentName: string) => {
             IntelligentInference.applyInferenceToAssignment(assignment)
           );
           
-          // Update cache and state
-          cache.set(studentName, assignmentData);
           setAssignments(assignmentData);
-          setLastFetch(Date.now());
-          
           return;
         } catch (err) {
           lastError = err instanceof Error ? err : new Error('Unknown error');
@@ -123,34 +103,15 @@ export const useAssignments = (studentName: string) => {
         }
       }
       
-      // All retries failed - use cached data if available instead of failing completely
-      const cachedData = cache.get(studentName);
-      if (cachedData && cachedData.length > 0) {
-        console.warn('Using stale cached data due to fetch failure');
-        setAssignments(cachedData);
-        setError('Using cached data - connection issues detected');
-        return;
-      }
-      
       throw lastError || new Error('Failed to fetch assignments after retries');
     } catch (err) {
       console.error('Error fetching assignments:', err);
-      
-      // Try to use cached data as fallback to prevent blank pages
-      const cachedData = cache.get(studentName);
-      if (cachedData && cachedData.length > 0) {
-        console.warn('Using cached data as fallback after error');
-        setAssignments(cachedData);
-        setError('Using cached data - please refresh when connection improves');
-      } else {
-        setError(err instanceof Error ? err.message : 'Failed to fetch assignments');
-        // Set empty array instead of leaving assignments undefined
-        setAssignments([]);
-      }
+      setError(err instanceof Error ? err.message : 'Failed to fetch assignments');
+      setAssignments([]);
     } finally {
       setLoading(false);
     }
-  }, [studentName, cache]);
+  }, [studentName]);
 
   const getScheduledAssignment = useCallback(async (block: number, date: string) => {
     // Add retry logic for scheduled assignments too
@@ -217,31 +178,16 @@ export const useAssignments = (studentName: string) => {
     return null;
   }, [studentName]);
 
-  // Smart refresh logic - only fetch if data is stale or dependencies changed
-  const shouldRefresh = useMemo(() => {
-    const now = Date.now();
-    const dataAge = now - lastFetch;
-    const isStale = dataAge > 2 * 60 * 1000; // 2 minutes
-    return isStale || lastFetch === 0;
-  }, [lastFetch]);
-
   useEffect(() => {
-    if (shouldRefresh) {
-      fetchAssignments();
-    }
-  }, [fetchAssignments, shouldRefresh]);
-
-  // Invalidate cache when needed
-  const invalidateCache = useCallback(() => {
-    cache.invalidate(studentName);
-  }, [cache, studentName]);
+    fetchAssignments();
+  }, [fetchAssignments]);
 
   // Data cleanup utilities
   const cleanupData = useCallback(async () => {
     try {
       await DataCleanupService.cleanupAssignmentData(studentName);
       // Refresh data after cleanup
-      await fetchAssignments(true);
+      await fetchAssignments();
     } catch (error) {
       console.error('Data cleanup failed:', error);
     }
@@ -255,34 +201,19 @@ export const useAssignments = (studentName: string) => {
     const result = await dataValidator.validateAndRepairData(studentName);
     if (result.repaired > 0) {
       // Refresh data after repair
-      await fetchAssignments(true);
+      await fetchAssignments();
     }
     return result;
   }, [studentName, dataValidator, fetchAssignments]);
-
-  // Periodic memory management
-  const handleMemoryOptimization = useCallback(() => {
-    const memoryStats = memoryManager.getMemoryStats();
-    if (memoryStats && memoryStats.used > 50) {
-      console.log('🧹 Optimizing memory usage...', memoryStats);
-      cache.invalidate(); // Clear old cache entries
-      memoryManager.forceCleanup();
-    }
-  }, [cache, memoryManager]);
 
   return {
     assignments,
     loading,
     error,
     refetch: fetchAssignments,
-    forceRefresh: () => fetchAssignments(true),
     getScheduledAssignment,
-    invalidateCache,
     cleanupData,
     validateData,
-    repairData,
-    optimizeMemory: handleMemoryOptimization,
-    cacheStats: cache.getStats(),
-    memoryStats: memoryManager.getMemoryStats
+    repairData
   };
 };

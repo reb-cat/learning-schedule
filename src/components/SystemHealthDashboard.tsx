@@ -22,11 +22,8 @@ export function SystemHealthDashboard({ studentName }: SystemHealthDashboardProp
     assignments, 
     loading, 
     error, 
-    cacheStats, 
-    memoryStats,
     validateData,
     repairData,
-    optimizeMemory,
     cleanupData
   } = useAssignments(studentName);
 
@@ -46,12 +43,7 @@ export function SystemHealthDashboard({ studentName }: SystemHealthDashboardProp
         console.warn('🔧 Data validation found issues:', validation);
       }
       
-      // Check memory usage
-      const memory = memoryStats();
-      if (memory && memory.used > 75) {
-        console.warn('⚠️ High memory usage detected, optimizing...');
-        optimizeMemory();
-      }
+      // Memory monitoring removed - no longer needed without cache
       
       setLastDiagnostic(new Date());
     } catch (error) {
@@ -81,8 +73,6 @@ export function SystemHealthDashboard({ studentName }: SystemHealthDashboardProp
   };
 
   const healthStatus = getHealthStatus();
-  const memory = memoryStats();
-  const hitRate = parseFloat(cacheStats.hitRate) || 0;
 
   return (
     <Card className="p-6">
@@ -151,41 +141,18 @@ export function SystemHealthDashboard({ studentName }: SystemHealthDashboardProp
           )}
         </div>
 
-        {/* Cache Performance */}
+        {/* Database Status */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Cache Performance</span>
-            <span className="text-xs text-muted-foreground">{cacheStats.hitRate}</span>
+            <span className="text-sm font-medium">Database Status</span>
+            <span className="text-xs text-muted-foreground">Fresh Data</span>
           </div>
-          <Progress value={hitRate} className="h-2" />
+          <Progress value={loading ? 50 : 100} className="h-2" />
+          <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+            <span>Mode: Direct DB</span>
+            <span>Cache: Disabled</span>
+          </div>
         </div>
-
-        {/* Memory Usage */}
-        {memory && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Memory Usage</span>
-              <span className="text-xs text-muted-foreground">
-                {memory.used}MB / {memory.total}MB
-              </span>
-            </div>
-            <Progress 
-              value={(memory.used / memory.total) * 100} 
-              className="h-2"
-            />
-            {memory.used > 75 && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={optimizeMemory}
-                className="mt-2 w-full"
-              >
-                <Zap className="h-3 w-3 mr-1" />
-                Optimize Memory
-              </Button>
-            )}
-          </div>
-        )}
 
         {/* Last Check */}
         {lastDiagnostic && (
