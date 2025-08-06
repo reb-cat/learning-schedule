@@ -150,7 +150,7 @@ export const useAssignments = (studentName: string) => {
     } finally {
       setLoading(false);
     }
-  }, [studentName, cache]);
+  }, [studentName]);
 
   const getScheduledAssignment = useCallback(async (block: number, date: string) => {
     // Add retry logic for scheduled assignments too
