@@ -49,14 +49,13 @@ const AbigailDashboard = () => {
 
   // Check for all-day events and get effective schedule
   const checkEffectiveSchedule = useCallback(async () => {
-    console.log('🔄 Starting effective schedule check for Abigail');
     setIsCheckingAllDayEvent(true);
     
     try {
-      // Add timeout wrapper to the entire check
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout: Schedule check took too long')), 8000);
-      });
+      // Set a hard 3-second timeout - if it takes longer, just show regular schedule
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 3000)
+      );
       
       const schedulePromise = getEffectiveScheduleForDay(
         "Abigail", 
@@ -65,22 +64,20 @@ const AbigailDashboard = () => {
         (student, day) => getScheduleForStudentAndDay(student, day)
       );
       
-      const schedule = await Promise.race([schedulePromise, timeoutPromise]);
+      const schedule = await Promise.race([schedulePromise, timeoutPromise]) as any[] | null;
       
-      console.log('✅ Effective schedule check completed for Abigail');
-      // Batch state updates to prevent flicker
       setEffectiveSchedule(schedule);
       setHasAllDayEvent(schedule === null);
     } catch (error) {
-      console.error('❌ Error or timeout checking effective schedule:', error);
-      // Fallback to base schedule
-      setEffectiveSchedule(baseTodaySchedule);
+      console.log('All-day event check failed/timed out - using regular schedule');
+      // On any error or timeout, just show the regular schedule
+      setEffectiveSchedule(undefined);
       setHasAllDayEvent(false);
     } finally {
-      // Always reset loading state
+      // ALWAYS reset loading state, no matter what happens
       setIsCheckingAllDayEvent(false);
     }
-  }, [currentDay, formattedDate, baseTodaySchedule]);
+  }, [currentDay, formattedDate]);
 
   useEffect(() => {
     checkEffectiveSchedule();
