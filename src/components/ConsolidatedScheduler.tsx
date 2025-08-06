@@ -779,7 +779,15 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
               </TabsContent>
 
               <TabsContent value="timeline" className="space-y-4">
-                {groupedDecisions.map(({ date, decisions }) => (
+                {groupedDecisions.map(({ date, decisions }) => {
+                  console.log('📅 Timeline Display Debug:', {
+                    originalDate: date,
+                    parsedDate: new Date(date).toISOString(),
+                    formattedDisplay: format(new Date(date), 'EEEE, MMM d'),
+                    forceNextDay: forceNextDay
+                  });
+                  
+                  return (
                   <div key={date} className="space-y-2">
                     <h4 className="font-medium text-sm flex items-center gap-2">
                       <CalendarIcon className="h-4 w-4" />
@@ -802,7 +810,8 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
                       ))}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </TabsContent>
 
               <TabsContent value="details" className="space-y-4">
