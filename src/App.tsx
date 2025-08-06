@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => {
+  console.log('🔴 APP RENDER', window.location.pathname);
   console.log('🚀 App component is loading...');
   console.log('🔍 Checking if components render...');
   return (

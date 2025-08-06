@@ -16,14 +16,24 @@ import { getEffectiveScheduleForDay } from "@/data/allDayEvents";
 import { ErrorFallback } from "@/components/ErrorFallback";
 
 const AbigailDashboard = () => {
+  // STACK TRACE DEBUG - at the VERY top
+  console.trace('🔴 ABIGAIL RENDER STACK TRACE');
+  
   // RENDER COUNTER DEBUG
   const renderCount = useRef(0);
   renderCount.current++;
   console.log('🔴 ABIGAIL RENDER COUNT:', renderCount.current);
+  
+  // Debugger for excessive renders
+  if (renderCount.current > 10) {
+    debugger; // This will pause execution
+  }
+  
   console.log('🏠 AbigailDashboard rendering...');
   
   try {
     const [searchParams] = useSearchParams();
+    console.log('🔴 ABIGAIL SEARCH PARAMS:', searchParams.toString());
     const dateParam = searchParams.get('date');
     
   const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch, cacheStats, cleanupData } = useAssignments('Abigail');

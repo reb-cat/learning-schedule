@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 const Index = () => {
+  // INDEX RENDER DEBUG
+  console.trace('🔴 INDEX RENDER STACK TRACE');
   console.log('📱 Index page is rendering at:', new Date().toISOString());
   console.log('📱 Index page route - should NOT load student data');
   return (
