@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAssignmentCache, onCacheInvalidation } from './useAssignmentCache';
+import { useAssignmentCache } from './useAssignmentCache';
 import { useMemoryManager } from './useMemoryManager';
 import { useDataValidator } from './useDataValidator';
 import { DataCleanupService } from '@/services/dataCleanupService';
@@ -269,22 +269,6 @@ export const useAssignments = (studentName: string) => {
       memoryManager.forceCleanup();
     }
   }, [cache, memoryManager]);
-
-  // Listen for cache invalidation events
-  useEffect(() => {
-    console.log('📡 Setting up cache invalidation listener for:', studentName);
-    const unsubscribe = onCacheInvalidation((invalidatedStudent) => {
-      if (invalidatedStudent === 'all' || invalidatedStudent === studentName) {
-        console.log('🔄 Cache invalidated for', invalidatedStudent, '- refreshing assignments');
-        fetchAssignments(true); // Force refresh
-      }
-    });
-    
-    return () => {
-      console.log('🧹 Cleaning up cache invalidation listener for:', studentName);
-      unsubscribe();
-    };
-  }, [studentName, fetchAssignments]);
 
   return {
     assignments,

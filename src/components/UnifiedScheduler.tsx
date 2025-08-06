@@ -15,8 +15,7 @@ import {
   Play, 
   Eye,
   Loader2,
-  Settings,
-  RefreshCcw
+  Settings
 } from "lucide-react";
 import { unifiedScheduler, UnifiedSchedulingResult, SchedulerOptions } from "@/services/unifiedScheduler";
 import { useToast } from "@/hooks/use-toast";
@@ -43,7 +42,7 @@ export function UnifiedScheduler({
   const [daysAhead, setDaysAhead] = useState(mode === 'today' ? 1 : 7);
   const { toast } = useToast();
 
-  const handleAnalyze = useCallback(async (bypassCache: boolean = false) => {
+  const handleAnalyze = useCallback(async () => {
     setIsAnalyzing(true);
     try {
       console.log('🔍 Unified Scheduler: Starting analysis', {
@@ -57,8 +56,7 @@ export function UnifiedScheduler({
         daysAhead,
         previewOnly: true, // Always preview first
         includeAdminTasks,
-        autoExecute: false,
-        bypassCache
+        autoExecute: false
       };
 
       const schedulingResult = await unifiedScheduler.analyzeAndSchedule(studentName, options);
@@ -336,7 +334,7 @@ export function UnifiedScheduler({
         {/* Action Buttons */}
         <div className="flex gap-2 flex-wrap">
           <Button 
-            onClick={() => handleAnalyze(false)} 
+            onClick={handleAnalyze} 
             disabled={isAnalyzing || isExecuting}
             className="flex items-center gap-2"
           >
@@ -346,20 +344,6 @@ export function UnifiedScheduler({
               <Eye className="w-4 h-4" />
             )}
             {isAnalyzing ? 'Analyzing...' : 'Analyze Schedule'}
-          </Button>
-          
-          <Button 
-            onClick={() => handleAnalyze(true)} 
-            disabled={isAnalyzing || isExecuting}
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            {isAnalyzing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <RefreshCcw className="w-4 h-4" />
-            )}
-            Force Refresh
           </Button>
           
           {mode !== 'preview' && (

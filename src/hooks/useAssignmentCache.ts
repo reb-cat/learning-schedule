@@ -12,14 +12,6 @@ interface CacheOptions {
   maxSize?: number; // Maximum number of entries
 }
 
-// Simple event emitter for cache invalidation
-const cacheInvalidationCallbacks = new Set<(studentName: string) => void>();
-
-export const onCacheInvalidation = (callback: (studentName: string) => void) => {
-  cacheInvalidationCallbacks.add(callback);
-  return () => cacheInvalidationCallbacks.delete(callback);
-};
-
 export const useAssignmentCache = (options: CacheOptions = {}) => {
   const { ttl = 5 * 60 * 1000, maxSize = 10 } = options; // 5 minutes default TTL
   const cache = useRef<Map<string, CacheEntry>>(new Map());
@@ -82,10 +74,6 @@ export const useAssignmentCache = (options: CacheOptions = {}) => {
     } else {
       cache.current.clear();
     }
-    
-    // Notify all listeners
-    const name = studentName || 'all';
-    cacheInvalidationCallbacks.forEach(cb => cb(name));
   }, []);
 
   const getStats = useCallback(() => ({
