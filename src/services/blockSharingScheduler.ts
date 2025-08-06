@@ -502,7 +502,9 @@ export class BlockSharingScheduler {
       // Filter out today's blocks for non-urgent "Need More Time" tasks
       const today = new Date().toISOString().split('T')[0];
       availableBlocks = blocks.filter(block => block.date !== today);
-      console.log(`📅 "Need More Time" logic applied: Non-urgent in_progress task filtered out today's blocks`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`📅 "Need More Time" logic applied: Non-urgent in_progress task filtered out today's blocks`);
+      }
     }
     
     // Filter remaining blocks (with remaining time)
