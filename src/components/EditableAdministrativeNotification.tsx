@@ -88,16 +88,39 @@ export function EditableAdministrativeNotification({
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getDynamicPriorityColor = (priority: string, dueDate?: string) => {
+    const today = new Date();
+    const due = dueDate ? new Date(dueDate) : null;
+    
+    if (due) {
+      const daysDiff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Overdue - always red
+      if (daysDiff < 0) {
+        return 'bg-red-600 text-white';
+      }
+      
+      // Due within 3 days - escalate to orange
+      if (daysDiff <= 3) {
+        return 'bg-orange-600 text-white';
+      }
+      
+      // Due within 7 days - escalate to amber  
+      if (daysDiff <= 7) {
+        return 'bg-amber-600 text-white';
+      }
+    }
+    
+    // Default priority colors with white text
     switch (priority) {
       case 'high':
-        return 'bg-orange-500 text-white';
+        return 'bg-orange-600 text-white';
       case 'medium':
-        return 'bg-yellow-500 text-black';
+        return 'bg-amber-600 text-white';
       case 'low':
-        return 'bg-blue-500 text-white';
+        return 'bg-blue-600 text-white';
       default:
-        return 'bg-blue-500 text-white';
+        return 'bg-blue-600 text-white';
     }
   };
 
@@ -148,7 +171,7 @@ export function EditableAdministrativeNotification({
           
           <div className="flex items-center gap-1">
             <div className="flex flex-col items-end gap-1">
-              <Badge className={`${getPriorityColor(notification.priority)}`}>
+              <Badge className={`${getDynamicPriorityColor(notification.priority, notification.due_date)}`}>
                 {notification.priority}
               </Badge>
               {notification.amount && (
