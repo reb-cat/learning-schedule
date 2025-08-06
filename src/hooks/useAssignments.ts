@@ -114,6 +114,12 @@ export const useAssignments = (studentName: string) => {
         
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
+          // GUARD: Prevent database calls to stop auth loop
+          if (typeof window !== 'undefined' && (window as any).SAFE_MODE) {
+            console.log('🛡️ SAFE MODE: Skipping database call');
+            return [];
+          }
+          
           const query = supabase
             .from('assignments')
             .select('*')
