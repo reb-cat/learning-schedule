@@ -41,8 +41,9 @@ export function SystemHealthDashboard({ studentName }: SystemHealthDashboardProp
       const validation = await validateData();
       setValidationResults(validation);
       
-      // If there are errors, offer to repair
-      if (!validation.isValid) {
+      // Fix: Check for both possible properties (isValid or valid)
+      const isValidResult = validation.isValid ?? validation.valid;
+      if (!isValidResult) {
         console.warn('🔧 Data validation found issues:', validation);
       }
       
@@ -75,7 +76,9 @@ export function SystemHealthDashboard({ studentName }: SystemHealthDashboardProp
   const getHealthStatus = () => {
     if (loading) return { status: 'checking', color: 'secondary', icon: RefreshCw };
     if (error && !assignments.length) return { status: 'critical', color: 'destructive', icon: XCircle };
-    if (validationResults && !validationResults.isValid) return { status: 'warning', color: 'secondary', icon: AlertTriangle };
+    // Fix: Check for both possible validation result properties
+    const isValidResult = validationResults?.isValid ?? validationResults?.valid;
+    if (validationResults && !isValidResult) return { status: 'warning', color: 'secondary', icon: AlertTriangle };
     if (assignments.length > 0) return { status: 'healthy', color: 'default', icon: CheckCircle };
     return { status: 'unknown', color: 'outline', icon: AlertTriangle };
   };
@@ -116,23 +119,24 @@ export function SystemHealthDashboard({ studentName }: SystemHealthDashboardProp
             <span className="text-sm font-medium">Data Quality</span>
             {validationResults && (
               <span className="text-xs text-muted-foreground">
-                {validationResults.stats.totalChecked} assignments checked
+                {validationResults.stats?.totalChecked || 0} assignments checked
               </span>
             )}
           </div>
           {validationResults ? (
             <div className="space-y-2">
-              {validationResults.errors.length > 0 && (
+              {/* Fix: Handle both error formats */}
+              {(validationResults.errors?.length > 0 || validationResults.issues?.length > 0) && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-destructive">
-                    {validationResults.errors.length} critical errors
+                    {validationResults.errors?.length || validationResults.issues?.length || 0} critical errors
                   </span>
                   <Button variant="outline" size="sm" onClick={handleRepairData}>
                     Repair
                   </Button>
                 </div>
               )}
-              {validationResults.warnings.length > 0 && (
+              {validationResults.warnings?.length > 0 && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-orange-600">
                     {validationResults.warnings.length} warnings
@@ -142,7 +146,8 @@ export function SystemHealthDashboard({ studentName }: SystemHealthDashboardProp
                   </Button>
                 </div>
               )}
-              {validationResults.isValid && (
+              {/* Fix: Check for both validation result properties */}
+              {(validationResults.isValid || validationResults.valid) && (
                 <span className="text-sm text-green-600">All data valid</span>
               )}
             </div>
