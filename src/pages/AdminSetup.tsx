@@ -6,8 +6,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { RefreshCw, Calendar, ChevronDown, Database, Settings, CheckCircle, AlertCircle, Clock, BookOpen, AlertTriangle } from 'lucide-react';
-import { UnifiedScheduler } from '@/components/UnifiedScheduler';
+import { RefreshCw, Calendar, ChevronDown, Database, Settings, CheckCircle, AlertCircle, Clock, AlertTriangle, BookOpen } from 'lucide-react';
+import { AdminNavigation } from '@/components/shared/AdminNavigation';
+import { SystemStatusCard } from '@/components/shared/SystemStatusCard';
+import { SharedSchedulerService } from '@/components/shared/SharedSchedulerService';
 import { DatabasePermissionTest } from '@/components/DatabasePermissionTest';
 import { SystemHealthDashboard } from '@/components/SystemHealthDashboard';
 import { StudentAnalyticsDashboard } from '@/components/StudentAnalyticsDashboard';
@@ -142,23 +144,31 @@ const AdminSetup = () => {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto space-y-8">
+        {/* Navigation */}
+        <AdminNavigation />
+        
         <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold text-foreground">Technical Dashboard</h1>
+          <h1 className="text-4xl font-bold text-foreground">Technical Administration</h1>
+          <p className="text-muted-foreground">System operations, diagnostics, and technical controls</p>
         </div>
 
         <Tabs defaultValue="sync" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="sync" className="flex items-center gap-2">
               <RefreshCw className="h-4 w-4" />
               Canvas Sync
             </TabsTrigger>
+            <TabsTrigger value="scheduling" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Advanced Scheduling
+            </TabsTrigger>
             <TabsTrigger value="diagnostics" className="flex items-center gap-2">
               <Database className="h-4 w-4" />
-              Diagnostics
+              System Diagnostics
             </TabsTrigger>
             <TabsTrigger value="monitoring" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
-              Student Monitoring
+              Performance Monitoring
             </TabsTrigger>
           </TabsList>
 
@@ -284,55 +294,22 @@ const AdminSetup = () => {
               </CardContent>
             </Card>
 
-            {/* Scheduler Components */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Unified Scheduler - Full Mode
-                  </CardTitle>
-                  <CardDescription>
-                    Complete scheduling system with all options and controls
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <UnifiedScheduler 
-                    studentName="Abigail" 
-                    mode="full"
-                    onSchedulingComplete={() => {
-                      toast({
-                        title: "Schedule updated",
-                        description: "Unified scheduler has updated the assignments."
-                      });
-                    }}
-                  />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings className="h-5 w-5" />
-                    Unified Scheduler - Today Only
-                  </CardTitle>
-                  <CardDescription>
-                    Quick scheduling for today's assignments only
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <UnifiedScheduler 
-                    studentName="Abigail" 
-                    mode="today"
-                    onSchedulingComplete={() => {
-                      toast({
-                        title: "Today's schedule updated",
-                        description: "Today's assignments have been scheduled."
-                      });
-                    }}
-                  />
-                </CardContent>
-              </Card>
+            {/* System Status */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Sync Operations</CardTitle>
+                    <CardDescription>Canvas integration and data synchronization</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Canvas sync operations are system-level processes that import and update assignment data from external sources.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+              <SystemStatusCard showDetails={true} />
             </div>
 
             {/* Database Permission Test */}
@@ -350,6 +327,80 @@ const AdminSetup = () => {
                 <DatabasePermissionTest />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="scheduling" className="space-y-6">
+            <div className="text-center space-y-2 mb-6">
+              <h2 className="text-2xl font-bold">Advanced Scheduling System</h2>
+              <p className="text-muted-foreground">Full-featured scheduling tools with complete control and configuration</p>
+            </div>
+            
+            {/* Advanced Scheduler Components */}
+            <div className="grid grid-cols-1 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Unified Scheduler - Full Control Mode
+                  </CardTitle>
+                  <CardDescription>
+                    Complete scheduling system with all options, controls, and advanced configuration
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <SharedSchedulerService 
+                    studentName="Abigail" 
+                    mode="full"
+                    onSchedulingComplete={() => {
+                      toast({
+                        title: "Schedule updated",
+                        description: "Advanced scheduler has updated the assignments."
+                      });
+                    }}
+                    title="Abigail - Advanced Scheduler"
+                    description="Full-featured scheduling with all configuration options"
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    Today-Only Scheduler
+                  </CardTitle>
+                  <CardDescription>
+                    Quick scheduling for today's assignments only - useful for immediate task management
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <SharedSchedulerService 
+                      studentName="Abigail" 
+                      mode="today"
+                      onSchedulingComplete={() => {
+                        toast({
+                          title: "Today's schedule updated",
+                          description: "Today's assignments have been scheduled for Abigail."
+                        });
+                      }}
+                      title="Abigail - Today Only"
+                    />
+                    <SharedSchedulerService 
+                      studentName="Khalil" 
+                      mode="today"
+                      onSchedulingComplete={() => {
+                        toast({
+                          title: "Today's schedule updated",
+                          description: "Today's assignments have been scheduled for Khalil."
+                        });
+                      }}
+                      title="Khalil - Today Only"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="diagnostics" className="space-y-6">
