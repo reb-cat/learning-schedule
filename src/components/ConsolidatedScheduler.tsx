@@ -676,8 +676,10 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
             </Button>
 
             <Button 
-              onClick={() => {
-                console.log('🚨 BUTTON CLICKED - RAW EVENT');
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🚨 DIRECT CLICK TEST', { isAnalyzing, isExecuting, disabled: isAnalyzing || isExecuting });
                 handleAutoSchedule();
               }}
               disabled={isAnalyzing || isExecuting}
