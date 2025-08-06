@@ -7,9 +7,15 @@ export const useClearAssignmentScheduling = () => {
   const clearScheduling = async (assignmentIds: string[]) => {
     setIsClearing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('clear-assignment-scheduling', {
-        body: { assignmentIds }
-      });
+      const { data, error } = await supabase
+        .from('assignments')
+        .update({ 
+          scheduled_date: null, 
+          scheduled_block: null, 
+          scheduled_day: null 
+        })
+        .in('id', assignmentIds)
+        .select('id, title');
 
       if (error) {
         throw error;
