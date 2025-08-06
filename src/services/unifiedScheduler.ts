@@ -41,6 +41,7 @@ export interface SchedulerOptions {
   previewOnly?: boolean;
   includeAdminTasks?: boolean;
   autoExecute?: boolean;
+  currentTime?: Date;
 }
 
 class UnifiedScheduler {
@@ -90,7 +91,8 @@ class UnifiedScheduler {
       const blockSharingResult = await blockSharingScheduler.analyzeAndSchedule(
         studentName, 
         targetDaysAhead, 
-        targetStartDate
+        targetStartDate,
+        options.currentTime
       );
 
       // Transform the result to our unified format

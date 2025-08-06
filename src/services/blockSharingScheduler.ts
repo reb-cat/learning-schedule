@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays } from "date-fns";
+import { filterPastBlocks, generatePassedBlocksWarning, allTodaysBlocksPassed } from "@/utils/timeAwareness";
+import { scheduleData } from "@/data/scheduleData";
 
 export interface TaskClassification {
   id: string;
@@ -89,7 +91,7 @@ export class BlockSharingScheduler {
     });
   }
 
-  async analyzeAndSchedule(studentName: string, daysAhead: number = 7, startDate?: Date): Promise<SchedulingDecision> {
+  async analyzeAndSchedule(studentName: string, daysAhead: number = 7, startDate?: Date, currentTime?: Date): Promise<SchedulingDecision> {
     try {
       // Check cache first
       const cacheKey = this.generateCacheKey(studentName, daysAhead, startDate);
@@ -99,7 +101,7 @@ export class BlockSharingScheduler {
         return cached;
       }
 
-      console.log('Starting fresh analyzeAndSchedule for:', studentName);
+      console.log('Starting fresh analyzeAndSchedule for:', studentName, { currentTime: currentTime?.toISOString() });
       
       // 1. Fetch all unscheduled tasks (filter to current timeframe)
       const allTasks = await this.getClassifiedTasks(studentName);
@@ -146,7 +148,7 @@ export class BlockSharingScheduler {
       });
       
       // 2. Get available time blocks
-      const availableBlocks = await this.getAvailableBlocks(studentName, daysAhead, today);
+      const availableBlocks = await this.getAvailableBlocks(studentName, daysAhead, today, currentTime);
       console.log('Available blocks:', availableBlocks.length);
       
       // 3. Schedule academic tasks into available blocks
@@ -164,6 +166,12 @@ export class BlockSharingScheduler {
       );
       
       const warnings = this.generateWarnings(unscheduledTasks, updatedBlocks);
+      
+      // Add time awareness warning if all today's blocks have passed
+      const timeWarning = generatePassedBlocksWarning(studentName, scheduleData, currentTime || new Date());
+      if (timeWarning) {
+        warnings.push(timeWarning);
+      }
       
       const result: SchedulingDecision = {
         academic_blocks: updatedBlocks,
@@ -283,11 +291,12 @@ export class BlockSharingScheduler {
     return assignment.urgency || 'medium';
   }
 
-  async getAvailableBlocks(studentName: string, daysAhead: number, startDate?: Date): Promise<BlockComposition[]> {
+  async getAvailableBlocks(studentName: string, daysAhead: number, startDate?: Date, currentTime?: Date): Promise<BlockComposition[]> {
     // Use real schedule data instead of mock data
     const { getScheduleForStudentAndDay } = await import('../data/scheduleData');
     const blocks: BlockComposition[] = [];
     const today = startDate || new Date();
+    const timeToCheck = currentTime || new Date();
     
     for (let day = 0; day < daysAhead; day++) {
       const date = addDays(today, day);
@@ -298,7 +307,14 @@ export class BlockSharingScheduler {
       if (dayName === 'Saturday' || dayName === 'Sunday') continue;
       
       // Get the actual schedule for this student and day
-      const daySchedule = getScheduleForStudentAndDay(studentName, dayName);
+      let daySchedule = getScheduleForStudentAndDay(studentName, dayName);
+      
+      // Apply time awareness: filter out past blocks for today
+      if (day === 0) { // Only filter for today
+        daySchedule = filterPastBlocks(daySchedule, timeToCheck);
+        console.log(`⏰ Time awareness: Filtered out past blocks for today (${dayName}). Remaining: ${daySchedule.length} blocks`);
+      }
+      
       const assignmentBlocks = daySchedule.filter(block => block.isAssignmentBlock && block.block);
       
       // Add each assignment block as available

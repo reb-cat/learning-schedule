@@ -26,6 +26,11 @@ import { useToast } from "@/hooks/use-toast";
 import { format, addDays } from 'date-fns';
 import { cn } from "@/lib/utils";
 import { useClearAssignmentScheduling } from "@/hooks/useClearAssignmentScheduling";
+import { 
+  getSmartDefaultRange, 
+  shouldRestrictToFutureDates, 
+  getCurrentTimeDisplay 
+} from "@/utils/timeAwareness";
 
 interface ConsolidatedSchedulerProps {
   onSchedulingComplete?: () => void;
@@ -36,10 +41,11 @@ type StudentOption = 'Abigail' | 'Khalil' | 'Both';
 
 export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSchedulerProps) {
   const [selectedStudent, setSelectedStudent] = useState<StudentOption>('Abigail');
-  const [dateRange, setDateRange] = useState<DateRangeOption>('today');
+  const [dateRange, setDateRange] = useState<DateRangeOption>(getSmartDefaultRange());
   const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
   const [includeAdminTasks, setIncludeAdminTasks] = useState(true);
   const [previewOnly, setPreviewOnly] = useState(false);
+  const [currentTime] = useState(new Date()); // Capture current time when component loads
   
   const [result, setResult] = useState<UnifiedSchedulingResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -90,7 +96,8 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
         startDate: dateRange === 'custom' && customDate ? customDate : new Date(),
         previewOnly: true,
         includeAdminTasks,
-        autoExecute: false
+        autoExecute: false,
+        currentTime // Pass current time for time awareness
       };
 
       let schedulingResult: UnifiedSchedulingResult;
@@ -134,7 +141,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
     } finally {
       setIsAnalyzing(false);
     }
-  }, [selectedStudent, getDaysAhead, includeAdminTasks, toast]);
+  }, [selectedStudent, getDaysAhead, includeAdminTasks, customDate, dateRange, currentTime, toast]);
 
   const handleAutoSchedule = useCallback(async () => {
     setIsAnalyzing(true);
@@ -144,7 +151,8 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
         startDate: dateRange === 'custom' && customDate ? customDate : new Date(),
         previewOnly: false,
         includeAdminTasks,
-        autoExecute: true
+        autoExecute: true,
+        currentTime // Pass current time for time awareness
       };
 
       let schedulingResult: UnifiedSchedulingResult;
@@ -186,7 +194,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
     } finally {
       setIsAnalyzing(false);
     }
-  }, [selectedStudent, getDaysAhead, includeAdminTasks, onSchedulingComplete, toast]);
+  }, [selectedStudent, getDaysAhead, includeAdminTasks, customDate, dateRange, currentTime, onSchedulingComplete, toast]);
 
   const handleExecute = useCallback(async () => {
     if (!result) return;
@@ -307,17 +315,20 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
                 <CalendarIcon className="h-3 w-3" />
                 Time Range
               </Label>
-              <Select value={dateRange} onValueChange={(value: DateRangeOption) => setDateRange(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Today Only</SelectItem>
-                  <SelectItem value="next3days">Next 3 Days</SelectItem>
-                  <SelectItem value="nextweek">Next Week</SelectItem>
-                  <SelectItem value="custom">Custom Date</SelectItem>
-                </SelectContent>
-              </Select>
+               <Select value={dateRange} onValueChange={(value: DateRangeOption) => setDateRange(value)}>
+                 <SelectTrigger>
+                   <SelectValue />
+                 </SelectTrigger>
+                 <SelectContent>
+                   <SelectItem value="today">
+                     Today Only
+                     {shouldRestrictToFutureDates(currentTime) && " (⚠️ Limited blocks available)"}
+                   </SelectItem>
+                   <SelectItem value="next3days">Next 3 Days</SelectItem>
+                   <SelectItem value="nextweek">Next Week</SelectItem>
+                   <SelectItem value="custom">Custom Date</SelectItem>
+                 </SelectContent>
+               </Select>
             </div>
 
             {/* Options */}
@@ -468,10 +479,14 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
       {/* Current Configuration Display */}
       <div className="text-sm text-muted-foreground bg-background border rounded-lg p-3">
         <div className="flex items-center gap-4 flex-wrap">
+          <span><strong>Current Time:</strong> {getCurrentTimeDisplay(currentTime)}</span>
           <span><strong>Student:</strong> {selectedStudent}</span>
           <span><strong>Range:</strong> {getDateRangeDisplay()}</span>
           <span><strong>Admin Tasks:</strong> {includeAdminTasks ? 'Yes' : 'No'}</span>
           <span><strong>Preview Only:</strong> {previewOnly ? 'Yes' : 'No'}</span>
+          {shouldRestrictToFutureDates(currentTime) && (
+            <span className="text-yellow-600 font-medium">⚠️ After 8 PM - Future dates recommended</span>
+          )}
         </div>
       </div>
 
