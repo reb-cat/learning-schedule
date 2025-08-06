@@ -258,6 +258,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
   }, [selectedStudent, dateRange, customDate, includeAdminTasks, currentTime, getDaysAhead, toast]);
 
   const handleAutoSchedule = useCallback(async () => {
+    console.log('🔥 AUTO-SCHEDULE BUTTON CLICKED!', { selectedStudent, getDaysAhead: getDaysAhead() });
     setIsAnalyzing(true);
     try {
       const options: SchedulerOptions = {
