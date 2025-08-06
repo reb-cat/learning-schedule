@@ -124,11 +124,13 @@ class UnifiedScheduler {
     result: UnifiedSchedulingResult, 
     studentName: string
   ): Promise<{ success: boolean; errors: string[]; successCount: number; totalCount: number }> {
+    console.log('🔥🔥🔥 UNIFIED EXECUTE SCHEDULE CALLED 🔥🔥🔥');
     console.log('🚀 UNIFIED SCHEDULER EXECUTION START', {
       studentName,
       decisions: result.decisions.length,
       splitAssignments: result.splitAssignments.length,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      aboutToUpdateAssignments: 'YES - database updates will happen in unified scheduler'
     });
 
     const executionErrors: string[] = [];
@@ -158,7 +160,24 @@ class UnifiedScheduler {
           isValidUUID: this.isValidUUID(decision.assignment.id)
         });
 
-        const targetDate = new Date(decision.targetDate);
+        let targetDate = new Date(decision.targetDate);
+        
+        // Apply force next day logic - if the target date is today, move to tomorrow
+        // This ensures "Schedule for Next Day" option is respected
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        targetDate.setHours(0, 0, 0, 0);
+        
+        if (targetDate.getTime() === today.getTime()) {
+          targetDate = new Date(today);
+          targetDate.setDate(today.getDate() + 1);
+          console.log('📅 Force next day applied - moving from today to tomorrow:', {
+            originalDate: decision.targetDate,
+            newDate: targetDate.toISOString(),
+            reason: 'Schedule for Next Day option enabled'
+          });
+        }
+        
         const dayName = this.formatDayName(targetDate);
         const formattedDate = this.formatDateString(targetDate);
         
@@ -184,7 +203,23 @@ class UnifiedScheduler {
         });
 
         if (assignment.scheduled_date && assignment.scheduled_block) {
-          const targetDate = new Date(assignment.scheduled_date);
+          let targetDate = new Date(assignment.scheduled_date);
+          
+          // Apply force next day logic for split assignments too
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          targetDate.setHours(0, 0, 0, 0);
+          
+          if (targetDate.getTime() === today.getTime()) {
+            targetDate = new Date(today);
+            targetDate.setDate(today.getDate() + 1);
+            console.log('📅 Force next day applied to split assignment:', {
+              assignmentId: assignment.id,
+              originalDate: assignment.scheduled_date,
+              newDate: targetDate.toISOString()
+            });
+          }
+          
           const dayName = this.formatDayName(targetDate);
           const formattedDate = this.formatDateString(targetDate);
           
