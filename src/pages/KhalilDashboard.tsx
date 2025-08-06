@@ -249,7 +249,13 @@ const KhalilDashboard = () => {
             <div className="space-y-4">
               <h2 className="text-xl font-semibold text-foreground">Today's Schedule</h2>
               
-              {hasAllDayEvent ? (
+              {isCheckingAllDayEvent ? (
+                <Card className="bg-card border border-border">
+                  <CardContent className="p-8 text-center">
+                    <div className="text-muted-foreground">Loading schedule...</div>
+                  </CardContent>
+                </Card>
+              ) : hasAllDayEvent ? (
                 <Card className="bg-card border border-border">
                   <CardContent className="p-8 text-center">
                     <div className="text-6xl mb-4">📅</div>
