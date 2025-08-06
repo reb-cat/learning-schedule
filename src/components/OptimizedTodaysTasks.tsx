@@ -77,8 +77,11 @@ export const OptimizedTodaysTasks = memo(({
   const { relevantAssignments, todaysScheduledWork } = useMemo(() => {
     const today = currentDate;
     
+    // Filter to only show parent assignments (no split parts)
+    const parentAssignments = assignments.filter(assignment => assignment.split_part_number === null);
+    
     // Get assignments due today or tomorrow (within 48 hours)
-    const relevantAssignments = assignments.filter(assignment => {
+    const relevantAssignments = parentAssignments.filter(assignment => {
       if (!assignment.due_date) return false;
       const dueDate = new Date(assignment.due_date);
       const diffTime = dueDate.getTime() - today.getTime();

@@ -13,12 +13,15 @@ interface TodaysTasksProps {
 }
 
 export function TodaysTasks({ assignments, scheduledAssignments, currentDay, currentDate, isLoading, error }: TodaysTasksProps) {
+  // Filter to only show parent assignments (no split parts)
+  const parentAssignments = assignments.filter(assignment => assignment.split_part_number === null);
+  
   // Get assignments due today or tomorrow (within 48 hours)
   const today = currentDate;
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
   
-  const relevantAssignments = assignments.filter(assignment => {
+  const relevantAssignments = parentAssignments.filter(assignment => {
     if (!assignment.due_date) return false;
     const dueDate = new Date(assignment.due_date);
     const diffTime = dueDate.getTime() - today.getTime();

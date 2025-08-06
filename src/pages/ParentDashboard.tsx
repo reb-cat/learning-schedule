@@ -26,6 +26,10 @@ const ParentDashboard = () => {
   const [migrating, setMigrating] = useState(false);
   const [cleaningUp, setCleaningUp] = useState(false);
   
+  // Filter function to remove split assignments - only show parent assignments
+  const filterParentAssignments = (assignments: any[]) => {
+    return assignments.filter(assignment => assignment.split_part_number === null);
+  };
 
   const handleAssignmentAdded = () => {
     // Force refetch to bypass cache and get fresh data from database
@@ -90,10 +94,41 @@ const ParentDashboard = () => {
     }
   };
 
-  // Split assignment cleanup removed - using continuation system now
+  const handleFixSplitAssignments = async () => {
+    setCleaningUp(true);
+    try {
+      // Mark originals as complete if any split part is complete
+      // Direct SQL cleanup since we don't have a specific RPC function
+      await supabase
+        .from('assignments')
+        .update({ completion_status: 'completed' })
+        .is('split_part_number', null)
+        .in('title', 
+          abigailAssignments.concat(khalilAssignments)
+            .filter(a => a.split_part_number && a.completion_status === 'completed')
+            .map(a => a.title.replace(/ \(Part \d+\/\d+\)$/, ''))
+        );
+        
+      // Delete split parts
+      await supabase
+        .from('assignments')
+        .delete()
+        .not('split_part_number', 'is', null);
+      
+      toast.success("Split assignments cleaned up successfully!");
+      handleAssignmentAdded(); // Refresh data
+    } catch (error) {
+      console.error('Split assignment cleanup failed:', error);
+      toast.error("Cleanup failed. Check console for details.");
+    } finally {
+      setCleaningUp(false);
+    }
+  };
 
-  // Extended assignment filtering - shows next 2 weeks
+  // Extended assignment filtering - shows next 2 weeks (parent assignments only)
   const getWeeklyAssignments = (assignments: any[]) => {
+    // Filter to only show parent assignments (no split parts)
+    const parentAssignments = filterParentAssignments(assignments);
     const now = new Date();
     
     // Define current week boundaries (Monday to Friday)
@@ -107,7 +142,7 @@ const ParentDashboard = () => {
     const currentWeekAssignments: any[] = [];
     const nextWeekAssignments: any[] = [];
     
-    assignments.forEach(assignment => {
+    parentAssignments.forEach(assignment => {
       if (!assignment.due_date) return;
       const dueDate = new Date(assignment.due_date);
       
@@ -153,8 +188,8 @@ const ParentDashboard = () => {
           <TabsContent value="dashboard" className="space-y-6">
             {/* Alert Banner */}
             <AlertBanner 
-              abigailAssignments={abigailAssignments}
-              khalilAssignments={khalilAssignments}
+              abigailAssignments={filterParentAssignments(abigailAssignments)}
+              khalilAssignments={filterParentAssignments(khalilAssignments)}
             />
 
         {/* Two Column Student Layout */}
@@ -162,7 +197,7 @@ const ParentDashboard = () => {
           {/* Abigail Section */}
           <StudentSection
             studentName="Abigail"
-            assignments={abigailAssignments}
+            assignments={filterParentAssignments(abigailAssignments)}
             loading={abigailLoading}
             onAssignmentAdded={handleAssignmentAdded}
           />
@@ -170,7 +205,7 @@ const ParentDashboard = () => {
           {/* Khalil Section */}
           <StudentSection
             studentName="Khalil"
-            assignments={khalilAssignments}
+            assignments={filterParentAssignments(khalilAssignments)}
             loading={khalilLoading}
             onAssignmentAdded={handleAssignmentAdded}
           />
@@ -221,7 +256,27 @@ const ParentDashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Split assignment controls removed - using continuation system now */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                Split Assignment Cleanup
+                <Button 
+                  onClick={handleFixSplitAssignments}
+                  disabled={cleaningUp}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Database size={16} />
+                  {cleaningUp ? 'Cleaning...' : 'Fix Split Assignments'}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Clean up duplicate split assignment parts and mark originals as complete if any part is done.
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Smart Scheduling Preview */}

@@ -10,9 +10,12 @@ interface TodaysProgressProps {
 }
 
 export const TodaysProgress = ({ assignments, studentName }: TodaysProgressProps) => {
+  // Filter to only show parent assignments (no split parts)
+  const parentAssignments = assignments.filter(assignment => assignment.split_part_number === null);
+  
   const today = new Date().toISOString().split('T')[0];
   
-  const todaysAssignments = assignments.filter(assignment => {
+  const todaysAssignments = parentAssignments.filter(assignment => {
     if (!assignment.due_date) return false;
     const dueDate = new Date(assignment.due_date).toISOString().split('T')[0];
     return dueDate === today;
@@ -20,7 +23,7 @@ export const TodaysProgress = ({ assignments, studentName }: TodaysProgressProps
 
   const completedToday = todaysAssignments.filter(a => a.urgency === 'upcoming').length;
   const dueToday = todaysAssignments.length;
-  const overdue = assignments.filter(a => a.urgency === 'overdue').length;
+  const overdue = parentAssignments.filter(a => a.urgency === 'overdue').length;
 
   const totalTimeToday = todaysAssignments.reduce((total, assignment) => {
     return total + (assignment.estimated_time_minutes || 0);
