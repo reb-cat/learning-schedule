@@ -307,18 +307,8 @@ async function scheduleAssignmentContinuation(assignment: any, availableBlocks: 
     // The assignment will appear in student's schedule until marked complete
     return true;
   }
-    
-    splitIds.push(data.id);
-  }
   
-  // Mark original as template/not eligible for scheduling
-  await supabase
-    .from(assignmentsTable)
-    .update({ eligible_for_scheduling: false, is_template: true })
-    .eq('id', assignment.id);
-    
-  console.log(`✂️ Split "${assignment.title}" into ${parts} parts`);
-  return splitIds;
+  return false; // No suitable blocks found
 }
 
 // Main scheduling function with forward-looking logic
@@ -386,28 +376,17 @@ async function scheduleAssignments(studentName: string, stagingMode: boolean = f
   
   console.log(`📝 Filtered to ${schedulableAssignments.length} schedulable assignments (${assignments.length - schedulableAssignments.length} skipped)`);
   
-  // Split large assignments first
+  // Handle large assignments with continuation scheduling
   const processedAssignments = [];
   for (const assignment of schedulableAssignments) {
     const estimatedMinutes = getIntelligentTimeEstimate(assignment);
     
     if (estimatedMinutes > 60) {
-      // Split into multiple parts
-      const parts = Math.ceil(estimatedMinutes / 45);
-      console.log(`📝 Assignment "${assignment.title}" needs ${parts} parts (${estimatedMinutes} min)`);
-      
-      const splitIds = await createSplitAssignment(assignment, parts, stagingMode);
-      
-      // Fetch the newly created split assignments
-      if (splitIds.length > 0) {
-        const { data: splitAssignments } = await supabase
-          .from(assignmentsTable)
-          .select('*')
-          .in('id', splitIds);
-          
-        if (splitAssignments) {
-          processedAssignments.push(...splitAssignments);
-        }
+      // Try continuation scheduling - if it works, skip regular processing
+      const continuationScheduled = await scheduleAssignmentContinuation(assignment, scheduleWindow, stagingMode);
+      if (!continuationScheduled) {
+        // If continuation fails, add to regular processing
+        processedAssignments.push(assignment);
       }
     } else {
       processedAssignments.push(assignment);
