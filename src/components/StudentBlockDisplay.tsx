@@ -47,12 +47,18 @@ export function StudentBlockDisplay({
         stuckReason: status === 'stuck' ? 'Student requested help' : undefined
       });
 
+      // Check if assignment is urgent (due today or overdue)
+      const isUrgent = assignment.due_date && 
+        new Date(assignment.due_date) <= new Date(new Date().setHours(23, 59, 59, 999));
+
       toast({
         title: status === 'completed' ? "Great work!" : 
                status === 'in_progress' ? "Keep going!" : 
                "Help is on the way!",
         description: status === 'completed' ? "Assignment completed successfully." :
-                    status === 'in_progress' ? "We'll reschedule this for tomorrow." :
+                    status === 'in_progress' ? (isUrgent 
+                      ? "We'll reschedule this urgent assignment as soon as possible." 
+                      : "We'll reschedule this for tomorrow.") :
                     "This task will be prioritized for help."
       });
 

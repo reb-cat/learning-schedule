@@ -59,6 +59,19 @@ export class BlockSharingScheduler {
   private cache = new Map<string, { decision: SchedulingDecision; timestamp: number; inputHash: string }>();
   private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
+  // Helper function to determine if a task is urgent (due today or overdue)
+  private isTaskUrgent(task: TaskClassification): boolean {
+    if (!task.due_date) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(task.due_date);
+    dueDate.setHours(0, 0, 0, 0);
+    
+    // Urgent = due today or overdue
+    return dueDate <= today;
+  }
+
   private generateCacheKey(studentName: string, daysAhead: number, startDate?: Date): string {
     const dateStr = startDate ? startDate.toISOString().split('T')[0] : 'today';
     return `${studentName}-${daysAhead}-${dateStr}`;
@@ -91,7 +104,7 @@ export class BlockSharingScheduler {
     });
   }
 
-  async analyzeAndSchedule(studentName: string, daysAhead: number = 7, startDate?: Date, currentTime?: Date): Promise<SchedulingDecision> {
+  async analyzeAndSchedule(studentName: string, daysAhead: number = 7, startDate?: Date, currentTime?: Date, taskForUrgencyCheck?: TaskClassification): Promise<SchedulingDecision> {
     try {
       // Check cache first
       const cacheKey = this.generateCacheKey(studentName, daysAhead, startDate);
@@ -148,7 +161,7 @@ export class BlockSharingScheduler {
       });
       
       // 2. Get available time blocks
-      const availableBlocks = await this.getAvailableBlocks(studentName, daysAhead, today, currentTime);
+      const availableBlocks = await this.getAvailableBlocks(studentName, daysAhead, today, currentTime, taskForUrgencyCheck);
       console.log('Available blocks:', availableBlocks.length);
       
       // Check if no blocks are available due to time restrictions
@@ -315,7 +328,7 @@ export class BlockSharingScheduler {
     return assignment.urgency || 'medium';
   }
 
-  async getAvailableBlocks(studentName: string, daysAhead: number, startDate?: Date, currentTime?: Date): Promise<BlockComposition[]> {
+  async getAvailableBlocks(studentName: string, daysAhead: number, startDate?: Date, currentTime?: Date, taskForUrgencyCheck?: TaskClassification): Promise<BlockComposition[]> {
     // Use real schedule data instead of mock data
     const { getScheduleForStudentAndDay } = await import('../data/scheduleData');
     const blocks: BlockComposition[] = [];
@@ -335,7 +348,16 @@ export class BlockSharingScheduler {
     
     // Check if all today's blocks have passed and we should start from tomorrow
     const todaysBlocksPassed = allTodaysBlocksPassed(studentName, scheduleData, timeToCheck) || currentHour >= 20;
-    const startDay = todaysBlocksPassed ? 1 : 0; // Start from tomorrow if today's blocks passed
+    let startDay = todaysBlocksPassed ? 1 : 0; // Start from tomorrow if today's blocks passed
+    
+    // Special handling for "Need More Time" (in_progress) tasks
+    // If we're scheduling for a specific non-urgent in_progress task, force tomorrow
+    if (taskForUrgencyCheck && 
+        taskForUrgencyCheck.completion_status === 'in_progress' && 
+        !this.isTaskUrgent(taskForUrgencyCheck)) {
+      startDay = Math.max(1, startDay); // Force tomorrow for non-urgent "Need More Time" tasks
+      console.log(`📅 "Need More Time" logic: Non-urgent in_progress task forced to tomorrow`);
+    }
     
     console.log(`📅 Block scheduling: ${todaysBlocksPassed ? 'All today\'s blocks passed, starting from tomorrow' : 'Starting from today'}`);
     
