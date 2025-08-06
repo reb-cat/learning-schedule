@@ -170,11 +170,15 @@ const KhalilDashboard = () => {
     // Clear cache to force fresh data
     assignmentCacheRef.current = {};
     
-    // Use setTimeout to batch updates
-    setTimeout(() => {
-      checkEffectiveSchedule();
-      loadScheduledAssignments();
-    }, 100);
+    // DISABLED setTimeout to prevent auth loop
+    // setTimeout(() => {
+    //   checkEffectiveSchedule();
+    //   loadScheduledAssignments();
+    // }, 100);
+    
+    // Direct call instead of setTimeout
+    checkEffectiveSchedule();
+    loadScheduledAssignments();
   }, [checkEffectiveSchedule, loadScheduledAssignments]);
 
   // DISABLED: critical error effect
