@@ -26,7 +26,7 @@ const KhalilDashboard = () => {
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
   const [criticalError, setCriticalError] = useState<string | null>(null);
   const [effectiveSchedule, setEffectiveSchedule] = useState<any[] | null>(null);
-  const [hasAllDayEvent, setHasAllDayEvent] = useState(false);
+  const [hasAllDayEvent, setHasAllDayEvent] = useState<boolean | null>(null);
   const loadingRef = useRef(false);
   const assignmentCacheRef = useRef<{[key: string]: any}>({});
   
