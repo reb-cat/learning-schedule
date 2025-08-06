@@ -43,8 +43,9 @@ export function SystemHealthDashboard({ studentName }: SystemHealthDashboardProp
       setValidationResults(validation);
       
       // Fix: Safely check validation status using type guards
-      const isValidResult = 'isValid' in validation ? validation.isValid : 
-                           'valid' in validation ? validation.valid : false;
+      const isValidResult = validation && typeof validation === 'object' && 
+                           ('isValid' in validation ? validation.isValid : 
+                            'valid' in validation ? (validation as any).valid : false);
       if (!isValidResult) {
         console.warn('🔧 Data validation found issues:', validation);
       }

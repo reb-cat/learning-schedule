@@ -121,9 +121,7 @@ export const useAdministrativeNotifications = () => {
   };
 
   useEffect(() => {
-    console.log('🔧 useAdministrativeNotifications useEffect - DISABLED to debug auth loop');
-    // TEMPORARILY DISABLED - DEBUGGING AUTH LOOP
-    // fetchNotifications();
+    fetchNotifications();
   }, []);
 
   return {

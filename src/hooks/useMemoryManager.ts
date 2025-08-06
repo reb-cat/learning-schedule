@@ -68,12 +68,10 @@ export function useMemoryManager(options: MemoryManagerOptions = {}) {
   }, [gcThreshold, trackMemoryUsage, forceGarbageCollection]);
 
   useEffect(() => {
-    console.log('🔧 useMemoryManager useEffect - DISABLED to debug auth loop');
-    // TEMPORARILY DISABLED - DEBUGGING AUTH LOOP
-    // const interval = setInterval(() => {
-    //   checkMemoryPressure();
-    //   memoryStatsRef.current.lastCleanup = Date.now();
-    // }, cleanupInterval);
+    const interval = setInterval(() => {
+      checkMemoryPressure();
+      memoryStatsRef.current.lastCleanup = Date.now();
+    }, cleanupInterval);
 
     // Listen for page visibility changes to cleanup when hidden
     const handleVisibilityChange = () => {
@@ -96,8 +94,7 @@ export function useMemoryManager(options: MemoryManagerOptions = {}) {
     }
 
     return () => {
-      // TEMPORARILY DISABLED - DEBUGGING AUTH LOOP
-      // clearInterval(interval);
+      clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if ('memory' in navigator) {
         (navigator as any).memory?.removeEventListener?.('pressure', handleMemoryPressure);

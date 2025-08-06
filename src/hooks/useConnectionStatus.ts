@@ -6,37 +6,35 @@ export function useConnectionStatus() {
   const [lastCheck, setLastCheck] = useState<Date>(new Date());
 
   useEffect(() => {
-    console.log('🔧 useConnectionStatus useEffect - DISABLED to debug auth loop');
-    // TEMPORARILY DISABLED - DEBUGGING AUTH LOOP
-    // const checkConnection = async () => {
-    //   try {
-    //     // Simple health check query
-    //     const { error } = await supabase
-    //       .from('assignments')
-    //       .select('id')
-    //       .limit(1);
-        
-    //     const connected = !error;
-    //     setIsConnected(connected);
-    //     setLastCheck(new Date());
-        
-    //     if (!connected) {
-    //       console.warn('Supabase connection check failed:', error);
-    //     }
-    //   } catch (err) {
-    //     console.error('Connection check error:', err);
-    //     setIsConnected(false);
-    //     setLastCheck(new Date());
-    //   }
-    // };
+    const checkConnection = async () => {
+      try {
+        // Simple health check query
+        const { error } = await supabase
+          .from('assignments')
+          .select('id')
+          .limit(1);
+          
+        const connected = !error;
+        setIsConnected(connected);
+        setLastCheck(new Date());
+          
+        if (!connected) {
+          console.warn('Supabase connection check failed:', error);
+        }
+      } catch (err) {
+        console.error('Connection check error:', err);
+        setIsConnected(false);
+        setLastCheck(new Date());
+      }
+    };
 
-    // // Check immediately
-    // checkConnection();
+    // Check immediately
+    checkConnection();
 
-    // // Check every 30 seconds
-    // const interval = setInterval(checkConnection, 30000);
+    // Check every 30 seconds
+    const interval = setInterval(checkConnection, 30000);
 
-    // return () => clearInterval(interval);
+    return () => clearInterval(interval);
   }, []);
 
   return { isConnected, lastCheck };
