@@ -9,6 +9,9 @@ export interface AllDayEvent {
   description?: string;
   created_at: string;
   updated_at: string;
+  start_date?: string;
+  end_date?: string;
+  event_group_id?: string;
 }
 
 /**
@@ -38,21 +41,102 @@ export async function hasAllDayEvent(studentName: string, date: string): Promise
 }
 
 /**
- * Create a new all-day event
+ * Create a new all-day event (supports multi-day events)
  */
-export async function createAllDayEvent(event: Omit<AllDayEvent, 'id' | 'created_at' | 'updated_at'>): Promise<AllDayEvent | null> {
-  const { data, error } = await supabase
-    .from('all_day_events')
-    .insert(event)
-    .select()
-    .single();
+export async function createAllDayEvent(eventData: {
+  student_name: string;
+  event_title: string;
+  event_type: string;
+  start_date: string;
+  end_date: string;
+  description?: string;
+}): Promise<AllDayEvent[] | null> {
+  try {
+    const startDate = new Date(eventData.start_date);
+    const endDate = new Date(eventData.end_date);
+    const events: any[] = [];
+    const eventGroupId = crypto.randomUUID();
 
-  if (error) {
-    console.error('Error creating all-day event:', error);
+    // Create an event for each day in the range
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      const dateString = currentDate.toISOString().split('T')[0];
+      
+      events.push({
+        student_name: eventData.student_name,
+        event_title: eventData.event_title,
+        event_type: eventData.event_type,
+        event_date: dateString,
+        start_date: eventData.start_date,
+        end_date: eventData.end_date,
+        event_group_id: eventGroupId,
+        description: eventData.description
+      });
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    const { data, error } = await supabase
+      .from('all_day_events')
+      .insert(events)
+      .select();
+
+    if (error) {
+      console.error('Error creating all-day event:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in createAllDayEvent:', error);
     return null;
   }
+}
 
-  return data;
+/**
+ * Get events grouped by event_group_id for display
+ */
+export async function getGroupedAllDayEvents(studentName: string, date: string): Promise<AllDayEvent[][]> {
+  const { data, error } = await supabase
+    .from('all_day_events')
+    .select('*')
+    .eq('student_name', studentName)
+    .lte('start_date', date)
+    .gte('end_date', date);
+
+  if (error) {
+    console.error('Error fetching grouped all-day events:', error);
+    return [];
+  }
+
+  // Group events by event_group_id
+  const grouped = data?.reduce((acc, event) => {
+    const groupId = event.event_group_id || event.id;
+    if (!acc[groupId]) {
+      acc[groupId] = [];
+    }
+    acc[groupId].push(event);
+    return acc;
+  }, {} as Record<string, AllDayEvent[]>) || {};
+
+  return Object.values(grouped);
+}
+
+/**
+ * Delete an entire event group (for multi-day events)
+ */
+export async function deleteEventGroup(eventGroupId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('all_day_events')
+    .delete()
+    .eq('event_group_id', eventGroupId);
+
+  if (error) {
+    console.error('Error deleting event group:', error);
+    return false;
+  }
+
+  return true;
 }
 
 /**

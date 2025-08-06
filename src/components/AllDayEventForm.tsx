@@ -25,12 +25,14 @@ export function AllDayEventForm({ onSuccess }: AllDayEventFormProps) {
     student_name: '',
     event_title: '',
     event_type: 'field_trip',
-    event_date: undefined as Date | undefined,
+    start_date: undefined as Date | undefined,
+    end_date: undefined as Date | undefined,
     description: ''
   });
 
   const eventTypes = [
     { value: 'field_trip', label: 'Field Trip', icon: '🚌' },
+    { value: 'volunteer', label: 'Volunteer Work', icon: '🤝' },
     { value: 'holiday', label: 'Holiday', icon: '🎉' },
     { value: 'sick_day', label: 'Sick Day', icon: '🤒' },
     { value: 'family_event', label: 'Family Event', icon: '👨‍👩‍👧‍👦' },
@@ -42,10 +44,19 @@ export function AllDayEventForm({ onSuccess }: AllDayEventFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.student_name || !formData.event_title || !formData.event_date) {
+    if (!formData.student_name || !formData.event_title || !formData.start_date || !formData.end_date) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (formData.start_date > formData.end_date) {
+      toast({
+        title: "Invalid Date Range",
+        description: "End date must be after start date",
         variant: "destructive"
       });
       return;
@@ -57,7 +68,8 @@ export function AllDayEventForm({ onSuccess }: AllDayEventFormProps) {
         student_name: formData.student_name,
         event_title: formData.event_title,
         event_type: formData.event_type,
-        event_date: format(formData.event_date, 'yyyy-MM-dd'),
+        start_date: format(formData.start_date, 'yyyy-MM-dd'),
+        end_date: format(formData.end_date, 'yyyy-MM-dd'),
         description: formData.description || undefined
       };
 
@@ -67,9 +79,11 @@ export function AllDayEventForm({ onSuccess }: AllDayEventFormProps) {
         throw new Error('Failed to create all-day event');
       }
 
+      const dayCount = Math.ceil((formData.end_date.getTime() - formData.start_date.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      
       toast({
         title: "Event Created",
-        description: `${formData.event_title} has been added successfully`,
+        description: `${formData.event_title} has been added for ${dayCount} day${dayCount > 1 ? 's' : ''}`,
       });
 
       // Reset form
@@ -77,7 +91,8 @@ export function AllDayEventForm({ onSuccess }: AllDayEventFormProps) {
         student_name: '',
         event_title: '',
         event_type: 'field_trip',
-        event_date: undefined,
+        start_date: undefined,
+        end_date: undefined,
         description: ''
       });
 
@@ -159,38 +174,79 @@ export function AllDayEventForm({ onSuccess }: AllDayEventFormProps) {
             </div>
           </div>
 
-          {/* Date Selection */}
-          <div className="space-y-2">
+          {/* Date Range Selection */}
+          <div className="space-y-4">
             <Label className="flex items-center gap-2 text-sm font-medium">
               <CalendarIcon className="h-4 w-4" />
-              Event Date
+              Event Dates
             </Label>
-            <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !formData.event_date && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.event_date ? format(formData.event_date, "PPP") : "Pick a date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={formData.event_date}
-                  onSelect={(date) => {
-                    setFormData(prev => ({ ...prev, event_date: date }));
-                    setShowDatePicker(false);
-                  }}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Start Date */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Start Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !formData.start_date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {formData.start_date ? format(formData.start_date, "PPP") : "Pick start date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={formData.start_date}
+                      onSelect={(date) => {
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          start_date: date,
+                          end_date: date && prev.end_date && date > prev.end_date ? date : prev.end_date
+                        }));
+                      }}
+                      initialFocus
+                      className="p-3"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* End Date */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">End Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !formData.end_date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {formData.end_date ? format(formData.end_date, "PPP") : "Pick end date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={formData.end_date}
+                      onSelect={(date) => {
+                        setFormData(prev => ({ ...prev, end_date: date }));
+                      }}
+                      disabled={(date) => formData.start_date ? date < formData.start_date : false}
+                      initialFocus
+                      className="p-3"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
           </div>
 
           {/* Description */}
@@ -208,17 +264,22 @@ export function AllDayEventForm({ onSuccess }: AllDayEventFormProps) {
           </div>
 
           {/* Preview */}
-          {formData.event_title && formData.event_date && (
+          {formData.event_title && formData.start_date && formData.end_date && (
             <div className="p-4 bg-muted rounded-lg border">
               <h4 className="font-medium text-sm text-muted-foreground mb-2">Preview</h4>
               <div className="flex items-center gap-2 text-sm">
                 <span>{selectedEventType?.icon}</span>
                 <span className="font-medium">{formData.event_title}</span>
                 <span className="text-muted-foreground">•</span>
-                <span className="text-muted-foreground">{format(formData.event_date, "EEEE, MMMM d, yyyy")}</span>
+                <span className="text-muted-foreground">
+                  {formData.start_date.getTime() === formData.end_date.getTime() 
+                    ? format(formData.start_date, "EEEE, MMMM d, yyyy")
+                    : `${format(formData.start_date, "MMM d")} - ${format(formData.end_date, "MMM d, yyyy")}`
+                  }
+                </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                This will block all assignment scheduling for {formData.student_name} on this date.
+                This will block all assignment scheduling for {formData.student_name} during this period.
               </p>
             </div>
           )}
@@ -227,7 +288,7 @@ export function AllDayEventForm({ onSuccess }: AllDayEventFormProps) {
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={loading || !formData.student_name || !formData.event_title || !formData.event_date}
+            disabled={loading || !formData.student_name || !formData.event_title || !formData.start_date || !formData.end_date}
           >
             {loading ? 'Creating Event...' : 'Create All-Day Event'}
           </Button>

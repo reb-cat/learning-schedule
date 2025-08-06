@@ -72,30 +72,39 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          end_date: string | null
           event_date: string
+          event_group_id: string | null
           event_title: string
           event_type: string
           id: string
+          start_date: string | null
           student_name: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           description?: string | null
+          end_date?: string | null
           event_date: string
+          event_group_id?: string | null
           event_title: string
           event_type?: string
           id?: string
+          start_date?: string | null
           student_name: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           description?: string | null
+          end_date?: string | null
           event_date?: string
+          event_group_id?: string | null
           event_title?: string
           event_type?: string
           id?: string
+          start_date?: string | null
           student_name?: string
           updated_at?: string
         }

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Trash2, Edit3 } from 'lucide-react';
 import { format, parseISO, isToday, isFuture, parse } from 'date-fns';
-import { getAllDayEventsForDate, AllDayEvent } from '@/data/allDayEvents';
+import { getAllDayEventsForDate, AllDayEvent, deleteEventGroup } from '@/data/allDayEvents';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,6 +21,7 @@ export function AllDayEventsList({ studentName, selectedDate, onEventUpdate }: A
 
   const eventTypeConfig = {
     field_trip: { label: 'Field Trip', icon: '🚌', color: 'bg-blue-100 text-blue-800' },
+    volunteer: { label: 'Volunteer Work', icon: '🤝', color: 'bg-emerald-100 text-emerald-800' },
     holiday: { label: 'Holiday', icon: '🎉', color: 'bg-green-100 text-green-800' },
     sick_day: { label: 'Sick Day', icon: '🤒', color: 'bg-red-100 text-red-800' },
     family_event: { label: 'Family Event', icon: '👨‍👩‍👧‍👦', color: 'bg-purple-100 text-purple-800' },
@@ -32,15 +33,9 @@ export function AllDayEventsList({ studentName, selectedDate, onEventUpdate }: A
   const loadEvents = async () => {
     if (!selectedDate) return;
     
-    console.log('=== ALLDAY EVENTS DATE DEBUG ===');
-    console.log('Selected date received:', selectedDate);
-    console.log('Current actual date:', new Date().toISOString().split('T')[0]);
-    console.log('Today is:', format(new Date(), 'EEEE, MMMM d, yyyy'));
-    
     setLoading(true);
     try {
       const eventsData = await getAllDayEventsForDate(studentName, selectedDate);
-      console.log('Events loaded for date', selectedDate, ':', eventsData);
       setEvents(eventsData);
     } catch (error) {
       console.error('Error loading all-day events:', error);
@@ -53,21 +48,41 @@ export function AllDayEventsList({ studentName, selectedDate, onEventUpdate }: A
     loadEvents();
   }, [studentName, selectedDate]);
 
-  const handleDeleteEvent = async (eventId: string) => {
+  const handleDeleteEvent = async (event: AllDayEvent) => {
     try {
-      const { error } = await supabase
-        .from('all_day_events')
-        .delete()
-        .eq('id', eventId);
+      let success = false;
+      
+      // If it's part of a group (multi-day event), delete the entire group
+      if (event.event_group_id) {
+        success = await deleteEventGroup(event.event_group_id);
+        if (success) {
+          toast({
+            title: "Event Series Deleted",
+            description: "Multi-day event has been completely removed",
+          });
+        }
+      } else {
+        // Single event deletion
+        const { error } = await supabase
+          .from('all_day_events')
+          .delete()
+          .eq('id', event.id);
 
-      if (error) throw error;
+        if (!error) {
+          success = true;
+          toast({
+            title: "Event Deleted",
+            description: "All-day event has been removed",
+          });
+        }
+      }
 
-      toast({
-        title: "Event Deleted",
-        description: "All-day event has been removed successfully",
-      });
+      if (!success) {
+        throw new Error('Failed to delete event');
+      }
 
-      setEvents(prev => prev.filter(event => event.id !== eventId));
+      // Refresh the events list
+      await loadEvents();
       onEventUpdate?.();
     } catch (error) {
       console.error('Error deleting event:', error);
@@ -133,7 +148,14 @@ export function AllDayEventsList({ studentName, selectedDate, onEventUpdate }: A
                   </div>
                   
                   <div className="text-xs text-muted-foreground mb-1">
-                    Database: {event.event_date} | Display: {format(parse(event.event_date, 'yyyy-MM-dd', new Date()), "EEEE, MMMM d, yyyy")}
+                    {event.start_date && event.end_date && event.start_date !== event.end_date ? (
+                      `${format(parse(event.start_date, 'yyyy-MM-dd', new Date()), "MMM d")} - ${format(parse(event.end_date, 'yyyy-MM-dd', new Date()), "MMM d, yyyy")}`
+                    ) : (
+                      format(parse(event.event_date, 'yyyy-MM-dd', new Date()), "EEEE, MMMM d, yyyy")
+                    )}
+                    {event.event_group_id && event.start_date !== event.end_date && (
+                      <span className="ml-2 text-xs bg-muted px-1 rounded">Multi-day event</span>
+                    )}
                   </div>
                   
                   {event.description && (
@@ -151,8 +173,9 @@ export function AllDayEventsList({ studentName, selectedDate, onEventUpdate }: A
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDeleteEvent(event.id)}
+                    onClick={() => handleDeleteEvent(event)}
                     className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    title={event.event_group_id ? "Delete entire event series" : "Delete event"}
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
