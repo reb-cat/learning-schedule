@@ -16,6 +16,10 @@ import { getEffectiveScheduleForDay } from "@/data/allDayEvents";
 import { ErrorFallback } from "@/components/ErrorFallback";
 
 const AbigailDashboard = () => {
+  // RENDER COUNTER DEBUG
+  const renderCount = useRef(0);
+  renderCount.current++;
+  console.log('🔴 ABIGAIL RENDER COUNT:', renderCount.current);
   console.log('🏠 AbigailDashboard rendering...');
   
   try {

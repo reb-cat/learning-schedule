@@ -39,16 +39,16 @@ const ParentDashboard = () => {
     forceRefreshKhalil();
   };
 
-  // Auto-refresh every 30 seconds to keep data current
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Silently refresh data to catch any updates from student dashboards
-      forceRefreshAbigail();
-      forceRefreshKhalil();
-    }, 30000); // 30 seconds
+  // DISABLED: Auto-refresh causing infinite loops
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     // Silently refresh data to catch any updates from student dashboards
+  //     forceRefreshAbigail();
+  //     forceRefreshKhalil();
+  //   }, 30000); // 30 seconds
 
-    return () => clearInterval(interval);
-  }, [forceRefreshAbigail, forceRefreshKhalil]);
+  //   return () => clearInterval(interval);
+  // }, [forceRefreshAbigail, forceRefreshKhalil]);
 
 
 
