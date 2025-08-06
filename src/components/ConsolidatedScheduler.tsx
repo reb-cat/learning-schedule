@@ -22,6 +22,7 @@ import {
   Users
 } from "lucide-react";
 import { unifiedScheduler, UnifiedSchedulingResult, SchedulerOptions } from "@/services/unifiedScheduler";
+import { blockSharingScheduler } from "@/services/blockSharingScheduler";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays } from 'date-fns';
 import { cn } from "@/lib/utils";
@@ -476,7 +477,26 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
                 >
                   Continue with Today
                 </Button>
-              </div>
+          </div>
+          
+          {/* Clear Cache Button for Testing */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                // Clear both scheduler caches
+                unifiedScheduler.invalidateCache();
+                blockSharingScheduler.invalidateCache();
+                toast({
+                  title: "Cache Cleared",
+                  description: "🗑️ All caches cleared"
+                });
+              }}
+            >
+              Clear Cache
+            </Button>
+          </div>
             </div>
           )}
 

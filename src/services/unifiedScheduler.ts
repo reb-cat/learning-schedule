@@ -68,14 +68,9 @@ class UnifiedScheduler {
     // Verify current date for August 2025 debugging
     this.verifyCurrentDate();
 
-    // Check cache first
-    const cacheKey = this.generateCacheKey(studentName, options);
-    const cached = this.getCachedResult(cacheKey);
-    if (cached && !autoExecute) {
-      console.log('📋 Unified Scheduler: Using cached result - invalidating cache for fresh debug');
-      // For debugging, let's skip cache and get fresh data
-      this.invalidateCache(studentName);
-    }
+    // TEMPORARILY DISABLE CACHE for debugging - force fresh data
+    console.log('🚫 Cache temporarily disabled for debugging');
+    this.invalidateCache(studentName);
 
     try {
       // Use the robust block sharing scheduler as the foundation
@@ -99,8 +94,8 @@ class UnifiedScheduler {
       // Transform the result to our unified format
       const unifiedResult = this.transformToUnifiedFormat(blockSharingResult);
 
-      // Cache the result
-      this.setCachedResult(cacheKey, unifiedResult);
+      // Don't cache during debugging - keeping fresh
+      // this.setCachedResult(cacheKey, unifiedResult);
 
       // Auto-execute if requested and no critical warnings
       if (autoExecute && !this.hasCriticalWarnings(unifiedResult)) {
