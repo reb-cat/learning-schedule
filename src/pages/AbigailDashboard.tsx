@@ -16,17 +16,25 @@ import { getEffectiveScheduleForDay } from "@/data/allDayEvents";
 import { ErrorFallback } from "@/components/ErrorFallback";
 
 const AbigailDashboard = () => {
-  // STACK TRACE DEBUG - at the VERY top
-  console.trace('🔴 ABIGAIL RENDER STACK TRACE');
-  
-  // RENDER COUNTER DEBUG
+  // CIRCUIT BREAKER: Stop infinite render loops
   const renderCount = useRef(0);
   renderCount.current++;
-  console.log('🔴 ABIGAIL RENDER COUNT:', renderCount.current);
   
-  // Debugger for excessive renders
-  if (renderCount.current > 10) {
-    debugger; // This will pause execution
+  if (renderCount.current > 25) {
+    console.error('🚨 ABIGAIL DASHBOARD: Circuit breaker activated');
+    return (
+      <div className="min-h-screen bg-background p-8">
+        <Card className="border-red-500">
+          <CardContent className="p-6 text-center">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Circuit Breaker Activated</h1>
+            <p className="mb-4">Too many renders detected. Dashboard stopped to prevent infinite loops.</p>
+            <Link to="/abigail/static">
+              <Button>Switch to Static Dashboard</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
   
   console.log('🏠 AbigailDashboard rendering...');

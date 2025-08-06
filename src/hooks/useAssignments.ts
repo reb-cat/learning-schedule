@@ -55,7 +55,30 @@ export interface Assignment {
 }
 
 export const useAssignments = (studentName: string) => {
-  console.log('🔄 useAssignments rendering for:', studentName, new Date().toISOString());
+  // CIRCUIT BREAKER: Stop infinite render loops
+  const renderCount = useRef(0);
+  renderCount.current++;
+  
+  console.log('🔄 useAssignments rendering for:', studentName, 'render #', renderCount.current);
+  
+  if (renderCount.current > 50) {
+    console.error('🚨 CIRCUIT BREAKER: Too many renders, stopping all operations');
+    return { 
+      assignments: [], 
+      loading: false, 
+      error: 'Circuit breaker activated - too many renders',
+      refetch: () => Promise.resolve(),
+      forceRefresh: () => Promise.resolve(),
+      getScheduledAssignment: () => Promise.resolve(null),
+      invalidateCache: () => {},
+      cleanupData: () => Promise.resolve(),
+      validateData: () => Promise.resolve({ valid: true, issues: [], repaired: 0 }),
+      repairData: () => Promise.resolve({ valid: true, issues: [], repaired: 0 }),
+      optimizeMemory: () => {},
+      cacheStats: { hits: 0, misses: 0, size: 0, hitRate: '0%' },
+      memoryStats: () => ({ used: 0, total: 100, percentage: 0 })
+    };
+  }
   
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
