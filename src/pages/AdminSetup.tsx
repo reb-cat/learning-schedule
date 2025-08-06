@@ -295,38 +295,7 @@ const AdminSetup = () => {
             </Card>
 
             {/* System Status */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Sync Operations</CardTitle>
-                    <CardDescription>Canvas integration and data synchronization</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Canvas sync operations are system-level processes that import and update assignment data from external sources.
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-              <SystemStatusCard showDetails={true} />
-            </div>
-
-            {/* Database Permission Test */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
-                  Database Permission Test
-                </CardTitle>
-                <CardDescription>
-                  Verify RLS policies and Supabase client permissions for assignments table
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DatabasePermissionTest />
-              </CardContent>
-            </Card>
+            <SystemStatusCard showDetails={true} />
           </TabsContent>
 
           <TabsContent value="scheduling" className="space-y-6">
@@ -465,6 +434,22 @@ const AdminSetup = () => {
                     <div className="text-gray-500">Loading diagnostics...</div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Database Permission Test */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Database Permission Test
+                </CardTitle>
+                <CardDescription>
+                  Verify RLS policies and Supabase client permissions for assignments table
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DatabasePermissionTest />
               </CardContent>
             </Card>
           </TabsContent>
