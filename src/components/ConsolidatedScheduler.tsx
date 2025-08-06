@@ -51,6 +51,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
   const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
   const [includeAdminTasks, setIncludeAdminTasks] = useState(true);
   const [previewOnly, setPreviewOnly] = useState(false);
+  const [forceNextDay, setForceNextDay] = useState(false);
   const [currentTime] = useState(new Date()); // Capture current time when component loads
   const [showDateAdjustmentSuggestion, setShowDateAdjustmentSuggestion] = useState(false);
   
@@ -193,7 +194,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
       
       const options: SchedulerOptions = {
         daysAhead: finalDaysAhead,
-        startDate: actualRange === 'custom' && actualCustomDate ? actualCustomDate : new Date(),
+        startDate: forceNextDay ? addDays(new Date(), 1) : (actualRange === 'custom' && actualCustomDate ? actualCustomDate : new Date()),
         previewOnly: true,
         includeAdminTasks,
         autoExecute: false,
@@ -261,7 +262,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
     try {
       const options: SchedulerOptions = {
         daysAhead: getDaysAhead(),
-        startDate: dateRange === 'custom' && customDate ? customDate : new Date(),
+        startDate: forceNextDay ? addDays(new Date(), 1) : (dateRange === 'custom' && customDate ? customDate : new Date()),
         previewOnly: false,
         includeAdminTasks,
         autoExecute: true,
@@ -564,7 +565,15 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
                     checked={previewOnly}
                     onCheckedChange={setPreviewOnly}
                   />
-                </div>
+                 </div>
+                 <div className="flex items-center justify-between">
+                   <Label htmlFor="force-next-day" className="text-xs">Schedule for Next Day</Label>
+                   <Switch
+                     id="force-next-day"
+                     checked={forceNextDay}
+                     onCheckedChange={setForceNextDay}
+                   />
+                 </div>
               </div>
             </div>
           </div>
