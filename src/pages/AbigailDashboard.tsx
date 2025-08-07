@@ -1,202 +1,49 @@
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Home, Calendar, Plus } from "lucide-react";
-import { format, parse, isValid } from "date-fns";
-import { getScheduleForStudentAndDay } from "@/data/scheduleData";
-import { useAssignments } from "@/hooks/useAssignments";
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Home, Calendar } from "lucide-react";
 import { CoopChecklist } from "@/components/CoopChecklist";
 import { OptimizedStudentBlockDisplay } from "@/components/OptimizedStudentBlockDisplay";
 import { AllDayEventForm } from "@/components/AllDayEventForm";
 import { AllDayEventsList } from "@/components/AllDayEventsList";
-import { getEffectiveScheduleForDay } from "@/data/allDayEvents";
-
 import { ErrorFallback } from "@/components/ErrorFallback";
+import { useStudentDashboard } from "@/hooks/useStudentDashboard";
+import { useScheduledAssignments } from "@/hooks/useScheduledAssignments";
 
 const AbigailDashboard = () => {
   console.log('🏠 AbigailDashboard rendering...');
   
   try {
-    const [searchParams] = useSearchParams();
-    const dateParam = searchParams.get('date');
-    
-  const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch, cleanupData } = useAssignments('Abigail');
-  
-  // Listen for assignment clearing events
-  useEffect(() => {
-    const handleAssignmentsCleared = () => {
-      refetch();
+    const {
+      assignments,
+      assignmentsLoading,
+      assignmentsError,
+      getScheduledAssignment,
+      refetch,
+      criticalError,
+      setCriticalError,
+      todaySchedule,
+      hasAllDayEvent,
+      isCheckingAllDayEvent,
+      dateDisplay,
+      formattedDate,
+      currentDay,
+      isWeekend,
+      handleEventUpdate
+    } = useStudentDashboard('Abigail');
+
+    const { scheduledAssignments, isLoadingAssignments, clearCache } = useScheduledAssignments(
+      getScheduledAssignment,
+      formattedDate,
+      todaySchedule
+    );
+
+    // Update event handler to clear assignment cache
+    const handleEventUpdateWithCache = () => {
+      clearCache();
+      handleEventUpdate();
     };
-    
-    window.addEventListener('assignmentsCleared', handleAssignmentsCleared);
-    return () => window.removeEventListener('assignmentsCleared', handleAssignmentsCleared);
-  }, [refetch]);
-  const [scheduledAssignments, setScheduledAssignments] = useState<{[key: string]: any}>({});
-  const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
-  const [criticalError, setCriticalError] = useState<string | null>(null);
-  const [effectiveSchedule, setEffectiveSchedule] = useState<any[] | null>(null);
-  const [hasAllDayEvent, setHasAllDayEvent] = useState<boolean | null>(null);
-  const [isCheckingAllDayEvent, setIsCheckingAllDayEvent] = useState(true);
-  const loadingRef = useRef(false);
-  const assignmentCacheRef = useRef<{[key: string]: any}>({});
-    
-    // Use date parameter if provided and valid, otherwise use today
-    let displayDate = new Date();
-    if (dateParam) {
-      const parsedDate = parse(dateParam, 'yyyy-MM-dd', new Date());
-      if (isValid(parsedDate)) {
-        displayDate = parsedDate;
-      }
-    }
-    
-  const dateDisplay = format(displayDate, "EEEE, MMMM d, yyyy");
-  const formattedDate = format(displayDate, 'yyyy-MM-dd');
-  const currentDay = format(displayDate, "EEEE");
-  const isWeekend = currentDay === "Saturday" || currentDay === "Sunday";
-  const baseTodaySchedule = getScheduleForStudentAndDay("Abigail", currentDay);
-
-  // Check for all-day events and get effective schedule
-  const checkEffectiveSchedule = useCallback(async () => {
-    setIsCheckingAllDayEvent(true);
-    
-    try {
-      // Set a hard 3-second timeout - if it takes longer, just show regular schedule
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 3000)
-      );
-      
-      const schedulePromise = getEffectiveScheduleForDay(
-        "Abigail", 
-        currentDay, 
-        formattedDate,
-        (student, day) => getScheduleForStudentAndDay(student, day)
-      );
-      
-      const schedule = await Promise.race([schedulePromise, timeoutPromise]) as any[] | null;
-      
-      setEffectiveSchedule(schedule);
-      setHasAllDayEvent(schedule === null);
-    } catch (error) {
-      console.log('All-day event check failed/timed out - using regular schedule');
-      // On any error or timeout, just show the regular schedule
-      setEffectiveSchedule(undefined);
-      setHasAllDayEvent(false);
-    } finally {
-      // ALWAYS reset loading state, no matter what happens
-      setIsCheckingAllDayEvent(false);
-    }
-  }, [currentDay, formattedDate]);
-
-  useEffect(() => {
-    checkEffectiveSchedule();
-  }, [checkEffectiveSchedule]);
-
-  // Use effective schedule or fallback to base schedule
-  const todaySchedule = effectiveSchedule || baseTodaySchedule;
-
-  // Stabilize getScheduledAssignment function
-  const stableGetScheduledAssignment = useCallback(getScheduledAssignment, [getScheduledAssignment]);
-
-  // Memoize expensive calculations with stable dependencies
-  const assignmentBlocks = useMemo(() => 
-    todaySchedule?.filter(block => block.isAssignmentBlock && block.block) || [],
-    [todaySchedule]
-  );
-
-    // Load scheduled assignments with stabilized dependencies and batch loading
-    const loadScheduledAssignments = useCallback(async () => {
-      if (!stableGetScheduledAssignment || assignmentBlocks.length === 0 || loadingRef.current) return;
-      
-      // Prevent concurrent loading
-      loadingRef.current = true;
-      setIsLoadingAssignments(true);
-      
-      try {
-        // Generate cache key for this specific combination
-        const cacheKey = `${formattedDate}-${assignmentBlocks.map(b => b.block).join(',')}`;
-        
-        // Check if we already have this exact data cached
-        if (assignmentCacheRef.current[cacheKey]) {
-          const cachedAssignments = assignmentCacheRef.current[cacheKey];
-          
-          // Deep equality check - only update if data actually changed
-          const currentAssignmentsStr = JSON.stringify(scheduledAssignments);
-          const cachedAssignmentsStr = JSON.stringify(cachedAssignments);
-          
-          if (currentAssignmentsStr !== cachedAssignmentsStr) {
-            setScheduledAssignments(cachedAssignments);
-          }
-          return;
-        }
-
-        const assignmentPromises = assignmentBlocks.map(async (block) => {
-          try {
-            const assignment = await stableGetScheduledAssignment(block.block!, formattedDate);
-            return assignment ? [`${block.block}`, assignment] : null;
-          } catch (error) {
-            console.warn('Error loading assignment for block:', block.block, error);
-            return null;
-          }
-        });
-
-        const results = await Promise.all(assignmentPromises);
-        const assignmentMap = Object.fromEntries(
-          results.filter((result): result is [string, any] => result !== null)
-        );
-        
-        // Cache the result
-        assignmentCacheRef.current[cacheKey] = assignmentMap;
-        
-        // Only update state if data actually changed
-        const currentAssignmentsStr = JSON.stringify(scheduledAssignments);
-        const newAssignmentsStr = JSON.stringify(assignmentMap);
-        
-        if (currentAssignmentsStr !== newAssignmentsStr) {
-          setScheduledAssignments(assignmentMap);
-        }
-      } catch (error) {
-        console.error('Error loading scheduled assignments:', error);
-      } finally {
-        loadingRef.current = false;
-        setIsLoadingAssignments(false);
-      }
-    }, [stableGetScheduledAssignment, formattedDate, assignmentBlocks, scheduledAssignments]);
-
-
-  useEffect(() => {
-    loadScheduledAssignments();
-  }, [loadScheduledAssignments]);
-
-  // Debounced update handler to prevent rapid successive calls
-  const handleEventUpdate = useCallback(() => {
-    // Clear cache to force fresh data
-    assignmentCacheRef.current = {};
-    
-    // Use setTimeout to batch updates
-    setTimeout(() => {
-      checkEffectiveSchedule();
-      loadScheduledAssignments();
-    }, 100);
-  }, [checkEffectiveSchedule, loadScheduledAssignments]);
-
-    // Handle critical errors that would cause blank pages
-    useEffect(() => {
-      if (assignmentsError && !assignments.length && !assignmentsLoading) {
-        // Only show critical error if we have no data at all
-        const isCritical = assignmentsError.includes('timeout') || 
-                          assignmentsError.includes('network') || 
-                          assignmentsError.includes('connection') ||
-                          !assignmentsError.includes('cached');
-        
-        if (isCritical) {
-          setCriticalError(assignmentsError);
-        }
-      } else {
-        setCriticalError(null);
-      }
-    }, [assignmentsError, assignments.length, assignmentsLoading]);
 
     // Show error fallback for critical errors
     if (criticalError) {
@@ -257,7 +104,7 @@ const AbigailDashboard = () => {
               <AllDayEventsList 
                 studentName="Abigail" 
                 selectedDate={formattedDate}
-                onEventUpdate={handleEventUpdate}
+                onEventUpdate={handleEventUpdateWithCache}
               />
 
               {/* Today's Schedule */}
@@ -299,7 +146,7 @@ const AbigailDashboard = () => {
                         block={block}
                         assignment={block.isAssignmentBlock ? scheduledAssignments[`${block.block}`] : undefined}
                         studentName="Abigail"
-                        onAssignmentUpdate={handleEventUpdate}
+                        onAssignmentUpdate={handleEventUpdateWithCache}
                         isLoading={isLoadingAssignments}
                       />
                     ))}
@@ -309,7 +156,7 @@ const AbigailDashboard = () => {
             </TabsContent>
 
             <TabsContent value="events" className="space-y-6">
-              <AllDayEventForm onSuccess={handleEventUpdate} />
+              <AllDayEventForm onSuccess={handleEventUpdateWithCache} />
             </TabsContent>
           </Tabs>
         </div>
