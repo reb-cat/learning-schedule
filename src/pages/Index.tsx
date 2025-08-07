@@ -33,16 +33,6 @@ const Index = () => {
               Khalil's Dashboard
             </Button>
           </Link>
-
-          <Link to="/admin" className="block">
-            <Button 
-              variant="outline" 
-              size="lg" 
-              className="w-full h-16 text-lg font-semibold"
-            >
-              Admin Control Center
-            </Button>
-          </Link>
         </div>
       </div>
     </div>
