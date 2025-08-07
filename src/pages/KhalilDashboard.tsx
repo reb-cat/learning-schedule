@@ -9,7 +9,7 @@ import { useAssignments } from "@/hooks/useAssignments";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { CoopChecklist } from "@/components/CoopChecklist";
 import { OptimizedStudentBlockDisplay } from "@/components/OptimizedStudentBlockDisplay";
-import { BackgroundScheduler } from "@/components/BackgroundScheduler";
+
 import { AllDayEventForm } from "@/components/AllDayEventForm";
 import { AllDayEventsList } from "@/components/AllDayEventsList";
 import { getEffectiveScheduleForDay } from "@/data/allDayEvents";
@@ -242,12 +242,6 @@ const KhalilDashboard = () => {
           </TabsList>
 
           <TabsContent value="schedule" className="space-y-6">
-            {/* Background scheduler - runs silently */}
-            <BackgroundScheduler 
-              studentName="Khalil" 
-              onSchedulingComplete={handleEventUpdate}
-            />
-            
             {/* Co-op Checklist - only shows on co-op days */}
             <CoopChecklist 
               studentName="Khalil" 
