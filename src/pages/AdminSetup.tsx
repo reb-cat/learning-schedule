@@ -270,33 +270,31 @@ const AdminSetup = () => {
           </TabsContent>
 
           <TabsContent value="system" className="space-y-6">
-            {/* Manual Sync */}
-            <Card className="border-2 border-blue-200">
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <RefreshCw className="h-6 w-6" />
+                <CardTitle className="flex items-center gap-2">
+                  <RefreshCw className="h-5 w-5" />
                   Canvas Sync
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="flex justify-center">
-                  <Button onClick={handleManualSync} disabled={isLoading} size="lg" className="bg-blue-600 hover:bg-blue-700 px-8">
-                    {isLoading ? <>
-                        <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
-                        Syncing...
-                      </> : <>
-                        <RefreshCw className="mr-2 h-5 w-5" />
-                        Run Manual Sync
-                      </>}
-                  </Button>
+              <CardContent className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  Last sync: {syncHistory[0] ? new Date(syncHistory[0].created_at).toLocaleString() : 'Never'}
                 </div>
-
-                {syncStatus && <div className="p-4 bg-gray-50 rounded-lg mt-6">
-                    <h4 className="font-medium mb-2">Last Manual Sync Results</h4>
-                    <pre className="text-sm bg-white p-3 rounded border overflow-auto">
-                      {JSON.stringify(syncStatus, null, 2)}
-                    </pre>
-                  </div>}
+                
+                <Button onClick={handleManualSync} disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Sync Now
+                    </>
+                  )}
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>

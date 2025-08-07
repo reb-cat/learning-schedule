@@ -11,7 +11,7 @@ interface StudentSectionProps {
   onAssignmentAdded?: () => void;
 }
 
-export const StudentSection = ({ studentName, assignments, loading, onAssignmentAdded }: StudentSectionProps) => {
+export const StudentSection = ({ studentName, assignments, loading }: StudentSectionProps) => {
   if (loading) {
     return (
       <div className="space-y-4">
@@ -20,10 +20,8 @@ export const StudentSection = ({ studentName, assignments, loading, onAssignment
             <CardTitle>{studentName}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="animate-pulse space-y-4">
-              <div className="h-20 bg-muted rounded"></div>
-              <div className="h-32 bg-muted rounded"></div>
-              <div className="h-24 bg-muted rounded"></div>
+            <div className="animate-pulse">
+              <div className="h-8 bg-muted rounded"></div>
             </div>
           </CardContent>
         </Card>
@@ -31,24 +29,18 @@ export const StudentSection = ({ studentName, assignments, loading, onAssignment
     );
   }
 
+  const scheduledCount = assignments.filter(a => a.scheduled_date).length;
+
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold">{studentName}</h2>
-      
-      <AlertsMonitoring 
-        assignments={assignments}
-        studentName={studentName}
-      />
-      
-      <TodaysProgress 
-        assignments={assignments}
-        studentName={studentName}
-      />
-      
-      <QuickAddForm 
-        studentName={studentName}
-        onSuccess={onAssignmentAdded}
-      />
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-xl">{studentName}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-muted-foreground">
+          {scheduledCount} assignments scheduled
+        </p>
+      </CardContent>
+    </Card>
   );
 };
