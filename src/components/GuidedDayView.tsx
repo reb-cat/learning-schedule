@@ -28,6 +28,8 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [showTransition, setShowTransition] = useState(false);
+  const [transitionCountdown, setTransitionCountdown] = useState(5); // 5 seconds only!
   
   // Just use what's passed in - it's already today's schedule
   const [incompleteAssignments, setIncompleteAssignments] = useState<Assignment[]>(() => 
@@ -56,6 +58,19 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
     return () => clearInterval(interval);
   }, [isTimerActive, startTime]);
 
+  // Transition countdown effect
+  useEffect(() => {
+    if (showTransition && transitionCountdown > 0) {
+      const timer = setTimeout(() => setTransitionCountdown(transitionCountdown - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (showTransition && transitionCountdown === 0) {
+      // Auto-advance
+      setShowTransition(false);
+      setTransitionCountdown(5);
+      moveToNextAssignment();
+    }
+  }, [showTransition, transitionCountdown]);
+
   const handleStartAssignment = () => {
     setIsTimerActive(true);
     setStartTime(new Date());
@@ -71,9 +86,21 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
       if (action === 'more-time') {
         // Add to end of queue
         setIncompleteAssignments(prev => [...prev.filter(a => a.id !== currentAssignment.id), currentAssignment]);
-      } else {
-        // Remove from queue (complete or stuck)
+        // Reset timer
+        setIsTimerActive(false);
+        setElapsedTime(0);
+      } else if (action === 'complete') {
+        // Remove from queue and show transition
         setIncompleteAssignments(prev => prev.filter(a => a.id !== currentAssignment.id));
+        setIsTimerActive(false);
+        setElapsedTime(0);
+        setShowTransition(true);
+        setTransitionCountdown(5);
+      } else {
+        // Remove from queue (stuck)
+        setIncompleteAssignments(prev => prev.filter(a => a.id !== currentAssignment.id));
+        setIsTimerActive(false);
+        setElapsedTime(0);
       }
       
       toast({
@@ -81,9 +108,6 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
         description: `${currentAssignment.title}`
       });
       
-      // Reset timer
-      setIsTimerActive(false);
-      setElapsedTime(0);
       return;
     }
     
@@ -102,6 +126,16 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
     onAssignmentUpdate?.();
   };
 
+  const getTransitionMessage = (prevSubject: string, nextSubject: string) => {
+    if (nextSubject === 'Math' || nextSubject === 'Science') {
+      return "Deep breath! Grab your calculator and notebook.";
+    } else if (nextSubject === 'Literature' || nextSubject === 'History') {
+      return "Quick stretch! Get your reading materials.";
+    } else {
+      return "Nice work! Get ready for the next one.";
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -117,6 +151,40 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
           <p className="text-muted-foreground">Great work today, {studentName}!</p>
         </CardContent>
       </Card>
+    );
+  }
+
+  // Show transition screen
+  if (showTransition) {
+    const nextAssignment = incompleteAssignments[currentAssignmentIndex + 1];
+    const currentSubject = currentAssignment?.subject || currentAssignment?.course_name || '';
+    const nextSubject = nextAssignment?.subject || nextAssignment?.course_name || '';
+    
+    return (
+      <div className="space-y-4">
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">
+            Assignment {currentAssignmentIndex + 1} of {incompleteAssignments.length}
+          </p>
+        </div>
+        
+        <Card className="bg-card border border-border">
+          <CardContent className="p-8 text-center space-y-4">
+            <div className="text-6xl mb-4">✅</div>
+            <h3 className="text-lg font-semibold text-foreground mb-2">Assignment Complete!</h3>
+            <p className="text-sm text-muted-foreground mb-4">Next in {transitionCountdown}...</p>
+            <p className="text-lg text-foreground mb-4">
+              {getTransitionMessage(currentSubject, nextSubject)}
+            </p>
+            <Button 
+              onClick={() => setTransitionCountdown(0)}
+              className="flex items-center gap-2"
+            >
+              Ready now!
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
