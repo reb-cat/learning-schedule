@@ -19,13 +19,21 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   
+  // Make incompleteAssignments a state variable
+  const [incompleteAssignments, setIncompleteAssignments] = useState<Assignment[]>(() => 
+    assignments.filter(assignment => assignment.completion_status !== 'completed')
+  );
+  
   const { updateAssignmentStatus, isLoading: isUpdating } = useAssignmentCompletion();
   const { toast } = useToast();
 
-  // Filter to only incomplete assignments
-  const incompleteAssignments = assignments.filter(
-    assignment => assignment.completion_status !== 'completed'
-  );
+  // Update incompleteAssignments when assignments prop changes
+  useEffect(() => {
+    setIncompleteAssignments(assignments.filter(
+      assignment => assignment.completion_status !== 'completed'
+    ));
+    setCurrentAssignmentIndex(0);
+  }, [assignments]);
 
   const currentAssignment = incompleteAssignments[currentAssignmentIndex];
 
@@ -90,6 +98,8 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
         description: "We'll come back to this later"
       });
 
+      // Add current assignment to end of array and move to next
+      setIncompleteAssignments([...incompleteAssignments, currentAssignment]);
       moveToNextAssignment();
     } catch (error) {
       toast({
