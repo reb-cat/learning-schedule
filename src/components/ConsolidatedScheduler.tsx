@@ -818,7 +818,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div className="flex items-center gap-3">
                             <Badge variant="outline">Block {decision.targetBlock}</Badge>
-                            <span className="font-medium">{decision.assignment.title}</span>
+                            <span className="font-medium">{decision.assignment.title} - {decision.studentName || 'Unknown'}</span>
                             <Badge variant={getUrgencyColor(decision.assignment.urgency || 'medium')}>
                               {decision.assignment.urgency || 'medium'}
                             </Badge>
@@ -838,7 +838,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
                 {result.decisions.map((decision, index) => (
                   <div key={index} className="p-4 border rounded-lg space-y-2">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium">{decision.assignment.title}</h4>
+                      <h4 className="font-medium">{decision.assignment.title} - {decision.studentName || 'Unknown'}</h4>
                       <div className="flex items-center gap-2">
                         <Badge variant={getUrgencyColor(decision.assignment.urgency || 'medium')}>
                           {decision.assignment.urgency || 'medium'}
@@ -865,7 +865,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
                   result.administrativeTasks.map((task, index) => (
                     <div key={index} className="p-4 border rounded-lg bg-amber-50 border-amber-200">
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium text-amber-900">{task.title}</h4>
+                        <h4 className="font-medium text-amber-900">{task.title} - {(task as any).studentName || 'Unknown'}</h4>
                         <Badge variant="secondary">{task.priority || 'medium'}</Badge>
                       </div>
                       <p className="text-sm text-amber-800">{task.notes || 'Administrative task'}</p>
