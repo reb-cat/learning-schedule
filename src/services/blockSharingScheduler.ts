@@ -515,7 +515,7 @@ export class BlockSharingScheduler {
     let availableBlocks = blocks;
     if (task.completion_status === 'in_progress' && !this.isTaskUrgent(task)) {
       // Filter out today's blocks for non-urgent "Need More Time" tasks
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA');
       availableBlocks = blocks.filter(block => block.date !== today);
       if (process.env.NODE_ENV === 'development') {
         console.log(`📅 "Need More Time" logic applied: Non-urgent in_progress task filtered out today's blocks`);

@@ -45,8 +45,8 @@ export async function testDatabasePermissions() {
       .from('assignments')
       .update({ 
         scheduled_block: 999, // Test value
-        scheduled_date: '2025-08-05',
-        scheduled_day: 'Monday'
+        scheduled_date: new Date().toISOString().split('T')[0],
+        scheduled_day: new Date().toLocaleDateString('en-US', { weekday: 'long' })
       })
       .eq('id', testAssignment.id)
       .select();
@@ -153,8 +153,8 @@ export async function testAssignmentUpdate(assignmentId: string) {
       .from('assignments')
       .update({
         scheduled_block: 2,
-        scheduled_date: '2025-08-05',
-        scheduled_day: 'Monday'
+        scheduled_date: new Date().toISOString().split('T')[0],
+        scheduled_day: new Date().toLocaleDateString('en-US', { weekday: 'long' })
       })
       .eq('id', assignmentId)
       .select();

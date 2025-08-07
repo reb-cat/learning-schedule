@@ -13,7 +13,7 @@ export const TodaysProgress = ({ assignments, studentName }: TodaysProgressProps
   // Filter to only show parent assignments (no split parts)
   const parentAssignments = assignments.filter(assignment => assignment.split_part_number === null);
   
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
   
   const todaysAssignments = parentAssignments.filter(assignment => {
     if (!assignment.due_date) return false;
