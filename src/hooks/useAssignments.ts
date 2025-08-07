@@ -49,6 +49,8 @@ export interface Assignment {
   is_split_assignment?: boolean;
   split_part_number?: number;
   total_split_parts?: number;
+  // Instructions field
+  instructions?: string;
 }
 
 export const useAssignments = (studentName: string) => {

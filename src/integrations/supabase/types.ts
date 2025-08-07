@@ -133,6 +133,7 @@ export type Database = {
           estimated_time_minutes: number | null
           event_group_id: string | null
           id: string
+          instructions: string | null
           is_full_day_block: boolean | null
           is_split_assignment: boolean | null
           is_template: boolean | null
@@ -187,6 +188,7 @@ export type Database = {
           estimated_time_minutes?: number | null
           event_group_id?: string | null
           id?: string
+          instructions?: string | null
           is_full_day_block?: boolean | null
           is_split_assignment?: boolean | null
           is_template?: boolean | null
@@ -241,6 +243,7 @@ export type Database = {
           estimated_time_minutes?: number | null
           event_group_id?: string | null
           id?: string
+          instructions?: string | null
           is_full_day_block?: boolean | null
           is_split_assignment?: boolean | null
           is_template?: boolean | null

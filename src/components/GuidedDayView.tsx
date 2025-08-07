@@ -249,6 +249,14 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
             )}
           </div>
 
+          {/* Instructions section */}
+          <div className="bg-muted/50 p-3 rounded-md">
+            <h4 className="text-sm font-medium text-foreground mb-2">Instructions:</h4>
+            <p className="text-sm text-muted-foreground">
+              {currentAssignment.instructions || "Check your textbook or course materials"}
+            </p>
+          </div>
+
           {isTimerActive && (
             <div className="text-center">
               <div className="text-3xl font-mono font-bold text-foreground">
