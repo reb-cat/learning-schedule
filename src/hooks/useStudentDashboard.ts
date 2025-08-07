@@ -82,7 +82,22 @@ export const useStudentDashboard = (studentName: string) => {
   }, [checkEffectiveSchedule]);
 
   // Use effective schedule or fallback to base schedule
-  const todaySchedule = effectiveSchedule || baseTodaySchedule;
+  const baseSchedule = effectiveSchedule || baseTodaySchedule;
+  
+  // Enrich schedule blocks with their assignments
+  const todaySchedule = useMemo(() => {
+    if (!baseSchedule) return [];
+    
+    return baseSchedule.map(block => ({
+      ...block,
+      assignments: block.isAssignmentBlock 
+        ? assignments.filter(a => 
+            a.scheduled_date === formattedDate && 
+            a.scheduled_block === block.block
+          )
+        : []
+    }));
+  }, [baseSchedule, assignments, formattedDate]);
 
   // Handle critical errors that would cause blank pages
   useEffect(() => {
