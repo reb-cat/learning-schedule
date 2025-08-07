@@ -319,7 +319,7 @@ export function ManualAssignmentForm({
   return <Card className="w-full max-w-2xl mx-auto">
       <CardHeader className="pb-4">
         
-        <CardDescription>Create homework, appointments, and activities</CardDescription>
+        <CardDescription className="text-lg font-bold">Create homework, appointments, and activities</CardDescription>
       </CardHeader>
       <CardContent className="pt-0">
         <form onSubmit={handleSubmit} className="space-y-6">
