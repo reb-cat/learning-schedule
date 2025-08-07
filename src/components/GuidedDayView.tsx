@@ -35,6 +35,14 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
   }));
   const today = new Date().toLocaleDateString('en-CA'); // Gets actual current date
   console.log('Today date:', today);
+  
+  // Filter for today's scheduled assignments only
+  const todaysScheduledAssignments = assignments.filter(a => 
+    a.scheduled_date === today && 
+    a.scheduled_block !== null && 
+    a.completion_status !== 'completed'
+  ).sort((a, b) => (a.scheduled_block || 0) - (b.scheduled_block || 0));
+  
   const [currentAssignmentIndex, setCurrentAssignmentIndex] = useState(0);
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
@@ -42,9 +50,8 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
   const [showTransition, setShowTransition] = useState(false);
   const [transitionCountdown, setTransitionCountdown] = useState(5); // 5 seconds only!
   
-  // Just use what's passed in - it's already today's schedule
   const [incompleteAssignments, setIncompleteAssignments] = useState<Assignment[]>(() => 
-    assignments.filter(a => a.completion_status !== 'completed')
+    todaysScheduledAssignments
   );
   
   const { updateAssignmentStatus, isLoading: isUpdating } = useAssignmentCompletion();
@@ -52,9 +59,15 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
 
   // Update incompleteAssignments when assignments prop changes
   useEffect(() => {
-    setIncompleteAssignments(assignments.filter(a => a.completion_status !== 'completed'));
+    const filtered = assignments.filter(a => 
+      a.scheduled_date === today && 
+      a.scheduled_block !== null && 
+      a.completion_status !== 'completed'
+    ).sort((a, b) => (a.scheduled_block || 0) - (b.scheduled_block || 0));
+    
+    setIncompleteAssignments(filtered);
     setCurrentAssignmentIndex(0);
-  }, [assignments]);
+  }, [assignments, today]);
 
   const currentAssignment = incompleteAssignments[currentAssignmentIndex];
 
