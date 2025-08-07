@@ -219,9 +219,15 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
             adminTasks: abigailResult.stats.adminTasks + khalilResult.stats.adminTasks,
             unscheduledTasks: abigailResult.stats.unscheduledTasks + khalilResult.stats.unscheduledTasks
           },
-          decisions: [...abigailResult.decisions, ...khalilResult.decisions],
+          decisions: [
+            ...abigailResult.decisions.map(d => ({...d, studentName: 'Abigail'})),
+            ...khalilResult.decisions.map(d => ({...d, studentName: 'Khalil'}))
+          ],
           warnings: [...abigailResult.warnings, ...khalilResult.warnings],
-          administrativeTasks: [...abigailResult.administrativeTasks, ...khalilResult.administrativeTasks],
+          administrativeTasks: [
+            ...abigailResult.administrativeTasks.map(t => ({...t, studentName: 'Abigail'})),
+            ...khalilResult.administrativeTasks.map(t => ({...t, studentName: 'Khalil'}))
+          ],
           splitAssignments: [...abigailResult.splitAssignments, ...khalilResult.splitAssignments],
           unscheduledAssignments: [...abigailResult.unscheduledAssignments, ...khalilResult.unscheduledAssignments]
         };

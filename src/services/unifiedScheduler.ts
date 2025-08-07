@@ -22,6 +22,7 @@ export interface UnifiedSchedulingDecision {
   urgencyLevel: 'critical' | 'high' | 'medium' | 'low';
   estimatedMinutes: number;
   cognitiveLoad: 'light' | 'medium' | 'heavy';
+  studentName?: string;
 }
 
 export interface UnifiedSchedulingResult {

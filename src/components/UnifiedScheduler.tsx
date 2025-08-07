@@ -459,8 +459,8 @@ export function UnifiedScheduler({
                           <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded">
                             <div className="flex items-center gap-3">
                               <Badge variant="outline">Block {decision.targetBlock}</Badge>
-                               <div>
-                                 <div className="font-medium">{decision.assignment.title} - {studentName}</div>
+                                <div>
+                                  <div className="font-medium">{decision.assignment.title} - {decision.studentName || studentName}</div>
                                  <div className="text-xs text-muted-foreground">{decision.assignment.course_name}</div>
                                </div>
                             </div>
@@ -489,8 +489,8 @@ export function UnifiedScheduler({
                 <Card key={idx}>
                   <CardContent className="p-4">
                     <div className="space-y-3">
-                       <div className="flex items-center justify-between">
-                         <h4 className="font-medium">{decision.assignment.title} - {studentName}</h4>
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium">{decision.assignment.title} - {decision.studentName || studentName}</h4>
                          <div className="flex gap-2">
                            <Badge variant={getUrgencyColor(decision.urgencyLevel)}>
                              {decision.urgencyLevel}
@@ -500,8 +500,8 @@ export function UnifiedScheduler({
                            </Badge>
                          </div>
                        </div>
-                       <div className="text-sm text-muted-foreground grid grid-cols-2 gap-2">
-                         <div><strong>Student:</strong> {studentName}</div>
+                        <div className="text-sm text-muted-foreground grid grid-cols-2 gap-2">
+                          <div><strong>Student:</strong> {decision.studentName || studentName}</div>
                          <div><strong>Subject:</strong> {decision.assignment.subject || decision.assignment.course_name}</div>
                          <div><strong>Due:</strong> {decision.assignment.due_date ? format(new Date(decision.assignment.due_date), 'MMM d, yyyy') : 'No due date'}</div>
                          <div><strong>Scheduled:</strong> {format(new Date(decision.targetDate), 'EEE, MMM d')}, Block {decision.targetBlock}</div>
@@ -525,7 +525,7 @@ export function UnifiedScheduler({
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
                            <div>
-                             <div className="font-medium">{task.title} - {studentName}</div>
+                              <div className="font-medium">{task.title} - {(task as any).studentName || studentName}</div>
                              <div className="text-sm text-muted-foreground">{task.course_name}</div>
                              {task.due_date && (
                                <div className="text-xs text-muted-foreground">
