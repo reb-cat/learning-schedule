@@ -240,14 +240,17 @@ const AdminSetup = () => {
                 <Button variant="outline" className="w-full flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <Plus className="h-4 w-4" />
-                    Create homework, appointments, and activities
+                    Add Manual Assignment
                   </span>
                   <ChevronDown className={`h-4 w-4 transition-transform ${isAddFormOpen ? 'rotate-180' : ''}`} />
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-4">
                 <Card>
-                  <CardContent className="pt-6">
+                  <CardHeader>
+                    <CardTitle>Create homework, appointments, and activities</CardTitle>
+                  </CardHeader>
+                  <CardContent>
                     <ManualAssignmentForm onSuccess={handleAssignmentAdded} />
                   </CardContent>
                 </Card>
