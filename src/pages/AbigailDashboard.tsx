@@ -2,12 +2,9 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Home, Calendar } from "lucide-react";
+import { Home } from "lucide-react";
 import { CoopChecklist } from "@/components/CoopChecklist";
 import { OptimizedStudentBlockDisplay } from "@/components/OptimizedStudentBlockDisplay";
-import { AllDayEventForm } from "@/components/AllDayEventForm";
-import { AllDayEventsList } from "@/components/AllDayEventsList";
 import { ErrorFallback } from "@/components/ErrorFallback";
 import { GuidedDayView } from "@/components/GuidedDayView";
 import { useStudentDashboard } from "@/hooks/useStudentDashboard";
@@ -98,100 +95,74 @@ const AbigailDashboard = () => {
             </div>
           </div>
           
-          <Tabs defaultValue="schedule" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="schedule" className="flex items-center gap-2">
-                <Home className="h-4 w-4" />
-                Schedule
-              </TabsTrigger>
-              <TabsTrigger value="events" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                All-Day Events
-              </TabsTrigger>
-            </TabsList>
+          {isGuidedMode ? (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-foreground">Guided Day Mode</h2>
+              <GuidedDayView 
+                assignments={assignments}
+                studentName="Abigail"
+                onAssignmentUpdate={handleEventUpdateWithCache}
+              />
+            </div>
+          ) : (
+            <>
+              {/* Co-op Checklist - only shows on co-op days */}
+              <CoopChecklist 
+                studentName="Abigail" 
+                assignments={assignments} 
+                currentDay={currentDay} 
+                hasAllDayEvent={hasAllDayEvent}
+                isCheckingAllDayEvent={isCheckingAllDayEvent}
+              />
 
-            <TabsContent value="schedule" className="space-y-6">
-              {isGuidedMode ? (
-                <div className="space-y-4">
-                  <h2 className="text-xl font-semibold text-foreground">Guided Day Mode</h2>
-                  <GuidedDayView 
-                    assignments={assignments}
-                    studentName="Abigail"
-                    onAssignmentUpdate={handleEventUpdateWithCache}
-                  />
-                </div>
-              ) : (
-                <>
-                  {/* Co-op Checklist - only shows on co-op days */}
-                  <CoopChecklist 
-                    studentName="Abigail" 
-                    assignments={assignments} 
-                    currentDay={currentDay} 
-                    hasAllDayEvent={hasAllDayEvent}
-                    isCheckingAllDayEvent={isCheckingAllDayEvent}
-                  />
-
-                  {/* All-Day Events List */}
-                  <AllDayEventsList 
-                    studentName="Abigail" 
-                    selectedDate={formattedDate}
-                    onEventUpdate={handleEventUpdateWithCache}
-                  />
-
-                  {/* Today's Schedule */}
-                  <div className="space-y-4">
-                    <h2 className="text-xl font-semibold text-foreground">Today's Schedule</h2>
-                    
-                    {isCheckingAllDayEvent ? (
-                      <Card className="bg-card border border-border">
-                        <CardContent className="p-8 text-center">
-                          <div className="text-muted-foreground">Loading schedule...</div>
-                        </CardContent>
-                      </Card>
-                    ) : hasAllDayEvent ? (
-                      <Card className="bg-card border border-border">
-                        <CardContent className="p-8 text-center">
-                          <div className="text-6xl mb-4">📅</div>
-                          <h3 className="text-lg font-semibold text-foreground mb-2">All-Day Event</h3>
-                          <p className="text-muted-foreground">No assignment blocks scheduled - check the event details above!</p>
-                        </CardContent>
-                      </Card>
-                    ) : isWeekend ? (
-                      <Card className="bg-card border border-border">
-                        <CardContent className="p-8 text-center">
-                          <h3 className="text-lg font-semibold text-foreground mb-2">No classes today!</h3>
-                          <p className="text-muted-foreground">Enjoy your weekend! 🎉</p>
-                        </CardContent>
-                      </Card>
-                    ) : todaySchedule.length === 0 ? (
-                      <Card className="bg-card border border-border">
-                        <CardContent className="p-8 text-center">
-                          <p className="text-muted-foreground">No schedule available for {currentDay}</p>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <div className="space-y-3">
-                        {todaySchedule.map((block, index) => (
-                          <OptimizedStudentBlockDisplay
-                            key={`block-${index}-${block.start}-${formattedDate}`}
-                            block={block}
-                            assignment={block.isAssignmentBlock ? scheduledAssignments[`${block.block}`] : undefined}
-                            studentName="Abigail"
-                            onAssignmentUpdate={handleEventUpdateWithCache}
-                            isLoading={isLoadingAssignments}
-                          />
-                        ))}
-                      </div>
-                    )}
+              {/* Today's Schedule */}
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-foreground">Today's Schedule</h2>
+                
+                {isCheckingAllDayEvent ? (
+                  <Card className="bg-card border border-border">
+                    <CardContent className="p-8 text-center">
+                      <div className="text-muted-foreground">Loading schedule...</div>
+                    </CardContent>
+                  </Card>
+                ) : hasAllDayEvent ? (
+                  <Card className="bg-card border border-border">
+                    <CardContent className="p-8 text-center">
+                      <div className="text-6xl mb-4">📅</div>
+                      <h3 className="text-lg font-semibold text-foreground mb-2">All-Day Event</h3>
+                      <p className="text-muted-foreground">No assignment blocks scheduled - check the event details above!</p>
+                    </CardContent>
+                  </Card>
+                ) : isWeekend ? (
+                  <Card className="bg-card border border-border">
+                    <CardContent className="p-8 text-center">
+                      <h3 className="text-lg font-semibold text-foreground mb-2">No classes today!</h3>
+                      <p className="text-muted-foreground">Enjoy your weekend! 🎉</p>
+                    </CardContent>
+                  </Card>
+                ) : todaySchedule.length === 0 ? (
+                  <Card className="bg-card border border-border">
+                    <CardContent className="p-8 text-center">
+                      <p className="text-muted-foreground">No schedule available for {currentDay}</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {todaySchedule.map((block, index) => (
+                      <OptimizedStudentBlockDisplay
+                        key={`block-${index}-${block.start}-${formattedDate}`}
+                        block={block}
+                        assignment={block.isAssignmentBlock ? scheduledAssignments[`${block.block}`] : undefined}
+                        studentName="Abigail"
+                        onAssignmentUpdate={handleEventUpdateWithCache}
+                        isLoading={isLoadingAssignments}
+                      />
+                    ))}
                   </div>
-                </>
-              )}
-            </TabsContent>
-
-            <TabsContent value="events" className="space-y-6">
-              <AllDayEventForm onSuccess={handleEventUpdateWithCache} />
-            </TabsContent>
-          </Tabs>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
