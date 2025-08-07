@@ -1,3 +1,6 @@
+// Unified scheduling system - used by both manual UI and 5 AM auto-scheduler
+// Ensures consistent behavior across all scheduling entry points
+
 import { Assignment } from '@/hooks/useAssignments';
 import { supabase } from '@/integrations/supabase/client';
 import { getScheduleForStudentAndDay } from '@/data/scheduleData';
