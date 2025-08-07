@@ -13,13 +13,6 @@ interface GuidedDayViewProps {
   onAssignmentUpdate?: () => void;
 }
 
-const getTodayAssignments = (assignments: Assignment[]) => {
-  const today = new Date().toISOString().split('T')[0];
-  return assignments
-    .filter(a => a.completion_status !== 'completed' && a.scheduled_date === today)
-    .sort((a, b) => (a.scheduled_block || 0) - (b.scheduled_block || 0));
-};
-
 const TEST_MODE_MESSAGES = {
   'complete': 'TEST MODE: Marked complete (not saved)',
   'more-time': 'TEST MODE: Need more time (not saved)',
@@ -36,9 +29,9 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   
-  // Make incompleteAssignments a state variable
+  // Just use what's passed in - it's already today's schedule
   const [incompleteAssignments, setIncompleteAssignments] = useState<Assignment[]>(() => 
-    getTodayAssignments(assignments)
+    assignments.filter(a => a.completion_status !== 'completed')
   );
   
   const { updateAssignmentStatus, isLoading: isUpdating } = useAssignmentCompletion();
@@ -46,7 +39,7 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
 
   // Update incompleteAssignments when assignments prop changes
   useEffect(() => {
-    setIncompleteAssignments(getTodayAssignments(assignments));
+    setIncompleteAssignments(assignments.filter(a => a.completion_status !== 'completed'));
     setCurrentAssignmentIndex(0);
   }, [assignments]);
 
