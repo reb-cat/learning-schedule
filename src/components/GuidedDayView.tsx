@@ -90,7 +90,10 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
         setIsTimerActive(false);
         setElapsedTime(0);
       } else if (action === 'complete') {
+        console.log('Before complete - assignments:', incompleteAssignments.length);
+        console.log('Current index:', currentAssignmentIndex);
         const updatedAssignments = incompleteAssignments.filter(a => a.id !== currentAssignment.id);
+        console.log('After filter - assignments:', updatedAssignments.length);
         setIncompleteAssignments(updatedAssignments);
         
         // Only show transition if there are more assignments
