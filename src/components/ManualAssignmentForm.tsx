@@ -24,10 +24,20 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
   const [formData, setFormData] = useState({
     student_name: '',
     title: '',
+    subject: '',
     assignment_type: 'homework',
     due_date: getDefaultDueDate(),
-    estimated_time_minutes: 45
+    estimated_time_minutes: 45,
+    notes: ''
   });
+
+  // Quick suggestions for faster input
+  const quickSuggestions = [
+    { title: 'Math Homework', subject: 'Math', type: 'homework', time: 45 },
+    { title: 'Driving Lesson', subject: 'Driving', type: 'appointment', time: 60 },
+    { title: 'Cooking Practice', subject: 'Life Skills', type: 'life_skills', time: 30 },
+    { title: 'Volunteer Work', subject: 'Community Service', type: 'appointment', time: 120 }
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +45,7 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
     if (!formData.student_name || !formData.title || !formData.due_date) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields",
+        description: "Please fill in Student, Title, and Due Date",
         variant: "destructive"
       });
       return;
@@ -46,12 +56,13 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
       const assignmentData = {
         student_name: formData.student_name,
         title: formData.title,
-        subject: formData.assignment_type === 'homework' ? 'Academic' : formData.assignment_type === 'appointment' ? 'Appointment' : 'Life Skills',
+        subject: formData.subject || (formData.assignment_type === 'homework' ? 'Academic' : formData.assignment_type === 'appointment' ? 'Appointment' : 'Life Skills'),
         assignment_type: formData.assignment_type,
         source: 'manual',
         estimated_time_minutes: formData.estimated_time_minutes,
         priority: 'medium',
         due_date: formData.due_date,
+        notes: formData.notes || null,
         category: 'academic',
         urgency: 'upcoming',
         cognitive_load: 'medium',
@@ -80,9 +91,11 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
       setFormData({
         student_name: '',
         title: '',
+        subject: '',
         assignment_type: 'homework',
         due_date: getDefaultDueDate(),
-        estimated_time_minutes: 45
+        estimated_time_minutes: 45,
+        notes: ''
       });
       
       onSuccess?.();
@@ -105,6 +118,29 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
       </CardHeader>
       <CardContent className="pt-0">
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Quick Suggestions */}
+          <div className="space-y-2">
+            <Label className="text-sm text-muted-foreground">Quick Add</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {quickSuggestions.map(suggestion => (
+                <button
+                  key={suggestion.title}
+                  type="button"
+                  onClick={() => setFormData(prev => ({
+                    ...prev,
+                    title: suggestion.title,
+                    subject: suggestion.subject,
+                    assignment_type: suggestion.type,
+                    estimated_time_minutes: suggestion.time
+                  }))}
+                  className="p-2 text-left text-xs border rounded hover:bg-accent"
+                >
+                  <div className="font-medium">{suggestion.title}</div>
+                  <div className="text-muted-foreground">{suggestion.subject}</div>
+                </button>
+              ))}
+            </div>
+          </div>
           {/* Student */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">Student *</Label>
@@ -144,6 +180,16 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
             </Select>
           </div>
 
+          {/* Subject */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Subject</Label>
+            <Input 
+              value={formData.subject} 
+              onChange={e => setFormData(prev => ({ ...prev, subject: e.target.value }))} 
+              placeholder="e.g. Math, History, Life Skills" 
+            />
+          </div>
+
           {/* Due Date */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">Due Date *</Label>
@@ -163,6 +209,16 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
               onChange={e => setFormData(prev => ({ ...prev, estimated_time_minutes: parseInt(e.target.value) || 45 }))} 
               min="1"
               max="480"
+            />
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Notes (optional)</Label>
+            <Input 
+              value={formData.notes} 
+              onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} 
+              placeholder="Additional details..." 
             />
           </div>
 
