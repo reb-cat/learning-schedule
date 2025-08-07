@@ -231,6 +231,12 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
           splitAssignments: [...abigailResult.splitAssignments, ...khalilResult.splitAssignments],
           unscheduledAssignments: [...abigailResult.unscheduledAssignments, ...khalilResult.unscheduledAssignments]
         };
+        
+        // DEBUG: Check if studentName fields are being added
+        console.log('=== MERGE DEBUG ===');
+        console.log('Merged decisions:', schedulingResult.decisions);
+        console.log('Sample decision with studentName:', schedulingResult.decisions[0]);
+        console.log('=== END MERGE DEBUG ===');
       } else {
         schedulingResult = await unifiedScheduler.analyzeAndSchedule(selectedStudent, options);
       }

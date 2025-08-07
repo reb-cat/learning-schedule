@@ -452,15 +452,18 @@ export function UnifiedScheduler({
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2">
-                      {dayDecisions
-                        .sort((a, b) => a.targetBlock - b.targetBlock)
-                        .map((decision, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded">
-                            <div className="flex items-center gap-3">
-                              <Badge variant="outline">Block {decision.targetBlock}</Badge>
-                                <div>
-                                  <div className="font-medium">{decision.assignment.title} - {decision.studentName || studentName}</div>
+                     <div className="space-y-2">
+                       {dayDecisions
+                         .sort((a, b) => a.targetBlock - b.targetBlock)
+                         .map((decision, idx) => {
+                           // DEBUG: Log each decision being rendered
+                           console.log('=== RENDER DEBUG ===', 'Decision:', decision, 'studentName prop:', studentName, 'decision.studentName:', decision.studentName);
+                           return (
+                             <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded">
+                              <div className="flex items-center gap-3">
+                                <Badge variant="outline">Block {decision.targetBlock}</Badge>
+                                 <div>
+                                   <div className="font-medium">{decision.assignment.title} - {decision.studentName || studentName}</div>
                                  <div className="text-xs text-muted-foreground">{decision.assignment.course_name}</div>
                                </div>
                             </div>
@@ -474,11 +477,12 @@ export function UnifiedScheduler({
                               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                                 <Clock className="h-3 w-3" />
                                 {decision.estimatedMinutes}m
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
+                               </div>
+                             </div>
+                           </div>
+                           );
+                         })}
+                     </div>
                   </CardContent>
                 </Card>
               ))}
