@@ -130,12 +130,14 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
       
       <Card className="bg-card border border-border">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>{currentAssignment.title}</span>
-            <Badge variant="secondary">
-              {currentAssignment.subject}
-            </Badge>
-          </CardTitle>
+          <div className="flex flex-col gap-1">
+            <div className="text-lg font-semibold text-gray-600">
+              {currentAssignment.subject || currentAssignment.course_name || 'Assignment'}
+            </div>
+            <h3 className="text-2xl font-bold">
+              {currentAssignment.title}
+            </h3>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
