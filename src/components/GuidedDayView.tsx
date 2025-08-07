@@ -78,7 +78,23 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
         description: "Assignment completed successfully."
       });
 
-      moveToNextAssignment();
+      // Remove the completed assignment from the local queue
+      const updatedAssignments = incompleteAssignments.filter(a => a.id !== currentAssignment.id);
+      setIncompleteAssignments(updatedAssignments);
+
+      // Don't auto-advance if this was the last one
+      if (updatedAssignments.length === 0) {
+        setCurrentAssignmentIndex(0);
+      } else if (currentAssignmentIndex >= updatedAssignments.length) {
+        setCurrentAssignmentIndex(0);
+      }
+
+      // Reset timer
+      setIsTimerActive(false);
+      setStartTime(null);
+      setElapsedTime(0);
+
+      onAssignmentUpdate?.();
     } catch (error) {
       toast({
         title: "Error",
