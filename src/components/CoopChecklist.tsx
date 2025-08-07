@@ -39,23 +39,23 @@ export function CoopChecklist({ studentName, assignments, currentDay, hasAllDayE
         
         // Transform vague titles into clear actions
         if (title.includes('syllabus')) {
-          actionableText = `□ Review and sign ${assignment.course_name} syllabus`;
+          actionableText = `Review and sign ${assignment.course_name} syllabus`;
         } else if (title.includes('recipe')) {
-          actionableText = `□ Check recipe for ${assignment.course_name}`;
+          actionableText = `Check recipe for ${assignment.course_name}`;
         } else if (title.includes('form')) {
           const courseName = assignment.course_name || 'course';
-          actionableText = `□ Complete and submit ${courseName} form`;
+          actionableText = `Complete and submit ${courseName} form`;
         } else if (title.includes('fee') || title.includes('payment')) {
           // Skip fee items - these should go to parent tasks
         } else {
-          actionableText = `□ ${assignment.title}`;
+          actionableText = assignment.title;
         }
       } else {
         // Check for action keywords in other assignments
         const hasKeyword = actionKeywords.some(keyword => title.includes(keyword));
         if (hasKeyword) {
           isActionable = true;
-          actionableText = `□ ${assignment.title}`;
+          actionableText = assignment.title;
         }
       }
       
@@ -72,19 +72,19 @@ export function CoopChecklist({ studentName, assignments, currentDay, hasAllDayE
     // Add student-specific co-op reminders
     if (studentName === 'Abigail' && (currentDay === 'Monday' || currentDay === 'Thursday')) {
       items.unshift(
-        { id: 'apron', text: '□ Bring clean apron for baking class', completed: false },
-        { id: 'lunch', text: '□ Pack lunch and water bottle', completed: false },
-        { id: 'notebook', text: '□ Bring baking notebook and pen', completed: false },
-        { id: 'ingredients', text: '□ Check today\'s recipe ingredients list', completed: false }
+        { id: 'apron', text: 'Bring clean apron for baking class', completed: false },
+        { id: 'lunch', text: 'Pack lunch and water bottle', completed: false },
+        { id: 'notebook', text: 'Bring baking notebook and pen', completed: false },
+        { id: 'ingredients', text: 'Check today\'s recipe ingredients list', completed: false }
       );
     }
 
     if (studentName === 'Khalil' && (currentDay === 'Monday' || currentDay === 'Thursday')) {
       items.unshift(
-        { id: 'tools', text: '□ Bring workshop tools and materials', completed: false },
-        { id: 'safety', text: '□ Safety glasses and protective gear', completed: false },
-        { id: 'project', text: '□ Current project materials', completed: false },
-        { id: 'uniform', text: '□ Wear proper workshop attire', completed: false }
+        { id: 'tools', text: 'Bring workshop tools and materials', completed: false },
+        { id: 'safety', text: 'Safety glasses and protective gear', completed: false },
+        { id: 'project', text: 'Current project materials', completed: false },
+        { id: 'uniform', text: 'Wear proper workshop attire', completed: false }
       );
     }
 
