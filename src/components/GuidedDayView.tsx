@@ -90,12 +90,17 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
         setIsTimerActive(false);
         setElapsedTime(0);
       } else if (action === 'complete') {
-        // Remove from queue and show transition
-        setIncompleteAssignments(prev => prev.filter(a => a.id !== currentAssignment.id));
+        const updatedAssignments = incompleteAssignments.filter(a => a.id !== currentAssignment.id);
+        setIncompleteAssignments(updatedAssignments);
+        
+        // Only show transition if there are more assignments
+        if (updatedAssignments.length > 0) {
+          setShowTransition(true);
+          setTransitionCountdown(5);
+        }
+        
         setIsTimerActive(false);
         setElapsedTime(0);
-        setShowTransition(true);
-        setTransitionCountdown(5);
       } else {
         // Remove from queue (stuck)
         setIncompleteAssignments(prev => prev.filter(a => a.id !== currentAssignment.id));
