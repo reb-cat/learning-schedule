@@ -14,6 +14,8 @@ interface GuidedDayViewProps {
 }
 
 export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: GuidedDayViewProps) {
+  const TEST_MODE = true; // Toggle this for testing
+  
   console.log('All assignments:', assignments);
   console.log('Today date:', new Date().toISOString().split('T')[0]);
   const [currentAssignmentIndex, setCurrentAssignmentIndex] = useState(0);
@@ -64,6 +66,21 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
   const handleCompleteAssignment = async () => {
     if (!currentAssignment) return;
 
+    if (TEST_MODE) {
+      // Just remove from local state, don't update database
+      console.log('TEST MODE: Would mark complete:', currentAssignment.title);
+      setIncompleteAssignments(prev => prev.filter(a => a.id !== currentAssignment.id));
+      toast({ title: "TEST MODE: Marked complete (not saved)" });
+      
+      // Reset timer
+      setIsTimerActive(false);
+      setStartTime(null);
+      setElapsedTime(0);
+      
+      onAssignmentUpdate?.();
+      return;
+    }
+
     try {
       await updateAssignmentStatus(currentAssignment, {
         completionStatus: 'completed',
@@ -107,6 +124,15 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
   const handleNeedMoreTime = async () => {
     if (!currentAssignment) return;
 
+    if (TEST_MODE) {
+      // Just update local state, don't update database
+      console.log('TEST MODE: Would mark need more time:', currentAssignment.title);
+      setIncompleteAssignments(prev => [...prev, currentAssignment]);
+      toast({ title: "TEST MODE: Need more time (not saved)" });
+      moveToNextAssignment();
+      return;
+    }
+
     try {
       await updateAssignmentStatus(currentAssignment, {
         completionStatus: 'in_progress',
@@ -135,6 +161,14 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
 
   const handleStuckNeedHelp = async () => {
     if (!currentAssignment) return;
+
+    if (TEST_MODE) {
+      // Just update local state, don't update database
+      console.log('TEST MODE: Would mark stuck:', currentAssignment.title);
+      toast({ title: "TEST MODE: Marked for help (not saved)" });
+      moveToNextAssignment();
+      return;
+    }
 
     try {
       await updateAssignmentStatus(currentAssignment, {
