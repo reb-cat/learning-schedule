@@ -188,19 +188,15 @@ const AdminSetup = () => {
           <p className="text-muted-foreground">Complete management dashboard for students, assignments, and system operations</p>
         </div>
 
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview" className="flex items-center gap-2">
+        <Tabs defaultValue="students" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="students" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              Student Overview
+              Students
             </TabsTrigger>
-            <TabsTrigger value="add-assignment" className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add Assignment
-            </TabsTrigger>
-            <TabsTrigger value="scheduling" className="flex items-center gap-2">
+            <TabsTrigger value="schedule" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              Schedule & Clear
+              Schedule
             </TabsTrigger>
             <TabsTrigger value="admin-tasks" className="flex items-center gap-2">
               <CheckSquare className="h-4 w-4" />
@@ -211,28 +207,13 @@ const AdminSetup = () => {
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="sync" className="flex items-center gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Canvas Sync
-            </TabsTrigger>
-            <TabsTrigger value="diagnostics" className="flex items-center gap-2">
-              <Database className="h-4 w-4" />
-              System Diagnostics
+            <TabsTrigger value="system" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              System
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-6">
-            {/* System Status */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <AlertBanner 
-                  abigailAssignments={filterParentAssignments(abigailAssignments)}
-                  khalilAssignments={filterParentAssignments(khalilAssignments)}
-                />
-              </div>
-              <SystemStatusCard showDetails={true} />
-            </div>
-
+          <TabsContent value="students" className="space-y-6">
             {/* Two Column Student Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Abigail Section */}
@@ -251,9 +232,8 @@ const AdminSetup = () => {
                 onAssignmentAdded={handleAssignmentAdded}
               />
             </div>
-          </TabsContent>
 
-          <TabsContent value="add-assignment" className="space-y-6">
+            {/* Add Assignment Form */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -267,7 +247,7 @@ const AdminSetup = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="scheduling" className="space-y-6">
+          <TabsContent value="schedule" className="space-y-6">
             <div className="text-center space-y-2 mb-6">
               <h2 className="text-2xl font-bold">Unified Assignment Scheduler</h2>
               <p className="text-muted-foreground">Schedule assignments and clear schedules - consolidated scheduling system with dynamic student selection and flexible date ranges</p>
@@ -297,19 +277,24 @@ const AdminSetup = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="sync" className="space-y-6">
-            {/* Manual Sync - Now Prominent */}
+          <TabsContent value="system" className="space-y-6">
+            <div className="text-center space-y-2 mb-6">
+              <h2 className="text-2xl font-bold">System Control</h2>
+              <p className="text-muted-foreground">Canvas sync and system management</p>
+            </div>
+            
+            {/* Manual Sync */}
             <Card className="border-2 border-blue-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl">
                   <RefreshCw className="h-6 w-6" />
-                  Manual Canvas Sync
+                  Canvas Sync
                 </CardTitle>
                 <CardDescription className="text-base">
                   Automatic sync runs daily at 4:00 AM UTC. Use this button for immediate manual sync.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent>
                 <div className="flex flex-col items-center gap-4 p-6 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="text-center">
                     <p className="font-medium text-blue-900 mb-2">Ready to sync assignments</p>
@@ -331,176 +316,13 @@ const AdminSetup = () => {
                 </div>
 
                 {syncStatus && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="p-4 bg-gray-50 rounded-lg mt-6">
                     <h4 className="font-medium mb-2">Last Manual Sync Results</h4>
                     <pre className="text-sm bg-white p-3 rounded border overflow-auto">
                       {JSON.stringify(syncStatus, null, 2)}
                     </pre>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* Student Sync Status - Show Both Students */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Student Sync Status
-                </CardTitle>
-                <CardDescription>
-                  Most recent sync status for each student
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {studentSyncStatus.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    {studentSyncStatus.map(sync => (
-                      <div key={sync.id} className="p-4 border rounded-lg bg-gray-50">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-lg">{sync.student_name}</h4>
-                          {getStatusBadge(sync.status)}
-                        </div>
-                        <div className="space-y-1 text-sm text-gray-600">
-                          <p>
-                            <span className="font-medium">Last sync:</span> {new Date(sync.created_at).toLocaleString()}
-                          </p>
-                          <p>
-                            <span className="font-medium">Type:</span> {sync.sync_type === 'scheduled' ? 'Automatic' : 'Manual'}
-                          </p>
-                          <p>
-                            <span className="font-medium">Assignments:</span> {sync.assignments_count || 0} items
-                          </p>
-                          {sync.message && (
-                            <p>
-                              <span className="font-medium">Message:</span> {sync.message}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-4">No sync data available</p>
-                )}
-                
-                <div className="flex justify-center">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        View Complete History
-                        <ChevronDown className="ml-2 h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-80 max-h-64 overflow-y-auto bg-white border shadow-lg z-50">
-                      <div className="px-3 py-2 border-b">
-                        <p className="font-medium text-sm">Complete Sync History</p>
-                      </div>
-                      {syncHistory.slice(0, 10).map(sync => (
-                        <DropdownMenuItem key={sync.id} className="flex items-center justify-between p-3 cursor-default">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            {getStatusBadge(sync.status)}
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium truncate">{sync.student_name}</p>
-                              <p className="text-xs text-gray-500">
-                                {new Date(sync.created_at).toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right text-xs text-gray-500 ml-2">
-                            <div>{sync.assignments_count} items</div>
-                            <div>{sync.sync_type}</div>
-                          </div>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* System Status */}
-            <SystemStatusCard showDetails={true} />
-          </TabsContent>
-
-          <TabsContent value="diagnostics" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
-                  System Diagnostics
-                </CardTitle>
-                <CardDescription>
-                  Current system status and data overview
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {diagnostics ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="text-center p-4 bg-blue-50 rounded-lg">
-                        <div className="text-2xl font-bold text-blue-600">
-                          {diagnostics.assignments?.length || 0}
-                        </div>
-                        <div className="text-sm text-blue-700">Total Assignments</div>
-                      </div>
-                      <div className="text-center p-4 bg-green-50 rounded-lg">
-                        <div className="text-2xl font-bold text-green-600">
-                          {diagnostics.assignments?.filter((a: any) => a.student_name === 'Abigail').length || 0}
-                        </div>
-                        <div className="text-sm text-green-700">Abigail's Assignments</div>
-                      </div>
-                      <div className="text-center p-4 bg-purple-50 rounded-lg">
-                        <div className="text-2xl font-bold text-purple-600">
-                          {diagnostics.assignments?.filter((a: any) => a.student_name === 'Khalil').length || 0}
-                        </div>
-                        <div className="text-sm text-purple-700">Khalil's Assignments</div>
-                      </div>
-                      <div className="text-center p-4 bg-orange-50 rounded-lg">
-                        <div className="text-2xl font-bold text-orange-600">
-                          {diagnostics.syncHistory?.length || 0}
-                        </div>
-                        <div className="text-sm text-orange-700">Recent Syncs</div>
-                      </div>
-                    </div>
-
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <h4 className="font-medium mb-2">Last Updated</h4>
-                      <p className="text-sm text-gray-600">
-                        {new Date(diagnostics.lastUpdated).toLocaleString()}
-                      </p>
-                    </div>
-
-                    <Button 
-                      onClick={() => getDiagnostics().then(setDiagnostics)} 
-                      variant="outline" 
-                      className="w-full"
-                    >
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Refresh Diagnostics
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="text-gray-500">Loading diagnostics...</div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Database Permission Test */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
-                  Database Permission Test
-                </CardTitle>
-                <CardDescription>
-                  Verify RLS policies and Supabase client permissions for assignments table
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DatabasePermissionTest />
               </CardContent>
             </Card>
           </TabsContent>
