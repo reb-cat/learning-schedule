@@ -270,33 +270,55 @@ const AdminSetup = () => {
           </TabsContent>
 
           <TabsContent value="system" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <RefreshCw className="h-5 w-5" />
-                  Canvas Sync
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-sm text-muted-foreground">
-                  Last sync: {syncHistory[0] ? new Date(syncHistory[0].created_at).toLocaleString() : 'Never'}
-                </div>
-                
-                <Button onClick={handleManualSync} disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                      Syncing...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Sync Now
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <RefreshCw className="h-5 w-5" />
+                    Canvas Sync
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-sm text-muted-foreground">
+                    Last: {syncHistory[0] ? new Date(syncHistory[0].created_at).toLocaleTimeString() : 'Never'}
+                  </div>
+                  
+                  <Button onClick={handleManualSync} disabled={isLoading} variant="outline" className="w-full">
+                    {isLoading ? (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        Syncing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Sync Now
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <SystemStatusCard />
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="h-5 w-5" />
+                    Database
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-sm text-muted-foreground mb-2">
+                    Students: {filterParentAssignments([...abigailAssignments, ...khalilAssignments]).length} assignments
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Connected
+                  </Badge>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

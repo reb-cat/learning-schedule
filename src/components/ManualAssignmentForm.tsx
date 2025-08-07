@@ -112,124 +112,93 @@ export function ManualAssignmentForm({ onSuccess }: ManualAssignmentFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader className="pb-4">
-        <CardDescription className="text-lg font-bold">Create homework, appointments, and activities</CardDescription>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Quick Suggestions */}
-          <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">Quick Add</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {quickSuggestions.map(suggestion => (
-                <button
-                  key={suggestion.title}
-                  type="button"
-                  onClick={() => setFormData(prev => ({
-                    ...prev,
-                    title: suggestion.title,
-                    subject: suggestion.subject,
-                    assignment_type: suggestion.type,
-                    estimated_time_minutes: suggestion.time
-                  }))}
-                  className="p-2 text-left text-xs border rounded hover:bg-accent"
-                >
-                  <div className="font-medium">{suggestion.title}</div>
-                  <div className="text-muted-foreground">{suggestion.subject}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-          {/* Student */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Student *</Label>
-            <Select value={formData.student_name} onValueChange={value => setFormData(prev => ({ ...prev, student_name: value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose student" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Abigail">Abigail</SelectItem>
-                <SelectItem value="Khalil">Khalil</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Quick Templates */}
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {quickSuggestions.map(suggestion => (
+          <button
+            key={suggestion.title}
+            type="button"
+            onClick={() => setFormData(prev => ({
+              ...prev,
+              title: suggestion.title,
+              subject: suggestion.subject,
+              assignment_type: suggestion.type,
+              estimated_time_minutes: suggestion.time
+            }))}
+            className="p-3 text-left text-sm border rounded-lg hover:bg-accent transition-colors"
+          >
+            <div className="font-medium">{suggestion.title}</div>
+            <div className="text-muted-foreground text-xs">{suggestion.time}min • {suggestion.subject}</div>
+          </button>
+        ))}
+      </div>
 
-          {/* Title */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Title *</Label>
-            <Input 
-              value={formData.title} 
-              onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))} 
-              placeholder="Enter assignment title" 
-            />
-          </div>
+      {/* Essential Fields Only */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Student</Label>
+          <Select value={formData.student_name} onValueChange={value => setFormData(prev => ({ ...prev, student_name: value }))}>
+            <SelectTrigger>
+              <SelectValue placeholder="Choose" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Abigail">Abigail</SelectItem>
+              <SelectItem value="Khalil">Khalil</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-          {/* Type */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Type *</Label>
-            <Select value={formData.assignment_type} onValueChange={value => setFormData(prev => ({ ...prev, assignment_type: value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="homework">Homework</SelectItem>
-                <SelectItem value="appointment">Appointment</SelectItem>
-                <SelectItem value="life_skills">Life Skill</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-2">
+          <Label>Type</Label>
+          <Select value={formData.assignment_type} onValueChange={value => setFormData(prev => ({ ...prev, assignment_type: value }))}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="homework">Homework</SelectItem>
+              <SelectItem value="appointment">Appointment</SelectItem>
+              <SelectItem value="life_skills">Life Skill</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-          {/* Subject */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Subject</Label>
-            <Input 
-              value={formData.subject} 
-              onChange={e => setFormData(prev => ({ ...prev, subject: e.target.value }))} 
-              placeholder="e.g. Math, History, Life Skills" 
-            />
-          </div>
+      <div className="space-y-2">
+        <Label>Title</Label>
+        <Input 
+          value={formData.title} 
+          onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))} 
+          placeholder="What needs to be done?" 
+        />
+      </div>
 
-          {/* Due Date */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Due Date *</Label>
-            <Input 
-              type="date" 
-              value={formData.due_date} 
-              onChange={e => setFormData(prev => ({ ...prev, due_date: e.target.value }))} 
-            />
-          </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Due Date</Label>
+          <Input 
+            type="date" 
+            value={formData.due_date} 
+            onChange={e => setFormData(prev => ({ ...prev, due_date: e.target.value }))} 
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label>Time (min)</Label>
+          <Input 
+            type="number" 
+            value={formData.estimated_time_minutes} 
+            onChange={e => setFormData(prev => ({ ...prev, estimated_time_minutes: parseInt(e.target.value) || 45 }))} 
+            min="5"
+            max="480"
+            step="5"
+          />
+        </div>
+      </div>
 
-          {/* Time Estimate */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Time Estimate (minutes)</Label>
-            <Input 
-              type="number" 
-              value={formData.estimated_time_minutes} 
-              onChange={e => setFormData(prev => ({ ...prev, estimated_time_minutes: parseInt(e.target.value) || 45 }))} 
-              min="1"
-              max="480"
-            />
-          </div>
-
-          {/* Notes */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Notes (optional)</Label>
-            <Input 
-              value={formData.notes} 
-              onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))} 
-              placeholder="Additional details..." 
-            />
-          </div>
-
-          {/* Submit Button */}
-          <div className="flex justify-end space-x-3 pt-4">
-            <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Save Assignment"}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+      <Button type="submit" disabled={loading} className="w-full">
+        {loading ? "Creating..." : "Create Assignment"}
+      </Button>
+    </form>
   );
 }
