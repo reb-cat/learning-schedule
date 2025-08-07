@@ -33,7 +33,8 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
     console.log(`${a.title}: status=${a.completion_status}, matches=${matches}`);
     return matches;
   }));
-  console.log('Today date:', new Date().toISOString().split('T')[0]);
+  const today = new Date().toLocaleDateString('en-CA'); // Gets actual current date
+  console.log('Today date:', today);
   const [currentAssignmentIndex, setCurrentAssignmentIndex] = useState(0);
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
