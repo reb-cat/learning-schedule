@@ -6,6 +6,7 @@ import { Play, CheckCircle, Clock, HelpCircle, MoreHorizontal } from 'lucide-rea
 import { Assignment } from '@/hooks/useAssignments';
 import { useAssignmentCompletion } from '@/hooks/useAssignmentCompletion';
 import { useToast } from '@/hooks/use-toast';
+import { hasAllDayEvent } from '@/data/allDayEvents';
 
 interface GuidedDayViewProps {
   assignments: Assignment[];
@@ -22,6 +23,8 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [hasAllDayEventToday, setHasAllDayEventToday] = useState(false);
+  const [isCheckingAllDayEvent, setIsCheckingAllDayEvent] = useState(true);
   
   // Make incompleteAssignments a state variable
   const [incompleteAssignments, setIncompleteAssignments] = useState<Assignment[]>(() => {
@@ -33,6 +36,27 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
   
   const { updateAssignmentStatus, isLoading: isUpdating } = useAssignmentCompletion();
   const { toast } = useToast();
+
+  // Check for all-day events
+  useEffect(() => {
+    const checkAllDayEvent = async () => {
+      if (!studentName) return;
+      
+      setIsCheckingAllDayEvent(true);
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const hasEvent = await hasAllDayEvent(studentName, today);
+        setHasAllDayEventToday(hasEvent);
+      } catch (error) {
+        console.error('Error checking all-day event:', error);
+        setHasAllDayEventToday(false);
+      } finally {
+        setIsCheckingAllDayEvent(false);
+      }
+    };
+
+    checkAllDayEvent();
+  }, [studentName]);
 
   // Update incompleteAssignments when assignments prop changes
   useEffect(() => {
@@ -211,6 +235,28 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  if (isCheckingAllDayEvent) {
+    return (
+      <Card className="bg-card border border-border">
+        <CardContent className="p-8 text-center">
+          <p className="text-muted-foreground">Checking schedule...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (hasAllDayEventToday) {
+    return (
+      <Card className="bg-card border border-border">
+        <CardContent className="p-8 text-center">
+          <div className="text-6xl mb-4">📅</div>
+          <h3 className="text-lg font-semibold text-foreground mb-2">All-Day Event Today</h3>
+          <p className="text-muted-foreground">Enjoy your day, {studentName}!</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!incompleteAssignments.length) {
     return (
