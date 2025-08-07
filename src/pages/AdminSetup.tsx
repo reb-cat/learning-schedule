@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -23,6 +24,7 @@ import { SystemBenchmarkDashboard } from '@/components/SystemBenchmarkDashboard'
 
 const AdminSetup = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<any>(null);
   const [diagnostics, setDiagnostics] = useState<any>(null);
   const [syncHistory, setSyncHistory] = useState<any[]>([]);
@@ -233,17 +235,24 @@ const AdminSetup = () => {
             </div>
 
             {/* Add Assignment Form */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="h-5 w-5" />
-                  Add Manual Assignment
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ManualAssignmentForm onSuccess={handleAssignmentAdded} />
-              </CardContent>
-            </Card>
+            <Collapsible open={isAddFormOpen} onOpenChange={setIsAddFormOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Create homework, appointments, and activities
+                  </span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${isAddFormOpen ? 'rotate-180' : ''}`} />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <ManualAssignmentForm onSuccess={handleAssignmentAdded} />
+                  </CardContent>
+                </Card>
+              </CollapsibleContent>
+            </Collapsible>
           </TabsContent>
 
           <TabsContent value="schedule" className="space-y-6">
