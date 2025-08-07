@@ -459,10 +459,10 @@ export function UnifiedScheduler({
                           <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded">
                             <div className="flex items-center gap-3">
                               <Badge variant="outline">Block {decision.targetBlock}</Badge>
-                              <div>
-                                <div className="font-medium">{decision.assignment.title}</div>
-                                <div className="text-xs text-muted-foreground">{decision.assignment.course_name}</div>
-                              </div>
+                               <div>
+                                 <div className="font-medium">{decision.assignment.title} - {studentName}</div>
+                                 <div className="text-xs text-muted-foreground">{decision.assignment.course_name}</div>
+                               </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <Badge variant={getUrgencyColor(decision.urgencyLevel)}>
@@ -489,23 +489,24 @@ export function UnifiedScheduler({
                 <Card key={idx}>
                   <CardContent className="p-4">
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">{decision.assignment.title}</h4>
-                        <div className="flex gap-2">
-                          <Badge variant={getUrgencyColor(decision.urgencyLevel)}>
-                            {decision.urgencyLevel}
-                          </Badge>
-                          <Badge variant={getCognitiveLoadColor(decision.cognitiveLoad)}>
-                            {decision.cognitiveLoad}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="text-sm text-muted-foreground grid grid-cols-2 gap-2">
-                        <div><strong>Subject:</strong> {decision.assignment.subject || decision.assignment.course_name}</div>
-                        <div><strong>Due:</strong> {decision.assignment.due_date ? format(new Date(decision.assignment.due_date), 'MMM d, yyyy') : 'No due date'}</div>
-                        <div><strong>Scheduled:</strong> {format(new Date(decision.targetDate), 'EEE, MMM d')}, Block {decision.targetBlock}</div>
-                        <div><strong>Duration:</strong> {decision.estimatedMinutes} minutes</div>
-                      </div>
+                       <div className="flex items-center justify-between">
+                         <h4 className="font-medium">{decision.assignment.title} - {studentName}</h4>
+                         <div className="flex gap-2">
+                           <Badge variant={getUrgencyColor(decision.urgencyLevel)}>
+                             {decision.urgencyLevel}
+                           </Badge>
+                           <Badge variant={getCognitiveLoadColor(decision.cognitiveLoad)}>
+                             {decision.cognitiveLoad}
+                           </Badge>
+                         </div>
+                       </div>
+                       <div className="text-sm text-muted-foreground grid grid-cols-2 gap-2">
+                         <div><strong>Student:</strong> {studentName}</div>
+                         <div><strong>Subject:</strong> {decision.assignment.subject || decision.assignment.course_name}</div>
+                         <div><strong>Due:</strong> {decision.assignment.due_date ? format(new Date(decision.assignment.due_date), 'MMM d, yyyy') : 'No due date'}</div>
+                         <div><strong>Scheduled:</strong> {format(new Date(decision.targetDate), 'EEE, MMM d')}, Block {decision.targetBlock}</div>
+                         <div><strong>Duration:</strong> {decision.estimatedMinutes} minutes</div>
+                       </div>
                       <div className="text-sm bg-muted/50 p-2 rounded">
                         <strong>Reasoning:</strong> {decision.reasoning}
                       </div>
@@ -523,15 +524,15 @@ export function UnifiedScheduler({
                     <Card key={index} className="bg-purple-50 dark:bg-purple-950/20">
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium">{task.title}</div>
-                            <div className="text-sm text-muted-foreground">{task.course_name}</div>
-                            {task.due_date && (
-                              <div className="text-xs text-muted-foreground">
-                                Due: {format(new Date(task.due_date), 'MMM d, yyyy')}
-                              </div>
-                            )}
-                          </div>
+                           <div>
+                             <div className="font-medium">{task.title} - {studentName}</div>
+                             <div className="text-sm text-muted-foreground">{task.course_name}</div>
+                             {task.due_date && (
+                               <div className="text-xs text-muted-foreground">
+                                 Due: {format(new Date(task.due_date), 'MMM d, yyyy')}
+                               </div>
+                             )}
+                           </div>
                           <Badge variant="secondary">Admin Task</Badge>
                         </div>
                       </CardContent>
