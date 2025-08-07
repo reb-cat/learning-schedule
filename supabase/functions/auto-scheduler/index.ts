@@ -15,6 +15,290 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: { persistSession: false }
 });
 
+// ============================================================================
+// UNIFIED SCHEDULER LOGIC - REPLICATED FROM src/services/unifiedScheduler.ts
+// This ensures automated scheduling uses the SAME logic as manual scheduling
+// ============================================================================
+
+interface TaskClassification {
+  id: string;
+  title: string;
+  student_name: string;
+  subject?: string;
+  due_date?: string;
+  estimated_time: number;
+  urgency: 'critical' | 'high' | 'medium' | 'low';
+  cognitive_load: 'light' | 'medium' | 'heavy';
+  task_type: 'academic' | 'quick_review' | 'administrative';
+  completion_status?: string;
+}
+
+interface BlockComposition {
+  date: string;
+  day: string;
+  block: number;
+  start: string;
+  end: string;
+  tasks: TaskClassification[];
+  total_minutes: number;
+  available_minutes: number;
+  buffer_minutes: number;
+}
+
+interface SchedulingDecision {
+  decisions: Array<{
+    task: TaskClassification;
+    target_date: string;
+    target_block: number;
+    reasoning: string;
+  }>;
+  unscheduled_tasks: TaskClassification[];
+  split_assignments: any[];
+  administrative_tasks: TaskClassification[];
+  stats: {
+    totalTasks: number;
+    scheduledTasks: number;
+    unscheduledTasks: number;
+    totalBlocks: number;
+    usedBlocks: number;
+  };
+  warnings: string[];
+}
+
+// Helper function to determine if a task is urgent (due today or overdue)
+function isTaskUrgent(task: TaskClassification): boolean {
+  if (!task.due_date) return false;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dueDate = new Date(task.due_date);
+  dueDate.setHours(0, 0, 0, 0);
+  
+  // Urgent = due today or overdue
+  return dueDate <= today;
+}
+
+// Calculate urgency based on due date (matches blockSharingScheduler logic)
+function calculateUrgency(assignment: any): 'critical' | 'high' | 'medium' | 'low' {
+  if (!assignment.due_date) return 'low';
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dueDate = new Date(assignment.due_date);
+  dueDate.setHours(0, 0, 0, 0);
+  
+  const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (daysDiff < 0) return 'critical'; // Overdue
+  if (daysDiff === 0) return 'critical'; // Due today
+  if (daysDiff === 1) return 'high'; // Due tomorrow
+  if (daysDiff <= 3) return 'medium'; // Due this week
+  return 'low'; // Due later
+}
+
+// Classify task type (matches blockSharingScheduler logic)
+function classifyTaskType(assignment: any): 'academic' | 'quick_review' | 'administrative' {
+  const title = assignment.title?.toLowerCase() || '';
+  
+  // Administrative tasks
+  if (title.includes('fee') || title.includes('payment') || title.includes('form') || 
+      title.includes('permission') || title.includes('bring') || title.includes('deliver') ||
+      title.includes('submit form') || title.includes('turn in')) {
+    return 'administrative';
+  }
+  
+  // Quick review tasks
+  if (title.includes('syllabus') || title.includes('recipe') || 
+      title.includes('check') || (title.includes('review') && title.length < 40)) {
+    return 'quick_review';
+  }
+  
+  // Default to academic
+  return 'academic';
+}
+
+// Get cognitive load (matches blockSharingScheduler logic)
+function getCognitiveLoad(subject: string, studentName: string): 'light' | 'medium' | 'heavy' {
+  const baseLoads = {
+    'Math': 'heavy',
+    'Science': 'heavy', 
+    'Physics': 'heavy',
+    'Chemistry': 'heavy',
+    'Biology': 'medium',
+    'English': 'medium',
+    'Reading': 'medium',
+    'History': 'medium',
+    'Art': 'light',
+    'Music': 'light',
+    'PE': 'light'
+  };
+  
+  // Student-specific accommodations
+  if (studentName === 'Khalil' && subject === 'Reading') {
+    return 'heavy'; // Dyslexia accommodation
+  }
+  
+  return baseLoads[subject] || 'medium';
+}
+
+// Get intelligent time estimate (matches blockSharingScheduler logic)
+function getIntelligentTimeEstimate(assignment: any): number {
+  if (assignment.actual_estimated_minutes && assignment.actual_estimated_minutes > 0) {
+    return assignment.actual_estimated_minutes;
+  }
+  
+  if (assignment.estimated_time_minutes && assignment.estimated_time_minutes > 0) {
+    return assignment.estimated_time_minutes;
+  }
+  
+  const title = assignment.title?.toLowerCase() || '';
+  
+  // Quick review tasks
+  if (title.includes('syllabus')) return 10;
+  if (title.includes('recipe')) return 8;
+  if (title.includes('review') && title.length < 40) return 15;
+  if (title.includes('check')) return 5;
+  
+  // Default based on title length
+  if (title.length < 30) return 30;
+  if (title.length < 60) return 45;
+  return 60;
+}
+
+// Get available blocks for scheduling (simplified version)
+async function getAvailableBlocks(studentName: string, daysAhead: number = 7): Promise<BlockComposition[]> {
+  const blocks: BlockComposition[] = [];
+  const today = new Date();
+  
+  for (let i = 0; i < daysAhead; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() + i);
+    
+    // Skip weekends
+    if (date.getDay() === 0 || date.getDay() === 6) continue;
+    
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+    const dateString = date.toISOString().split('T')[0];
+    
+    // Check for all-day events
+    const { data: allDayEvents } = await supabase
+      .from('all_day_events')
+      .select('*')
+      .eq('student_name', studentName)
+      .eq('event_date', dateString);
+
+    if (allDayEvents && allDayEvents.length > 0) {
+      console.log(`⚠️ All-day event detected for ${studentName} on ${dateString} - skipping`);
+      continue;
+    }
+    
+    // Create blocks for the day
+    for (let blockNum = 1; blockNum <= 6; blockNum++) {
+      blocks.push({
+        date: dateString,
+        day: dayName,
+        block: blockNum,
+        start: `${7 + blockNum}:00`, // Simplified time
+        end: `${7 + blockNum}:45`,
+        tasks: [],
+        total_minutes: 45,
+        available_minutes: 45,
+        buffer_minutes: 5
+      });
+    }
+  }
+  
+  return blocks;
+}
+
+// Get classified tasks from database (replaces old assignment fetching)
+async function getClassifiedTasks(studentName: string, stagingMode: boolean = false): Promise<TaskClassification[]> {
+  const assignmentsTable = stagingMode ? 'assignments_staging' : 'assignments';
+  
+  const { data: assignments, error } = await supabase
+    .from(assignmentsTable)
+    .select('*')
+    .eq('student_name', studentName)
+    .eq('eligible_for_scheduling', true)
+    .is('scheduled_block', null)
+    .order('due_date', { ascending: true, nullsFirst: false });
+
+  if (error || !assignments) {
+    console.error('Error fetching assignments:', error);
+    return [];
+  }
+
+  // Transform assignments into TaskClassification format with unified logic
+  return assignments
+    .filter(assignment => {
+      // CRITICAL: Apply "Need More Time" logic - filter out non-urgent in_progress tasks
+      if (assignment.completion_status === 'in_progress' && !isTaskUrgent({
+        id: assignment.id,
+        title: assignment.title,
+        student_name: assignment.student_name,
+        due_date: assignment.due_date,
+        estimated_time: getIntelligentTimeEstimate(assignment),
+        urgency: calculateUrgency(assignment),
+        cognitive_load: getCognitiveLoad(assignment.subject || '', assignment.student_name),
+        task_type: classifyTaskType(assignment)
+      })) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`📅 "Need More Time" logic applied: Non-urgent in_progress task filtered out from today's blocks`);
+        }
+        return false;
+      }
+      
+      // Don't schedule administrative tasks - they should be checklist items
+      if (classifyTaskType(assignment) === 'administrative') {
+        return false;
+      }
+      
+      return true;
+    })
+    .map(assignment => ({
+      id: assignment.id,
+      title: assignment.title,
+      student_name: assignment.student_name,
+      subject: assignment.subject,
+      due_date: assignment.due_date,
+      estimated_time: getIntelligentTimeEstimate(assignment),
+      urgency: calculateUrgency(assignment),
+      cognitive_load: getCognitiveLoad(assignment.subject || '', assignment.student_name),
+      task_type: classifyTaskType(assignment),
+      completion_status: assignment.completion_status
+    }));
+}
+
+// Schedule assignment in database (improved version)
+async function scheduleAssignment(
+  task: TaskClassification,
+  block: number,
+  date: string,
+  day: string,
+  stagingMode: boolean = false
+): Promise<boolean> {
+  console.log(`📅 Scheduling "${task.title}" in block ${block} on ${date}`);
+  
+  const assignmentsTable = stagingMode ? 'assignments_staging' : 'assignments';
+  
+  const { error } = await supabase
+    .from(assignmentsTable)
+    .update({
+      scheduled_block: block,
+      scheduled_date: date,
+      scheduled_day: day
+    })
+    .eq('id', task.id);
+    
+  if (error) {
+    console.error(`❌ Error scheduling assignment:`, error);
+    return false;
+  }
+  
+  console.log(`✅ Successfully scheduled "${task.title}"`);
+  return true;
+}
+
 // Student accommodations for smart scheduling
 function getStudentAccommodations(studentName: string) {
   const accommodations = {
@@ -32,9 +316,9 @@ function getStudentAccommodations(studentName: string) {
   return accommodations[studentName] || {};
 }
 
-// Find the best block for an assignment
+// Find the best block for a task (simplified but improved version)
 function findBestBlock(
-  assignment: any,
+  task: TaskClassification,
   availableBlocks: number[],
   scheduledSubjects: {[key: number]: string},
   accommodations: any
@@ -44,30 +328,30 @@ function findBestBlock(
   const scores = availableBlocks.map(block => {
     let score = 0;
     
-    // Cognitive load optimization
-    if (assignment.cognitive_load === 'high' && block <= 3) score += 10;
-    if (assignment.cognitive_load === 'medium' && block >= 2 && block <= 4) score += 8;
-    if (assignment.cognitive_load === 'low' && block >= 3) score += 6;
+    // Cognitive load optimization - improved logic
+    if (task.cognitive_load === 'heavy' && block <= 3) score += 15;
+    if (task.cognitive_load === 'medium' && block >= 2 && block <= 4) score += 10;
+    if (task.cognitive_load === 'light' && block >= 3) score += 8;
     
-    // Math assignments prefer Block 2
-    if (assignment.subject === 'Math' && block === 2) score += 15;
+    // Math assignments prefer Block 2 (when mind is sharpest)
+    if (task.subject === 'Math' && block === 2) score += 20;
     
-    // Student preferences
-    if (assignment.subject === 'Reading' && accommodations.preferredReadingBlocks?.includes(block)) {
-      score += 12;
+    // Student preferences for reading
+    if (task.subject === 'Reading' && accommodations.preferredReadingBlocks?.includes(block)) {
+      score += 15;
     }
     
-    // Avoid consecutive heavy loads
+    // Avoid consecutive heavy cognitive loads
     const prevSubject = scheduledSubjects[block - 1];
     const nextSubject = scheduledSubjects[block + 1];
-    if (assignment.cognitive_load === 'high' && 
-        (prevSubject === 'high' || nextSubject === 'high')) {
-      score -= 8;
+    if (task.cognitive_load === 'heavy' && 
+        (prevSubject === 'heavy' || nextSubject === 'heavy')) {
+      score -= 10;
     }
     
     // Avoid same subject in consecutive blocks
-    if (prevSubject === assignment.subject || nextSubject === assignment.subject) {
-      score -= 5;
+    if (prevSubject === task.subject || nextSubject === task.subject) {
+      score -= 8;
     }
     
     return { block, score };
@@ -77,243 +361,9 @@ function findBestBlock(
   return scores[0].block;
 }
 
-// Schedule assignment in database
-async function scheduleAssignment(
-  assignment: any,
-  block: number,
-  date: string,
-  day: string,
-  stagingMode: boolean = false
-): Promise<boolean> {
-  console.log(`📅 Scheduling "${assignment.title}" in block ${block} on ${date}`);
-  
-  const assignmentsTable = stagingMode ? 'assignments_staging' : 'assignments';
-  
-  const { error } = await supabase
-    .from(assignmentsTable)
-    .update({
-      scheduled_block: block,
-      scheduled_date: date,
-      scheduled_day: day
-    })
-    .eq('id', assignment.id);
-    
-  if (error) {
-    console.error(`❌ Error scheduling assignment:`, error);
-    return false;
-  }
-  
-  console.log(`✅ Successfully scheduled "${assignment.title}"`);
-  return true;
-}
-
-// Get available blocks for next N days, checking for all-day events
-async function getAvailableBlocksForDays(daysAhead: number = 5, studentName: string): Promise<Array<{date: string, day: string, blocks: number[]}>> {
-  const scheduleWindow = [];
-  const today = new Date();
-  
-  for (let i = 0; i < daysAhead; i++) {
-    const date = new Date(today);
-    date.setDate(date.getDate() + i);
-    
-    // Skip weekends
-    if (date.getDay() === 0 || date.getDay() === 6) continue;
-    
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-    const dateString = date.toISOString().split('T')[0];
-    
-    // Check for all-day events that would override the normal schedule
-    const { data: allDayEvents } = await supabase
-      .from('all_day_events')
-      .select('*')
-      .eq('student_name', studentName)
-      .eq('event_date', dateString);
-
-    // If there's an all-day event, skip this day entirely
-    if (allDayEvents && allDayEvents.length > 0) {
-      console.log(`⚠️ All-day event detected for ${studentName} on ${dateString} - skipping assignment scheduling`);
-      continue;
-    }
-    
-    scheduleWindow.push({
-      date: dateString,
-      day: dayName,
-      blocks: [1, 2, 3, 4, 5, 6] // All available blocks
-    });
-  }
-  
-  return scheduleWindow;
-}
-
-// Calculate urgency based on due date
-function calculateUrgency(assignment: any, today: Date): 'critical' | 'high' | 'medium' | 'low' {
-  if (!assignment.due_date) return 'low';
-  
-  const dueDate = new Date(assignment.due_date);
-  const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  
-  if (daysDiff < 0) return 'critical'; // Overdue
-  if (daysDiff === 0) return 'critical'; // Due today
-  if (daysDiff === 1) return 'high'; // Due tomorrow
-  if (daysDiff <= 3) return 'medium'; // Due this week
-  return 'low'; // Due later
-}
-
-// Determine if assignment should be scheduled based on type and due date
-function shouldScheduleAssignment(assignment: any, today: Date): boolean {
-  // Handle assignments without due dates - treat as "due soon"
-  if (!assignment.due_date) {
-    console.log(`📋 Scheduling assignment without due date: "${assignment.title}"`);
-    return true;
-  }
-  
-  const dueDate = new Date(assignment.due_date);
-  const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  
-  // Don't schedule administrative tasks - they should be checklist items
-  if (isAdministrativeTask(assignment)) {
-    console.log(`⚠️ Skipping administrative task: "${assignment.title}" - should be a checklist item`);
-    return false;
-  }
-  
-  // Don't schedule fixed-date events unless they have a scheduled_date - they should be all-day events
-  if (isFixedDateEvent(assignment) && !assignment.scheduled_date) {
-    console.log(`⚠️ Skipping fixed-date event: "${assignment.title}" - should be moved to all-day events`);
-    return false;
-  }
-  
-  // Extended scheduling window to 14 days for better preparation
-  if (daysDiff > 14) {
-    console.log(`⚠️ Too early to schedule: "${assignment.title}" due in ${daysDiff} days`);
-    return false;
-  }
-  
-  return true;
-}
-
-// Detect administrative tasks that should be checklist items
-function isAdministrativeTask(assignment: any): boolean {
-  const title = assignment.title?.toLowerCase() || '';
-  
-  // Exclude complex administrative tasks that require substantial time
-  const complexTaskIndicators = ['packet', 'application', 'notarization', 'complete and', 'hours', 'several'];
-  if (complexTaskIndicators.some(indicator => title.includes(indicator))) {
-    return false;
-  }
-  
-  // Exclude tasks with significant time estimates (over 30 minutes)
-  if (assignment.estimated_time_minutes && assignment.estimated_time_minutes > 30) {
-    return false;
-  }
-  
-  // Use word boundaries to avoid partial matches (e.g., 'pack' shouldn't match 'packet')
-  const adminKeywords = ['fee', 'form', 'permission', 'payment', 'sign'];
-  const actionKeywords = ['bring ', 'pack ', 'deliver ', 'turn in', 'submit form'];
-  
-  return adminKeywords.some(keyword => title.includes(keyword)) ||
-         actionKeywords.some(keyword => title.includes(keyword));
-}
-
-// Detect fixed-date events that should be all-day events
-function isFixedDateEvent(assignment: any): boolean {
-  const title = assignment.title?.toLowerCase() || '';
-  const eventKeywords = [
-    'trip', 'visit', 'performance', 'concert', 'show', 'play', 'recital',
-    'field trip', 'excursion', 'outing', 'ceremony', 'graduation', 'wedding',
-    'conference', 'workshop', 'seminar', 'meeting', 'appointment', 'interview',
-    'exam', 'test', 'quiz', 'presentation', 'competition', 'tournament',
-    'event', 'activity', 'celebration', 'party', 'gathering'
-  ];
-  
-  // Check for event keywords
-  const hasEventKeyword = eventKeywords.some(keyword => title.includes(keyword));
-  
-  // More specific location detection - avoid false positives like "to CDCN"
-  const locationPatterns = [
-    /\bat\s+\w+/,        // "at [location]"
-    /\bvisit\s+\w+/,     // "visit [location]" 
-    /\bgo\s+to\s+\w+/,   // "go to [location]"
-    /\btrip\s+to\s+\w+/, // "trip to [location]"
-  ];
-  const hasLocationIndicator = locationPatterns.some(pattern => pattern.test(title));
-  
-  // Check assignment type for appointment-like activities
-  const appointmentTypes = ['tutoring_session', 'driving_lesson', 'volunteer_event', 'job_interview'];
-  const isAppointmentType = appointmentTypes.includes(assignment.assignment_type || '');
-  
-  return hasEventKeyword || hasLocationIndicator || isAppointmentType;
-}
-
-// Get intelligent time estimate based on task type
-function getIntelligentTimeEstimate(assignment: any): number {
-  const title = assignment.title?.toLowerCase() || '';
-  
-  // Administrative tasks (should be checklist items, but if scheduled)
-  if (isAdministrativeTask(assignment)) {
-    return 3; // 3 minutes max for fees, forms
-  }
-  
-  // Review tasks
-  if (title.includes('syllabus')) return 5;
-  if (title.includes('recipe')) return 7;
-  if (title.includes('review') && title.length < 40) return 10;
-  
-  // Use existing estimate or intelligent default
-  return assignment.actual_estimated_minutes || assignment.estimated_time_minutes || 45;
-}
-
-// Schedule assignment continuation across multiple blocks if needed
-async function scheduleAssignmentContinuation(assignment: any, availableBlocks: any[], stagingMode: boolean = false): Promise<boolean> {
-  const assignmentsTable = stagingMode ? 'assignments_staging' : 'assignments';
-  const estimatedMinutes = assignment.actual_estimated_minutes || assignment.estimated_time_minutes || 45;
-  const maxBlockTime = 45; // Standard block length
-  
-  // If assignment fits in one block, schedule normally
-  if (estimatedMinutes <= maxBlockTime) {
-    return false; // Let normal scheduling handle this
-  }
-  
-  console.log(`📅 Scheduling continuation for "${assignment.title}" (${estimatedMinutes} min) across multiple blocks`);
-  
-  // Find consecutive available blocks for continuation
-  let remainingMinutes = estimatedMinutes;
-  let blocksUsed = 0;
-  
-  for (const block of availableBlocks) {
-    if (remainingMinutes <= 0) break;
-    
-    // Schedule the same assignment in this block
-    const { error } = await supabase
-      .from(assignmentsTable)
-      .update({
-        scheduled_block: block.block,
-        scheduled_date: block.date,
-        scheduled_day: block.day,
-        estimated_time_minutes: Math.min(remainingMinutes, maxBlockTime)
-      })
-      .eq('id', assignment.id);
-      
-    if (error) {
-      console.error(`❌ Error scheduling continuation:`, error);
-      return false;
-    }
-    
-    remainingMinutes -= maxBlockTime;
-    blocksUsed++;
-    
-    console.log(`✅ Scheduled "${assignment.title}" in Block ${block.block} on ${block.day} (${blocksUsed} blocks used)`);
-    
-    // For continuation scheduling, we only need to set the first block
-    // The assignment will appear in student's schedule until marked complete
-    return true;
-  }
-  
-  return false; // No suitable blocks found
-}
-
-// Main scheduling function with forward-looking logic
+// Main unified scheduling function (replaces old auto-scheduler logic)
 async function scheduleAssignments(studentName: string, stagingMode: boolean = false): Promise<number> {
-  console.log(`🚀 Starting smart auto-scheduling for ${studentName}...`);
+  console.log(`🚀 Starting UNIFIED auto-scheduling for ${studentName} (same logic as manual)`);
   
   const today = new Date();
   const isWeekend = today.getDay() === 0 || today.getDay() === 6;
@@ -323,83 +373,31 @@ async function scheduleAssignments(studentName: string, stagingMode: boolean = f
     return 0;
   }
   
-  // Get 5-day scheduling window
-  const scheduleWindow = await getAvailableBlocksForDays(5, studentName);
-  console.log(`📅 Looking ahead ${scheduleWindow.length} school days for scheduling`);
+  // Get classified tasks using the same logic as blockSharingScheduler
+  const tasks = await getClassifiedTasks(studentName, stagingMode);
+  console.log(`📝 Found ${tasks.length} tasks to schedule after filtering`);
   
-  // Determine table names based on staging mode
-  const assignmentsTable = stagingMode ? 'assignments_staging' : 'assignments';
-  const syncStatusTable = stagingMode ? 'sync_status_staging' : 'sync_status';
-  
-  // Clear existing schedules in the window
-  for (const day of scheduleWindow) {
-    await supabase
-      .from(assignmentsTable)
-      .update({ 
-        scheduled_block: null, 
-        scheduled_date: null, 
-        scheduled_day: null 
-      })
-      .eq('student_name', studentName)
-      .eq('scheduled_date', day.date);
-  }
-  
-  // Get unscheduled academic assignments
-  const { data: assignments, error: assignmentsError } = await supabase
-    .from(assignmentsTable)
-    .select('*')
-    .eq('student_name', studentName)
-    .eq('eligible_for_scheduling', true)
-    .is('scheduled_block', null)
-    .order('due_date', { ascending: true });
-    
-  if (assignmentsError || !assignments) {
-    console.error(`❌ Error fetching assignments:`, assignmentsError);
+  if (tasks.length === 0) {
+    console.log(`✅ No tasks to schedule for ${studentName}`);
     return 0;
   }
   
-  console.log(`📝 Found ${assignments.length} unscheduled assignments`);
+  // Get available blocks (7-day window like UnifiedScheduler)
+  const availableBlocks = await getAvailableBlocks(studentName, 7);
+  console.log(`📅 Found ${availableBlocks.length} available blocks across 7 days`);
   
-  if (assignments.length === 0) {
-    console.log(`✅ No assignments to schedule for ${studentName}`);
+  if (availableBlocks.length === 0) {
+    console.log(`⚠️ No available blocks found for ${studentName}`);
     return 0;
   }
   
   const accommodations = getStudentAccommodations(studentName);
-  const scheduledBlocks = new Map(); // Track what's scheduled where
   let scheduledCount = 0;
   
-  // Filter assignments that should be scheduled
-  const schedulableAssignments = assignments.filter(assignment => 
-    shouldScheduleAssignment(assignment, today)
-  );
-  
-  console.log(`📝 Filtered to ${schedulableAssignments.length} schedulable assignments (${assignments.length - schedulableAssignments.length} skipped)`);
-  
-  // Handle large assignments with continuation scheduling
-  const processedAssignments = [];
-  for (const assignment of schedulableAssignments) {
-    const estimatedMinutes = getIntelligentTimeEstimate(assignment);
-    
-    if (estimatedMinutes > 60) {
-      // Try continuation scheduling - if it works, skip regular processing
-      const continuationScheduled = await scheduleAssignmentContinuation(assignment, scheduleWindow, stagingMode);
-      if (!continuationScheduled) {
-        // If continuation fails, add to regular processing
-        processedAssignments.push(assignment);
-      }
-    } else {
-      processedAssignments.push(assignment);
-    }
-  }
-  
-  // Prioritize assignments by urgency and due date
-  const prioritizedAssignments = processedAssignments.sort((a, b) => {
-    const aUrgency = calculateUrgency(a, today);
-    const bUrgency = calculateUrgency(b, today);
-    
+  // Sort tasks by urgency (most urgent first) - same logic as blockSharingScheduler
+  const sortedTasks = tasks.sort((a, b) => {
     const urgencyOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-    const urgencyDiff = urgencyOrder[aUrgency] - urgencyOrder[bUrgency];
+    const urgencyDiff = urgencyOrder[a.urgency] - urgencyOrder[b.urgency];
     
     if (urgencyDiff !== 0) return urgencyDiff;
     
@@ -409,85 +407,61 @@ async function scheduleAssignments(studentName: string, stagingMode: boolean = f
     return aDate.getTime() - bDate.getTime();
   });
   
-  console.log(`🎯 Scheduling ${prioritizedAssignments.length} assignments by urgency...`);
+  console.log(`🎯 Scheduling ${sortedTasks.length} tasks by urgency...`);
   
-  // Schedule assignments using smart distribution
-  for (const assignment of prioritizedAssignments) {
-    const urgency = calculateUrgency(assignment, today);
-    const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
+  // Track scheduled blocks to avoid conflicts
+  const scheduledBlocks = new Set<string>();
+  const scheduledSubjects: {[key: number]: string} = {};
+  
+  // Schedule tasks into available blocks
+  for (const task of sortedTasks) {
+    console.log(`📋 Processing "${task.title}" (${task.urgency} urgency)`);
     
-    console.log(`📋 Processing "${assignment.title}" (${urgency} urgency, due: ${dueDate?.toDateString() || 'no due date'})`);
+    // Find suitable blocks for this task
+    const suitableBlocks = availableBlocks.filter(block => {
+      const blockKey = `${block.date}-${block.block}`;
+      return !scheduledBlocks.has(blockKey);
+    });
     
-    let targetDay = null;
-    
-    // Determine OPTIMAL scheduling window based on due date proximity
-    const dueDays = dueDate ? Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 5;
-    
-    if (urgency === 'critical') {
-      // Schedule ASAP (today if possible)
-      targetDay = scheduleWindow[0];
-    } else if (urgency === 'high') {
-      // Due tomorrow - schedule today if possible, otherwise early tomorrow
-      targetDay = scheduleWindow[0];
-      if (!findAvailableBlock(targetDay, scheduledBlocks, assignment, accommodations)) {
-        targetDay = scheduleWindow[1];
-      }
-    } else if (urgency === 'medium') {
-      // Due in 2-3 days - schedule AT LEAST 1 day before, preferably 2 days before
-      const optimalScheduleDay = Math.max(0, Math.min(dueDays - 2, scheduleWindow.length - 1));
-      const latestScheduleDay = Math.max(0, Math.min(dueDays - 1, scheduleWindow.length - 1));
-      
-      // Try optimal scheduling first (2 days early), then fall back
-      for (let i = optimalScheduleDay; i <= latestScheduleDay; i++) {
-        if (scheduleWindow[i] && findAvailableBlock(scheduleWindow[i], scheduledBlocks, assignment, accommodations)) {
-          targetDay = scheduleWindow[i];
-          break;
-        }
-      }
-    } else {
-      // Low urgency - schedule closer to due date, but not too early
-      const optimalStart = Math.max(0, Math.min(dueDays - 3, scheduleWindow.length - 2));
-      for (let i = optimalStart; i < scheduleWindow.length; i++) {
-        if (scheduleWindow[i] && findAvailableBlock(scheduleWindow[i], scheduledBlocks, assignment, accommodations)) {
-          targetDay = scheduleWindow[i];
-          break;
-        }
-      }
-    }
-    
-    if (!targetDay) {
-      console.log(`⚠️ No available slots for "${assignment.title}" in the ${scheduleWindow.length}-day window`);
+    if (suitableBlocks.length === 0) {
+      console.log(`⚠️ No available blocks for "${task.title}"`);
       continue;
     }
     
-    const bestBlock = findAvailableBlock(targetDay, scheduledBlocks, assignment, accommodations);
+    // Choose best block based on cognitive load and preferences
+    const availableBlockNumbers = suitableBlocks.map(b => b.block);
+    const bestBlockNumber = findBestBlock(task, availableBlockNumbers, scheduledSubjects, accommodations);
     
-    if (bestBlock) {
-      const success = await scheduleAssignment(assignment, bestBlock, targetDay.date, targetDay.day, stagingMode);
-      
-      if (success) {
-        const key = `${targetDay.date}-${bestBlock}`;
-        scheduledBlocks.set(key, assignment);
-        scheduledCount++;
+    if (bestBlockNumber) {
+      const selectedBlock = suitableBlocks.find(b => b.block === bestBlockNumber);
+      if (selectedBlock) {
+        const success = await scheduleAssignment(
+          task, 
+          selectedBlock.block, 
+          selectedBlock.date, 
+          selectedBlock.day, 
+          stagingMode
+        );
         
-        console.log(`✅ Scheduled "${assignment.title}" in Block ${bestBlock} on ${targetDay.day} (${urgency} urgency)`);
+        if (success) {
+          const blockKey = `${selectedBlock.date}-${selectedBlock.block}`;
+          scheduledBlocks.add(blockKey);
+          scheduledSubjects[selectedBlock.block] = task.subject || '';
+          scheduledCount++;
+          
+          console.log(`✅ Scheduled "${task.title}" in Block ${selectedBlock.block} on ${selectedBlock.day}`);
+        }
       }
     }
   }
   
-  console.log(`✅ Smart auto-scheduling complete for ${studentName}: ${scheduledCount} assignments scheduled across ${scheduleWindow.length} days`);
+  console.log(`✅ UNIFIED auto-scheduling complete for ${studentName}: ${scheduledCount} assignments scheduled`);
   return scheduledCount;
 }
 
-// Find available block considering current schedule
-function findAvailableBlock(day: any, scheduledBlocks: Map<string, any>, assignment: any, accommodations: any): number | null {
-  const availableBlocks = day.blocks.filter(block => {
-    const key = `${day.date}-${block}`;
-    return !scheduledBlocks.has(key);
-  });
-  
-  return findBestBlock(assignment, availableBlocks, {}, accommodations);
-}
+// ============================================================================
+// CLEAN AUTO-SCHEDULER ENDPOINT - USES UNIFIED LOGIC 
+// ============================================================================
 
 serve(async (req) => {
   console.log(`🤖 Auto-scheduler started - ${new Date().toISOString()}`);
