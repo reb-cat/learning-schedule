@@ -4,6 +4,7 @@ import { format, parse, isValid } from 'date-fns';
 import { useAssignments } from './useAssignments';
 import { getScheduleForStudentAndDay } from '@/data/scheduleData';
 import { getEffectiveScheduleForDay } from '@/data/allDayEvents';
+import { unifiedScheduler } from '@/services/unifiedScheduler';
 
 export const useStudentDashboard = (studentName: string) => {
   const [searchParams] = useSearchParams();
@@ -16,6 +17,8 @@ export const useStudentDashboard = (studentName: string) => {
   const [effectiveSchedule, setEffectiveSchedule] = useState<any[] | null>(null);
   const [hasAllDayEvent, setHasAllDayEvent] = useState<boolean | null>(null);
   const [isCheckingAllDayEvent, setIsCheckingAllDayEvent] = useState(true);
+  const [isAutoScheduling, setIsAutoScheduling] = useState(false);
+  const autoSchedulerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Date handling
   const displayDate = useMemo(() => {
@@ -124,6 +127,64 @@ export const useStudentDashboard = (studentName: string) => {
     }, 100);
   }, [checkEffectiveSchedule]);
 
+  // Auto-scheduling logic
+  const triggerAutoScheduling = useCallback(async () => {
+    if (isAutoScheduling) return; // Prevent concurrent scheduling
+    
+    console.log(`🤖 Auto-scheduling triggered for ${studentName}`);
+    setIsAutoScheduling(true);
+    
+    try {
+      const result = await unifiedScheduler.analyzeAndSchedule(studentName, {
+        daysAhead: 7,
+        includeAdminTasks: true,
+        autoExecute: true
+      });
+      
+      console.log(`✅ Auto-scheduling completed for ${studentName}:`, {
+        scheduledTasks: result.stats.scheduledTasks,
+        warnings: result.warnings.length
+      });
+      
+      // Refresh assignments after scheduling
+      refetch();
+    } catch (error) {
+      console.error(`❌ Auto-scheduling failed for ${studentName}:`, error);
+    } finally {
+      setIsAutoScheduling(false);
+    }
+  }, [studentName, isAutoScheduling, refetch]);
+
+  // Auto-schedule when assignments are loaded and we detect unscheduled assignments
+  useEffect(() => {
+    if (assignmentsLoading || !assignments.length) return;
+    
+    // Check if there are unscheduled assignments
+    const unscheduledCount = assignments.filter(a => 
+      !a.scheduled_date && 
+      a.completion_status !== 'completed'
+    ).length;
+    
+    if (unscheduledCount > 0) {
+      console.log(`📋 Found ${unscheduledCount} unscheduled assignments for ${studentName} - triggering auto-scheduler`);
+      
+      // Debounce auto-scheduling to prevent rapid successive calls
+      if (autoSchedulerRef.current) {
+        clearTimeout(autoSchedulerRef.current);
+      }
+      
+      autoSchedulerRef.current = setTimeout(() => {
+        triggerAutoScheduling();
+      }, 2000); // Wait 2 seconds before auto-scheduling
+    }
+  }, [assignments, assignmentsLoading, triggerAutoScheduling, studentName]);
+
+  // Force refresh function
+  const forceRefresh = useCallback(async () => {
+    console.log(`🔄 Force refresh triggered for ${studentName}`);
+    await triggerAutoScheduling();
+  }, [triggerAutoScheduling, studentName]);
+
   return {
     // Data
     assignments,
@@ -147,6 +208,10 @@ export const useStudentDashboard = (studentName: string) => {
     isWeekend,
     
     // Event handlers
-    handleEventUpdate
+    handleEventUpdate,
+    forceRefresh,
+    
+    // Auto-scheduling state
+    isAutoScheduling
   };
 };

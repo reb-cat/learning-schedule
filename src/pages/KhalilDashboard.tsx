@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Home } from "lucide-react";
+import { Home, RefreshCw } from "lucide-react";
 import { CoopChecklist } from "@/components/CoopChecklist";
 import { OptimizedStudentBlockDisplay } from "@/components/OptimizedStudentBlockDisplay";
 import { ErrorFallback } from "@/components/ErrorFallback";
@@ -27,9 +27,11 @@ const KhalilDashboard = () => {
     dateDisplay,
     formattedDate,
     currentDay,
-    isWeekend,
-    handleEventUpdate
-  } = useStudentDashboard('Khalil');
+      isWeekend,
+      handleEventUpdate,
+      forceRefresh,
+      isAutoScheduling
+    } = useStudentDashboard('Khalil');
 
   const { scheduledAssignments, isLoadingAssignments, clearCache } = useScheduledAssignments(
     getScheduledAssignment,
@@ -65,8 +67,18 @@ const KhalilDashboard = () => {
               <h1 className="text-3xl font-bold text-foreground">Welcome, Khalil!</h1>
             </div>
             <p className="text-lg text-muted-foreground mt-1">{dateDisplay}</p>
-          </div>
-          <div className="flex items-center gap-2">
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={forceRefresh}
+                disabled={isAutoScheduling}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isAutoScheduling ? 'animate-spin' : ''}`} />
+                {isAutoScheduling ? 'Scheduling...' : 'Force Refresh'}
+              </Button>
             <div className="flex items-center bg-muted rounded-lg p-1">
               <Button
                 variant={!isGuidedMode ? "default" : "ghost"}
@@ -100,7 +112,11 @@ const KhalilDashboard = () => {
             <GuidedDayView 
               assignments={assignments}
               studentName="Khalil"
-              onAssignmentUpdate={handleEventUpdateWithCache}
+                onAssignmentUpdate={() => {
+                  clearCache();
+                  handleEventUpdate();
+                  refetch();
+                }}
             />
           </div>
         ) : (
@@ -153,7 +169,11 @@ const KhalilDashboard = () => {
                       block={block}
                       assignment={block.isAssignmentBlock ? scheduledAssignments[`${block.block}`] : undefined}
                       studentName="Khalil"
-                      onAssignmentUpdate={handleEventUpdateWithCache}
+                        onAssignmentUpdate={() => {
+                          clearCache();
+                          handleEventUpdate();
+                          refetch();
+                        }}
                       isLoading={isLoadingAssignments}
                     />
                   ))}
