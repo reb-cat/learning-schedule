@@ -22,7 +22,11 @@ const TEST_MODE_MESSAGES = {
 export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: GuidedDayViewProps) {
   const TEST_MODE = true; // Toggle this for testing
   
-  console.log('All assignments:', assignments);
+  console.log('All assignments:', assignments.map(a => ({
+    title: a.title,
+    scheduled_date: a.scheduled_date,
+    completion_status: a.completion_status
+  })));
   console.log('Today date:', new Date().toISOString().split('T')[0]);
   const [currentAssignmentIndex, setCurrentAssignmentIndex] = useState(0);
   const [isTimerActive, setIsTimerActive] = useState(false);
