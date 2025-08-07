@@ -185,7 +185,6 @@ const AdminSetup = () => {
         
         <div className="text-center space-y-4">
           <h1 className="text-4xl font-bold text-foreground">Admin Control Center</h1>
-          <p className="text-muted-foreground">Complete management dashboard for students, assignments, and system operations</p>
         </div>
 
         <Tabs defaultValue="students" className="w-full">
@@ -248,11 +247,6 @@ const AdminSetup = () => {
           </TabsContent>
 
           <TabsContent value="schedule" className="space-y-6">
-            <div className="text-center space-y-2 mb-6">
-              <h2 className="text-2xl font-bold">Unified Assignment Scheduler</h2>
-              <p className="text-muted-foreground">Schedule assignments and clear schedules - consolidated scheduling system with dynamic student selection and flexible date ranges</p>
-            </div>
-            
             <ConsolidatedScheduler 
               onSchedulingComplete={() => {
                 handleAssignmentAdded();
@@ -265,11 +259,6 @@ const AdminSetup = () => {
           </TabsContent>
 
           <TabsContent value="admin-tasks" className="space-y-6">
-            <div className="text-center space-y-2 mb-6">
-              <h2 className="text-2xl font-bold">Administrative Tasks</h2>
-              <p className="text-muted-foreground">Manage fees, forms, and administrative requirements</p>
-            </div>
-            
             {/* Co-op Administrative Checklists */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <CoopAdministrativeChecklist studentName="Abigail" />
@@ -278,11 +267,6 @@ const AdminSetup = () => {
           </TabsContent>
 
           <TabsContent value="system" className="space-y-6">
-            <div className="text-center space-y-2 mb-6">
-              <h2 className="text-2xl font-bold">System Control</h2>
-              <p className="text-muted-foreground">Canvas sync and system management</p>
-            </div>
-            
             {/* Manual Sync */}
             <Card className="border-2 border-blue-200">
               <CardHeader>
@@ -290,16 +274,9 @@ const AdminSetup = () => {
                   <RefreshCw className="h-6 w-6" />
                   Canvas Sync
                 </CardTitle>
-                <CardDescription className="text-base">
-                  Automatic sync runs daily at 4:00 AM UTC. Use this button for immediate manual sync.
-                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col items-center gap-4 p-6 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="text-center">
-                    <p className="font-medium text-blue-900 mb-2">Ready to sync assignments</p>
-                    <p className="text-sm text-blue-700">Click below to fetch latest Canvas assignments and update schedules</p>
-                  </div>
+                <div className="flex justify-center">
                   <Button onClick={handleManualSync} disabled={isLoading} size="lg" className="bg-blue-600 hover:bg-blue-700 px-8">
                     {isLoading ? (
                       <>
