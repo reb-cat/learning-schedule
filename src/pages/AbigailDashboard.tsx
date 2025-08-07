@@ -12,7 +12,6 @@ import { useStudentDashboard } from "@/hooks/useStudentDashboard";
 import { useScheduledAssignments } from "@/hooks/useScheduledAssignments";
 
 const AbigailDashboard = () => {
-  console.log('🏠 AbigailDashboard rendering...');
   
   try {
     const {

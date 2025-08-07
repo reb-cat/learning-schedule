@@ -45,13 +45,6 @@ export function UnifiedScheduler({
   const handleAnalyze = useCallback(async () => {
     setIsAnalyzing(true);
     try {
-      console.log('🔍 Unified Scheduler: Starting analysis', {
-        studentName,
-        mode,
-        previewOnly,
-        daysAhead
-      });
-
       const options: SchedulerOptions = {
         daysAhead,
         previewOnly: true, // Always preview first
@@ -84,19 +77,9 @@ export function UnifiedScheduler({
       return;
     }
 
-    console.log('🎬 USER CLICKED EXECUTE SCHEDULE:', {
-      studentName,
-      scheduledTasks: result.stats.scheduledTasks,
-      totalBlocks: result.stats.totalBlocks,
-      timestamp: new Date().toISOString()
-    });
-
     setIsExecuting(true);
     try {
-      console.log('💾 Calling unifiedScheduler.executeSchedule...');
       const executionResult = await unifiedScheduler.executeSchedule(result, studentName);
-
-      console.log('✅ Execute completed:', executionResult);
 
       if (executionResult.success) {
         // Full or partial success
@@ -128,7 +111,6 @@ export function UnifiedScheduler({
 
         // Force page refresh to show updated assignments
         if (autoRefresh) {
-          console.log('🔄 Auto-refreshing page to show updated assignments');
           window.location.reload();
         }
 
@@ -166,12 +148,6 @@ export function UnifiedScheduler({
   }, [result, studentName, autoRefresh, onSchedulingComplete, toast]);
 
   const handleAutoSchedule = useCallback(async () => {
-    console.log('🎬 USER CLICKED AUTO-SCHEDULE:', {
-      studentName,
-      daysAhead,
-      includeAdminTasks,
-      timestamp: new Date().toISOString()
-    });
 
     setIsAnalyzing(true);
     try {
@@ -181,14 +157,7 @@ export function UnifiedScheduler({
         autoExecute: true // Auto-execute if no critical warnings
       };
 
-      console.log('🔄 Calling unifiedScheduler.analyzeAndSchedule with autoExecute...');
       const schedulingResult = await unifiedScheduler.analyzeAndSchedule(studentName, options);
-      
-      console.log('📊 Auto-schedule analysis complete:', {
-        scheduledTasks: schedulingResult.stats.scheduledTasks,
-        warnings: schedulingResult.warnings.length,
-        warningsList: schedulingResult.warnings
-      });
 
       // Check if it was auto-executed
       const hasCriticalWarnings = schedulingResult.warnings.some(w => 
@@ -196,19 +165,16 @@ export function UnifiedScheduler({
       );
 
       if (!hasCriticalWarnings) {
-        console.log('✅ Auto-execute completed successfully - no critical warnings');
         toast({
           title: "Auto-Schedule Complete!",
           description: `Automatically scheduled ${schedulingResult.stats.scheduledTasks} assignments.`
         });
         
         if (autoRefresh) {
-          console.log('🔄 Auto-refreshing page to show updated assignments');
           window.location.reload();
         }
         onSchedulingComplete?.();
       } else {
-        console.log('⚠️ Manual review required due to critical warnings');
         setResult(schedulingResult);
         toast({
           title: "Manual Review Required",
@@ -456,9 +422,7 @@ export function UnifiedScheduler({
                        {dayDecisions
                          .sort((a, b) => a.targetBlock - b.targetBlock)
                          .map((decision, idx) => {
-                           // DEBUG: Log each decision being rendered
-                           console.log('=== RENDER DEBUG ===', 'Decision:', decision, 'studentName prop:', studentName, 'decision.studentName:', decision.studentName);
-                           return (
+                            return (
                              <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded">
                               <div className="flex items-center gap-3">
                                 <Badge variant="outline">Block {decision.targetBlock}</Badge>

@@ -19,8 +19,6 @@ export interface AllDayEvent {
  */
 export async function getAllDayEventsForDate(studentName: string, date: string): Promise<AllDayEvent[]> {
   try {
-    console.log(`🔍 Checking all-day events for ${studentName} on ${date}`);
-    
     // Add timeout to prevent hanging
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('Timeout: All-day event check took too long')), 5000);
@@ -39,7 +37,6 @@ export async function getAllDayEventsForDate(studentName: string, date: string):
       return [];
     }
 
-    console.log(`✅ All-day events check completed for ${studentName}: ${data?.length || 0} events found`);
     return data || [];
   } catch (error) {
     console.error('Error or timeout in getAllDayEventsForDate:', error);
@@ -52,7 +49,7 @@ export async function getAllDayEventsForDate(studentName: string, date: string):
  */
 export async function hasAllDayEvent(studentName: string, date: string): Promise<boolean> {
   const events = await getAllDayEventsForDate(studentName, date);
-  return events.length > 0;
+  return !!events.length;
 }
 
 /**
@@ -168,7 +165,6 @@ export async function getEffectiveScheduleForDay(
   const hasEvent = await hasAllDayEvent(studentName, date);
   
   if (hasEvent) {
-    console.log(`⚠️ All-day event detected for ${studentName} on ${date} - skipping assignment scheduling`);
     return null; // No assignment blocks available
   }
 

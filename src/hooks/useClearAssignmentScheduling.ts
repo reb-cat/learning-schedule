@@ -7,18 +7,13 @@ export const useClearAssignmentScheduling = () => {
   const clearScheduling = async (studentNameOrIds?: string | string[]) => {
     setIsClearing(true);
     try {
-      console.log('=== CLEAR SCHEDULING DEBUG ===');
-      console.log('Parameter received:', studentNameOrIds);
-      
       let assignmentIdsToUpdate: string[] = [];
       
       if (Array.isArray(studentNameOrIds)) {
         // Direct assignment IDs provided
         assignmentIdsToUpdate = studentNameOrIds;
-        console.log('Using direct assignment IDs:', assignmentIdsToUpdate);
       } else if (typeof studentNameOrIds === 'string') {
         // Student name provided - find their scheduled assignments
-        console.log('Looking up assignments for student:', studentNameOrIds);
         
         // First, let's see what assignments currently have scheduling data
         const { data: allAssignments, error: fetchError } = await supabase
@@ -28,8 +23,6 @@ export const useClearAssignmentScheduling = () => {
         
         if (fetchError) throw fetchError;
         
-        console.log('All assignments for', studentNameOrIds, ':', allAssignments);
-        
         // Find assignments that actually have scheduling data
         const scheduledAssignments = allAssignments?.filter(assignment => 
           assignment.scheduled_date !== null || 
@@ -37,11 +30,7 @@ export const useClearAssignmentScheduling = () => {
           assignment.scheduled_day !== null
         ) || [];
         
-        console.log('Assignments with scheduling data:', scheduledAssignments);
-        
         if (scheduledAssignments.length === 0) {
-          console.log('No assignments found with scheduling data');
-          console.log('=== END CLEAR SCHEDULING DEBUG ===');
           return { 
             success: true, 
             data: [], 
@@ -52,7 +41,6 @@ export const useClearAssignmentScheduling = () => {
         assignmentIdsToUpdate = scheduledAssignments.map(a => a.id);
       } else {
         // No parameter - find all scheduled assignments
-        console.log('Looking up all scheduled assignments');
         
         const { data: scheduledAssignments, error: fetchError } = await supabase
           .from('assignments')
@@ -82,20 +70,14 @@ export const useClearAssignmentScheduling = () => {
           ...(scheduledAssignments3 || [])
         ];
         
-        console.log('All scheduled assignments found:', allScheduledAssignments);
-
         const allScheduledIds = [...new Set(allScheduledAssignments.map(a => a.id))];
 
         if (allScheduledIds.length === 0) {
-          console.log('No assignments found with scheduling data');
-          console.log('=== END CLEAR SCHEDULING DEBUG ===');
           return { success: true, data: [], message: 'No assignments with scheduling data found' };
         }
 
         assignmentIdsToUpdate = allScheduledIds;
       }
-      
-      console.log('Assignment IDs to clear:', assignmentIdsToUpdate);
 
       const { data, error } = await supabase
         .from('assignments')
@@ -109,10 +91,7 @@ export const useClearAssignmentScheduling = () => {
 
       if (error) throw error;
 
-      console.log('Successfully cleared:', data);
-      console.log('=== END CLEAR SCHEDULING DEBUG ===');
-
-      return { 
+      return {
         success: true, 
         data, 
         message: `Cleared scheduling for ${data?.length || 0} assignments`
