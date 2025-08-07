@@ -16,6 +16,7 @@ import { CoopAdministrativeChecklist } from '@/components/CoopAdministrativeChec
 import { useAdministrativeNotifications } from '@/hooks/useAdministrativeNotifications';
 import { SystemStatusCard } from '@/components/shared/SystemStatusCard';
 import { ConsolidatedScheduler } from '@/components/ConsolidatedScheduler';
+import { UnifiedScheduler } from '@/components/UnifiedScheduler';
 import { DatabasePermissionTest } from '@/components/DatabasePermissionTest';
 import { SystemHealthDashboard } from '@/components/SystemHealthDashboard';
 import { StudentAnalyticsDashboard } from '@/components/StudentAnalyticsDashboard';
@@ -252,13 +253,41 @@ const AdminSetup = () => {
           </TabsContent>
 
           <TabsContent value="schedule" className="space-y-6">
+            {/* Quick Scheduler */}
             <ConsolidatedScheduler onSchedulingComplete={() => {
-            handleAssignmentAdded();
-            toast({
-              title: "Schedule updated",
-              description: "Assignment scheduler has updated the schedules."
-            });
-          }} />
+              handleAssignmentAdded();
+              toast({
+                title: "Schedule updated",
+                description: "Assignment scheduler has updated the schedules."
+              });
+            }} />
+            
+            {/* Detailed Schedulers with Preview */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <UnifiedScheduler 
+                studentName="Abigail"
+                mode="full"
+                onSchedulingComplete={() => {
+                  handleAssignmentAdded();
+                  toast({
+                    title: "Abigail's schedule updated",
+                    description: "Scheduling completed successfully."
+                  });
+                }}
+              />
+              
+              <UnifiedScheduler 
+                studentName="Khalil"
+                mode="full"
+                onSchedulingComplete={() => {
+                  handleAssignmentAdded();
+                  toast({
+                    title: "Khalil's schedule updated", 
+                    description: "Scheduling completed successfully."
+                  });
+                }}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="admin-tasks" className="space-y-6">
