@@ -6,13 +6,25 @@ import { Play, CheckCircle, Clock, HelpCircle, MoreHorizontal } from 'lucide-rea
 import { Assignment } from '@/hooks/useAssignments';
 import { useAssignmentCompletion } from '@/hooks/useAssignmentCompletion';
 import { useToast } from '@/hooks/use-toast';
-import { hasAllDayEvent } from '@/data/allDayEvents';
 
 interface GuidedDayViewProps {
   assignments: Assignment[];
   studentName: string;
   onAssignmentUpdate?: () => void;
 }
+
+const getTodayAssignments = (assignments: Assignment[]) => {
+  const today = new Date().toISOString().split('T')[0];
+  return assignments
+    .filter(a => a.completion_status !== 'completed' && a.scheduled_date === today)
+    .sort((a, b) => (a.scheduled_block || 0) - (b.scheduled_block || 0));
+};
+
+const TEST_MODE_MESSAGES = {
+  'complete': 'TEST MODE: Marked complete (not saved)',
+  'more-time': 'TEST MODE: Need more time (not saved)',
+  'stuck': 'TEST MODE: Marked for help (not saved)'
+};
 
 export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: GuidedDayViewProps) {
   const TEST_MODE = true; // Toggle this for testing
@@ -23,48 +35,18 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [hasAllDayEventToday, setHasAllDayEventToday] = useState(false);
-  const [isCheckingAllDayEvent, setIsCheckingAllDayEvent] = useState(true);
   
   // Make incompleteAssignments a state variable
-  const [incompleteAssignments, setIncompleteAssignments] = useState<Assignment[]>(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return assignments
-      .filter(a => a.completion_status !== 'completed' && a.scheduled_date === today)
-      .sort((a, b) => (a.scheduled_block || 0) - (b.scheduled_block || 0));
-  });
+  const [incompleteAssignments, setIncompleteAssignments] = useState<Assignment[]>(() => 
+    getTodayAssignments(assignments)
+  );
   
   const { updateAssignmentStatus, isLoading: isUpdating } = useAssignmentCompletion();
   const { toast } = useToast();
 
-  // Check for all-day events
-  useEffect(() => {
-    const checkAllDayEvent = async () => {
-      if (!studentName) return;
-      
-      setIsCheckingAllDayEvent(true);
-      try {
-        const today = new Date().toISOString().split('T')[0];
-        const hasEvent = await hasAllDayEvent(studentName, today);
-        setHasAllDayEventToday(hasEvent);
-      } catch (error) {
-        console.error('Error checking all-day event:', error);
-        setHasAllDayEventToday(false);
-      } finally {
-        setIsCheckingAllDayEvent(false);
-      }
-    };
-
-    checkAllDayEvent();
-  }, [studentName]);
-
   // Update incompleteAssignments when assignments prop changes
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    setIncompleteAssignments(assignments
-      .filter(a => a.completion_status !== 'completed' && a.scheduled_date === today)
-      .sort((a, b) => (a.scheduled_block || 0) - (b.scheduled_block || 0))
-    );
+    setIncompleteAssignments(getTodayAssignments(assignments));
     setCurrentAssignmentIndex(0);
   }, [assignments]);
 
@@ -87,135 +69,32 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
     setElapsedTime(0);
   };
 
-  const handleCompleteAssignment = async () => {
+  const handleAction = async (action: 'complete' | 'more-time' | 'stuck') => {
     if (!currentAssignment) return;
-
+    
     if (TEST_MODE) {
-      // Just remove from local state, don't update database
-      console.log('TEST MODE: Would mark complete:', currentAssignment.title);
-      setIncompleteAssignments(prev => prev.filter(a => a.id !== currentAssignment.id));
-      toast({ title: "TEST MODE: Marked complete (not saved)" });
+      console.log(`TEST MODE: ${action} - ${currentAssignment.title}`);
       
-      // Reset timer
-      setIsTimerActive(false);
-      setStartTime(null);
-      setElapsedTime(0);
-      
-      onAssignmentUpdate?.();
-      return;
-    }
-
-    try {
-      await updateAssignmentStatus(currentAssignment, {
-        completionStatus: 'completed',
-        progressPercentage: 100,
-        actualMinutes: Math.ceil(elapsedTime / 60),
-        difficultyRating: 'medium',
-        notes: `Completed in guided day mode in ${Math.ceil(elapsedTime / 60)} minutes`
-      });
-
-      toast({
-        title: "Great work!",
-        description: "Assignment completed successfully."
-      });
-
-      // Remove the completed assignment from the local queue
-      const updatedAssignments = incompleteAssignments.filter(a => a.id !== currentAssignment.id);
-      setIncompleteAssignments(updatedAssignments);
-
-      // Don't auto-advance if this was the last one
-      if (updatedAssignments.length === 0) {
-        setCurrentAssignmentIndex(0);
-      } else if (currentAssignmentIndex >= updatedAssignments.length) {
-        setCurrentAssignmentIndex(0);
+      if (action === 'more-time') {
+        // Add to end of queue
+        setIncompleteAssignments(prev => [...prev.filter(a => a.id !== currentAssignment.id), currentAssignment]);
+      } else {
+        // Remove from queue (complete or stuck)
+        setIncompleteAssignments(prev => prev.filter(a => a.id !== currentAssignment.id));
       }
-
+      
+      toast({
+        title: TEST_MODE_MESSAGES[action],
+        description: `${currentAssignment.title}`
+      });
+      
       // Reset timer
       setIsTimerActive(false);
-      setStartTime(null);
       setElapsedTime(0);
-
-      onAssignmentUpdate?.();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Could not complete assignment. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleNeedMoreTime = async () => {
-    if (!currentAssignment) return;
-
-    if (TEST_MODE) {
-      // Just update local state, don't update database
-      console.log('TEST MODE: Would mark need more time:', currentAssignment.title);
-      setIncompleteAssignments(prev => [...prev, currentAssignment]);
-      toast({ title: "TEST MODE: Need more time (not saved)" });
-      moveToNextAssignment();
       return;
     }
-
-    try {
-      await updateAssignmentStatus(currentAssignment, {
-        completionStatus: 'in_progress',
-        progressPercentage: 50,
-        actualMinutes: Math.ceil(elapsedTime / 60),
-        difficultyRating: 'medium',
-        notes: `Needs more time - paused after ${Math.ceil(elapsedTime / 60)} minutes`
-      });
-
-      toast({
-        title: "No problem!",
-        description: "We'll come back to this later"
-      });
-
-      // Add current assignment to end of array and move to next
-      setIncompleteAssignments([...incompleteAssignments, currentAssignment]);
-      moveToNextAssignment();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Could not update assignment. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleStuckNeedHelp = async () => {
-    if (!currentAssignment) return;
-
-    if (TEST_MODE) {
-      // Just update local state, don't update database
-      console.log('TEST MODE: Would mark stuck:', currentAssignment.title);
-      toast({ title: "TEST MODE: Marked for help (not saved)" });
-      moveToNextAssignment();
-      return;
-    }
-
-    try {
-      await updateAssignmentStatus(currentAssignment, {
-        completionStatus: 'stuck',
-        progressPercentage: 25,
-        actualMinutes: Math.ceil(elapsedTime / 60),
-        difficultyRating: 'hard',
-        notes: `Student stuck - needs help after ${Math.ceil(elapsedTime / 60)} minutes`
-      });
-
-      toast({
-        title: "Got it!",
-        description: "Marked for help - keep going!"
-      });
-
-      moveToNextAssignment();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Could not update assignment. Please try again.",
-        variant: "destructive"
-      });
-    }
+    
+    // TODO: Real database logic here when TEST_MODE = false
   };
 
   const moveToNextAssignment = () => {
@@ -235,28 +114,6 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-
-  if (isCheckingAllDayEvent) {
-    return (
-      <Card className="bg-card border border-border">
-        <CardContent className="p-8 text-center">
-          <p className="text-muted-foreground">Checking schedule...</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (hasAllDayEventToday) {
-    return (
-      <Card className="bg-card border border-border">
-        <CardContent className="p-8 text-center">
-          <div className="text-6xl mb-4">📅</div>
-          <h3 className="text-lg font-semibold text-foreground mb-2">All-Day Event Today</h3>
-          <p className="text-muted-foreground">Enjoy your day, {studentName}!</p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   if (!incompleteAssignments.length) {
     return (
@@ -324,7 +181,7 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
             ) : (
               <div className="flex items-center gap-2 flex-wrap justify-center">
                 <Button 
-                  onClick={handleCompleteAssignment}
+                  onClick={() => handleAction('complete')}
                   disabled={isUpdating}
                   className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
                 >
@@ -332,7 +189,7 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
                   Complete
                 </Button>
                 <Button 
-                  onClick={handleNeedMoreTime}
+                  onClick={() => handleAction('more-time')}
                   disabled={isUpdating}
                   className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white"
                 >
@@ -340,7 +197,7 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
                   Need More Time
                 </Button>
                 <Button 
-                  onClick={handleStuckNeedHelp}
+                  onClick={() => handleAction('stuck')}
                   disabled={isUpdating}
                   className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white"
                 >
