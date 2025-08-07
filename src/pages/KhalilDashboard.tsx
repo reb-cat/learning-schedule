@@ -98,7 +98,7 @@ const KhalilDashboard = () => {
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-foreground">Guided Day Mode</h2>
             <GuidedDayView 
-              assignments={todaySchedule}
+              assignments={assignments}
               studentName="Khalil"
               onAssignmentUpdate={handleEventUpdateWithCache}
             />

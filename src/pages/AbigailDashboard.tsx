@@ -99,7 +99,7 @@ const AbigailDashboard = () => {
             <div className="space-y-4">
               <h2 className="text-xl font-semibold text-foreground">Guided Day Mode</h2>
               <GuidedDayView 
-                assignments={todaySchedule.flatMap(block => block.assignments || [])}
+                assignments={assignments}
                 studentName="Abigail"
                 onAssignmentUpdate={handleEventUpdateWithCache}
               />
