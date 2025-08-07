@@ -238,7 +238,7 @@ const AdminSetup = () => {
             <Collapsible open={isAddFormOpen} onOpenChange={setIsAddFormOpen}>
               <CollapsibleTrigger asChild>
                 <Button variant="outline" className="w-full flex items-center justify-between">
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-2 text-lg font-bold">
                     <Plus className="h-4 w-4" />
                     Add Manual Assignment
                   </span>
