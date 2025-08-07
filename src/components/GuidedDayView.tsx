@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, CheckCircle, Clock } from 'lucide-react';
+import { Play, CheckCircle, Clock, HelpCircle, MoreHorizontal } from 'lucide-react';
 import { Assignment } from '@/hooks/useAssignments';
 import { useAssignmentCompletion } from '@/hooks/useAssignmentCompletion';
 import { useToast } from '@/hooks/use-toast';
@@ -63,16 +63,7 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
         description: "Assignment completed successfully."
       });
 
-      // Move to next assignment or reset
-      setIsTimerActive(false);
-      setStartTime(null);
-      setElapsedTime(0);
-      
-      if (currentAssignmentIndex < incompleteAssignments.length - 1) {
-        setCurrentAssignmentIndex(currentAssignmentIndex + 1);
-      }
-
-      onAssignmentUpdate?.();
+      moveToNextAssignment();
     } catch (error) {
       toast({
         title: "Error",
@@ -80,6 +71,72 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
         variant: "destructive"
       });
     }
+  };
+
+  const handleNeedMoreTime = async () => {
+    if (!currentAssignment) return;
+
+    try {
+      await updateAssignmentStatus(currentAssignment, {
+        completionStatus: 'in_progress',
+        progressPercentage: 50,
+        actualMinutes: Math.ceil(elapsedTime / 60),
+        difficultyRating: 'medium',
+        notes: `Needs more time - paused after ${Math.ceil(elapsedTime / 60)} minutes`
+      });
+
+      toast({
+        title: "No problem!",
+        description: "We'll come back to this later"
+      });
+
+      moveToNextAssignment();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Could not update assignment. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleStuckNeedHelp = async () => {
+    if (!currentAssignment) return;
+
+    try {
+      await updateAssignmentStatus(currentAssignment, {
+        completionStatus: 'stuck',
+        progressPercentage: 25,
+        actualMinutes: Math.ceil(elapsedTime / 60),
+        difficultyRating: 'hard',
+        notes: `Student stuck - needs help after ${Math.ceil(elapsedTime / 60)} minutes`
+      });
+
+      toast({
+        title: "Got it!",
+        description: "Marked for help - keep going!"
+      });
+
+      moveToNextAssignment();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Could not update assignment. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const moveToNextAssignment = () => {
+    setIsTimerActive(false);
+    setStartTime(null);
+    setElapsedTime(0);
+    
+    if (currentAssignmentIndex < incompleteAssignments.length - 1) {
+      setCurrentAssignmentIndex(currentAssignmentIndex + 1);
+    }
+
+    onAssignmentUpdate?.();
   };
 
   const formatTime = (seconds: number) => {
@@ -144,14 +201,32 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
                 Start Assignment
               </Button>
             ) : (
-              <Button 
-                onClick={handleCompleteAssignment}
-                disabled={isUpdating}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-              >
-                <CheckCircle className="h-4 w-4" />
-                Complete Assignment
-              </Button>
+              <div className="flex items-center gap-2 flex-wrap justify-center">
+                <Button 
+                  onClick={handleCompleteAssignment}
+                  disabled={isUpdating}
+                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  Complete
+                </Button>
+                <Button 
+                  onClick={handleNeedMoreTime}
+                  disabled={isUpdating}
+                  className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white"
+                >
+                  <Clock className="h-4 w-4" />
+                  Need More Time
+                </Button>
+                <Button 
+                  onClick={handleStuckNeedHelp}
+                  disabled={isUpdating}
+                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                  Stuck - Need Help
+                </Button>
+              </div>
             )}
           </div>
         </CardContent>
