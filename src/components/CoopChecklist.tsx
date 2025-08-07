@@ -23,47 +23,19 @@ export function CoopChecklist({ studentName, assignments, currentDay, hasAllDayE
 
   // Extract and transform checklist items from assignments
   React.useEffect(() => {
-    const actionKeywords = ['bring', 'pack', 'remember', 'take', 'wear', 'deliver', 'turn in', 'print', 'sign', 'complete', 'review'];
+    const physicalItemKeywords = ['bring', 'pack', 'remember', 'take', 'wear', 'deliver'];
     
     const items: ChecklistItem[] = [];
     
-    // Process assignments into actionable checklist items
+    // Only process assignments that mention physical items to bring
     assignments.forEach(assignment => {
       const title = assignment.title.toLowerCase();
-      let actionableText = assignment.title;
-      let isActionable = false;
+      const hasPhysicalKeyword = physicalItemKeywords.some(keyword => title.includes(keyword));
       
-      // Check if it's marked as quick_review or administrative
-      if (assignment.task_type === 'quick_review' || assignment.task_type === 'administrative') {
-        isActionable = true;
-        
-        // Transform vague titles into clear actions
-        if (title.includes('syllabus')) {
-          actionableText = `Review and sign ${assignment.course_name} syllabus`;
-        } else if (title.includes('recipe')) {
-          actionableText = `Check recipe for ${assignment.course_name}`;
-        } else if (title.includes('form')) {
-          const courseName = assignment.course_name || 'course';
-          actionableText = `Complete and submit ${courseName} form`;
-        } else if (title.includes('fee') || title.includes('payment')) {
-          // Skip fee items - these should go to parent tasks
-        } else {
-          actionableText = assignment.title;
-        }
-      } else {
-        // Check for action keywords in other assignments
-        const hasKeyword = actionKeywords.some(keyword => title.includes(keyword));
-        if (hasKeyword) {
-          isActionable = true;
-          actionableText = assignment.title;
-        }
-      }
-      
-      // Only add non-fee items to student checklist
-      if (isActionable && !title.includes('fee') && !title.includes('payment')) {
+      if (hasPhysicalKeyword) {
         items.push({
           id: assignment.id,
-          text: actionableText,
+          text: assignment.title,
           completed: false
         });
       }
