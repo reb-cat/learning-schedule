@@ -14,6 +14,8 @@ interface GuidedDayViewProps {
 }
 
 export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: GuidedDayViewProps) {
+  console.log('All assignments:', assignments);
+  console.log('Today date:', new Date().toISOString().split('T')[0]);
   const [currentAssignmentIndex, setCurrentAssignmentIndex] = useState(0);
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
