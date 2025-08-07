@@ -6,7 +6,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { RefreshCw, Calendar, ChevronDown, Database, Settings, CheckCircle, AlertCircle, Clock, AlertTriangle, BookOpen } from 'lucide-react';
+import { RefreshCw, Calendar, ChevronDown, Database, Settings, CheckCircle, AlertCircle, Clock, AlertTriangle, BookOpen, Plus, CheckSquare } from 'lucide-react';
+import { useAssignments } from '@/hooks/useAssignments';
+import { AlertBanner } from '@/components/AlertBanner';
+import { StudentSection } from '@/components/StudentSection';
+import { ManualAssignmentForm } from '@/components/ManualAssignmentForm';
+import { CoopAdministrativeChecklist } from '@/components/CoopAdministrativeChecklist';
+import { useAdministrativeNotifications } from '@/hooks/useAdministrativeNotifications';
 import { AdminNavigation } from '@/components/shared/AdminNavigation';
 import { SystemStatusCard } from '@/components/shared/SystemStatusCard';
 import { ConsolidatedScheduler } from '@/components/ConsolidatedScheduler';
@@ -23,6 +29,18 @@ const AdminSetup = () => {
   const [studentSyncStatus, setStudentSyncStatus] = useState<any[]>([]);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const { toast } = useToast();
+
+  // Fetch assignments for both students
+  const { assignments: abigailAssignments, loading: abigailLoading, refetch: refetchAbigail } = useAssignments('Abigail');
+  const { assignments: khalilAssignments, loading: khalilLoading, refetch: refetchKhalil } = useAssignments('Khalil');
+  
+  // Fetch administrative notifications for badge count
+  const { notifications } = useAdministrativeNotifications();
+  
+  // Filter function to remove split assignments - only show parent assignments
+  const filterParentAssignments = (assignments: any[]) => {
+    return assignments.filter(assignment => assignment.split_part_number === null);
+  };
 
   const handleManualSync = async () => {
     setIsLoading(true);
@@ -122,11 +140,31 @@ const AdminSetup = () => {
     }
   };
 
+  const handleAssignmentAdded = () => {
+    // Refetch fresh data from database
+    refetchAbigail();
+    refetchKhalil();
+  };
+
+  // Auto-refresh every 30 seconds to keep data current
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Silently refresh data to catch any updates from student dashboards
+      refetchAbigail();
+      refetchKhalil();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [refetchAbigail, refetchKhalil]);
+
   useEffect(() => {
     getSyncStatusFromDB().then(setSyncHistory);
     getDiagnostics().then(setDiagnostics);
     getStudentSyncStatus().then(setStudentSyncStatus);
   }, []);
+
+  // Calculate pending admin tasks count for badge
+  const pendingTasksCount = notifications.filter(notification => !notification.completed).length;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -148,29 +186,118 @@ const AdminSetup = () => {
         <AdminNavigation />
         
         <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold text-foreground">Technical Administration</h1>
-          <p className="text-muted-foreground">System operations, diagnostics, and technical controls</p>
+          <h1 className="text-4xl font-bold text-foreground">Admin Control Center</h1>
+          <p className="text-muted-foreground">Complete management dashboard for students, assignments, and system operations</p>
         </div>
 
-        <Tabs defaultValue="sync" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="sync" className="flex items-center gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Canvas Sync
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Student Overview
+            </TabsTrigger>
+            <TabsTrigger value="add-assignment" className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Assignment
             </TabsTrigger>
             <TabsTrigger value="scheduling" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              Advanced Scheduling
+              Schedule & Clear
+            </TabsTrigger>
+            <TabsTrigger value="admin-tasks" className="flex items-center gap-2">
+              <CheckSquare className="h-4 w-4" />
+              Admin Tasks
+              {pendingTasksCount > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">
+                  {pendingTasksCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="sync" className="flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Canvas Sync
             </TabsTrigger>
             <TabsTrigger value="diagnostics" className="flex items-center gap-2">
               <Database className="h-4 w-4" />
               System Diagnostics
             </TabsTrigger>
-            <TabsTrigger value="monitoring" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Performance Monitoring
-            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            {/* System Status */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <AlertBanner 
+                  abigailAssignments={filterParentAssignments(abigailAssignments)}
+                  khalilAssignments={filterParentAssignments(khalilAssignments)}
+                />
+              </div>
+              <SystemStatusCard showDetails={true} />
+            </div>
+
+            {/* Two Column Student Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Abigail Section */}
+              <StudentSection
+                studentName="Abigail"
+                assignments={filterParentAssignments(abigailAssignments)}
+                loading={abigailLoading}
+                onAssignmentAdded={handleAssignmentAdded}
+              />
+
+              {/* Khalil Section */}
+              <StudentSection
+                studentName="Khalil"
+                assignments={filterParentAssignments(khalilAssignments)}
+                loading={khalilLoading}
+                onAssignmentAdded={handleAssignmentAdded}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="add-assignment" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5" />
+                  Add Manual Assignment
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ManualAssignmentForm onSuccess={handleAssignmentAdded} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="scheduling" className="space-y-6">
+            <div className="text-center space-y-2 mb-6">
+              <h2 className="text-2xl font-bold">Unified Assignment Scheduler</h2>
+              <p className="text-muted-foreground">Schedule assignments and clear schedules - consolidated scheduling system with dynamic student selection and flexible date ranges</p>
+            </div>
+            
+            <ConsolidatedScheduler 
+              onSchedulingComplete={() => {
+                handleAssignmentAdded();
+                toast({
+                  title: "Schedule updated",
+                  description: "Assignment scheduler has updated the schedules."
+                });
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="admin-tasks" className="space-y-6">
+            <div className="text-center space-y-2 mb-6">
+              <h2 className="text-2xl font-bold">Administrative Tasks</h2>
+              <p className="text-muted-foreground">Manage fees, forms, and administrative requirements</p>
+            </div>
+            
+            {/* Co-op Administrative Checklists */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <CoopAdministrativeChecklist studentName="Abigail" />
+              <CoopAdministrativeChecklist studentName="Khalil" />
+            </div>
+          </TabsContent>
 
           <TabsContent value="sync" className="space-y-6">
             {/* Manual Sync - Now Prominent */}
@@ -298,22 +425,6 @@ const AdminSetup = () => {
             <SystemStatusCard showDetails={true} />
           </TabsContent>
 
-          <TabsContent value="scheduling" className="space-y-6">
-            <div className="text-center space-y-2 mb-6">
-              <h2 className="text-2xl font-bold">Unified Assignment Scheduler</h2>
-              <p className="text-muted-foreground">Consolidated scheduling system with dynamic student selection and flexible date ranges</p>
-            </div>
-            
-            <ConsolidatedScheduler 
-              onSchedulingComplete={() => {
-                toast({
-                  title: "Schedule updated",
-                  description: "Assignment scheduler has updated the schedules."
-                });
-              }}
-            />
-          </TabsContent>
-
           <TabsContent value="diagnostics" className="space-y-6">
             <Card>
               <CardHeader>
@@ -394,100 +505,6 @@ const AdminSetup = () => {
                 <DatabasePermissionTest />
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="monitoring" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Khalil Monitoring */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5" />
-                    Khalil - System Health
-                  </CardTitle>
-                  <CardDescription>
-                    Real-time monitoring and diagnostics for Khalil's dashboard
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="min-h-[200px]">
-                    <SystemHealthDashboard studentName="Khalil" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Abigail Monitoring */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5" />
-                    Abigail - System Health
-                  </CardTitle>
-                  <CardDescription>
-                    Real-time monitoring and diagnostics for Abigail's dashboard
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="min-h-[200px]">
-                    <SystemHealthDashboard studentName="Abigail" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Khalil Analytics */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5" />
-                    Khalil - Learning Analytics
-                  </CardTitle>
-                  <CardDescription>
-                    Performance insights and learning patterns
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="min-h-[200px]">
-                    <StudentAnalyticsDashboard studentName="Khalil" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Abigail Analytics */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5" />
-                    Abigail - Learning Analytics
-                  </CardTitle>
-                  <CardDescription>
-                    Performance insights and learning patterns
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="min-h-[200px]">
-                    <StudentAnalyticsDashboard studentName="Abigail" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Performance Benchmarks */}
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Database className="h-5 w-5" />
-                    System Performance Benchmarks
-                  </CardTitle>
-                  <CardDescription>
-                    Comprehensive performance testing and benchmarking
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="min-h-[300px]">
-                    <SystemBenchmarkDashboard studentName="Both" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
           </TabsContent>
         </Tabs>
       </div>
