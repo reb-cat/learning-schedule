@@ -718,10 +718,8 @@ export class BlockSharingScheduler {
             
             console.log(`💾 Executing Supabase update for ${baseId}:`, {
               scheduledBlock: block.block_number,
-              originalCalculatedDate: block.date,
-              originalCalculatedDay: block.day,
-              hardcodedDate: '2025-08-06',    // 🚨 NUCLEAR TEST
-              hardcodedDay: 'Wednesday',      // 🚨 NUCLEAR TEST
+              calculatedDate: block.date,
+              calculatedDay: block.day,
               sharedBlockId: taskAssignment.shared_block_id,
               blockPosition: taskAssignment.position
             });
@@ -730,8 +728,8 @@ export class BlockSharingScheduler {
               .from('assignments')
               .update({
                 scheduled_block: block.block_number,
-                scheduled_date: '2025-08-06',  // 🚨 NUCLEAR TEST: HARDCODE TOMORROW
-                scheduled_day: 'Wednesday',     // 🚨 NUCLEAR TEST: HARDCODE WEDNESDAY
+                scheduled_date: block.date,
+                scheduled_day: block.day,
                 shared_block_id: taskAssignment.shared_block_id,
                 block_position: taskAssignment.position
               })
