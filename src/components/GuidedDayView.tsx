@@ -34,17 +34,12 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate, fo
     console.log(`${a.title}: status=${a.completion_status}, matches=${matches}`);
     return matches;
   }));
-const selectedDate = formattedDate || new Date().toLocaleDateString('en-CA'); // Use dashboard-selected date or today
-const actualToday = new Date().toLocaleDateString('en-CA');
-console.log('ACTUAL current date:', actualToday);
-console.log('Selected date for Guided Day:', selectedDate);
-  
-  // Filter for today's scheduled assignments only
-const todaysScheduledAssignments = assignments.filter(a => 
-    a.scheduled_date === selectedDate && 
-    a.scheduled_block !== null && 
-    a.completion_status !== 'completed'
-  ).sort((a, b) => (a.scheduled_block || 0) - (b.scheduled_block || 0));
+// Use assignments as authoritative list from parent
+console.log('GuidedDay assignments count:', assignments.length);
+// Use parent-provided assignments without additional date filtering
+const todaysScheduledAssignments = assignments
+  .filter(a => a.scheduled_block !== null && a.completion_status !== 'completed')
+  .sort((a, b) => (a.scheduled_block || 0) - (b.scheduled_block || 0));
   
   const [currentAssignmentIndex, setCurrentAssignmentIndex] = useState(0);
   const [isTimerActive, setIsTimerActive] = useState(false);
@@ -62,15 +57,13 @@ const todaysScheduledAssignments = assignments.filter(a =>
 
   // Update incompleteAssignments when assignments prop changes
   useEffect(() => {
-const filtered = assignments.filter(a => 
-      a.scheduled_date === selectedDate && 
-      a.scheduled_block !== null && 
-      a.completion_status !== 'completed'
-    ).sort((a, b) => (a.scheduled_block || 0) - (b.scheduled_block || 0));
+    const filtered = assignments
+      .filter(a => a.scheduled_block !== null && a.completion_status !== 'completed')
+      .sort((a, b) => (a.scheduled_block || 0) - (b.scheduled_block || 0));
     
     setIncompleteAssignments(filtered);
     setCurrentAssignmentIndex(0);
-  }, [assignments, selectedDate]);
+  }, [assignments]);
 
   const currentAssignment = incompleteAssignments[currentAssignmentIndex];
 
