@@ -19,6 +19,7 @@ export const useStudentDashboard = (studentName: string) => {
   const [isCheckingAllDayEvent, setIsCheckingAllDayEvent] = useState(true);
   const [isAutoScheduling, setIsAutoScheduling] = useState(false);
   const autoSchedulerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasAutoScheduledRef = useRef(false);
 
   // Date handling
   const displayDate = useMemo(() => {
@@ -165,8 +166,9 @@ export const useStudentDashboard = (studentName: string) => {
       a.completion_status !== 'completed'
     ).length;
     
-    if (unscheduledCount > 0) {
-      console.log(`📋 Found ${unscheduledCount} unscheduled assignments for ${studentName} - triggering auto-scheduler`);
+    if (unscheduledCount > 0 && !hasAutoScheduledRef.current) {
+      console.log(`📋 Found ${unscheduledCount} unscheduled assignments for ${studentName} - triggering auto-scheduler (once)`);
+      hasAutoScheduledRef.current = true;
       
       // Debounce auto-scheduling to prevent rapid successive calls
       if (autoSchedulerRef.current) {
@@ -178,6 +180,10 @@ export const useStudentDashboard = (studentName: string) => {
       }, 2000); // Wait 2 seconds before auto-scheduling
     }
   }, [assignments, assignmentsLoading, triggerAutoScheduling, studentName]);
+  // Reset one-time auto-schedule when date or student changes
+  useEffect(() => {
+    hasAutoScheduledRef.current = false;
+  }, [formattedDate, studentName]);
 
   // Force refresh function
   const forceRefresh = useCallback(async () => {
