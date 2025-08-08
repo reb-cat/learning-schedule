@@ -34,6 +34,9 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
     return matches;
   }));
   const today = new Date().toLocaleDateString('en-CA'); // Gets actual current date
+  const actualToday = new Date().toLocaleDateString('en-CA');
+  console.log('ACTUAL current date:', actualToday);
+  console.log('Today variable:', today);
   console.log('Today date:', today);
   
   // Filter for today's scheduled assignments only
