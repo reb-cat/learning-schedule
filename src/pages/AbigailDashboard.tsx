@@ -40,6 +40,12 @@ const AbigailDashboard = () => {
       todaySchedule
     );
 
+    // Derive the exact assignments shown in Regular View (ordered by blocks)
+    const guidedAssignments = todaySchedule
+      .filter((b: any) => b.isAssignmentBlock)
+      .map((b: any) => scheduledAssignments[`${b.block}`])
+      .filter((a: any) => Boolean(a));
+
     // Update event handler to clear assignment cache
     const handleEventUpdateWithCache = () => {
       clearCache();
@@ -111,7 +117,7 @@ const AbigailDashboard = () => {
             <div className="space-y-4">
               <h2 className="text-xl font-semibold text-foreground">Guided Day Mode</h2>
 <GuidedDayView 
-                assignments={assignments}
+                assignments={guidedAssignments as any}
                 studentName="Abigail"
                 formattedDate={formattedDate}
                 onAssignmentUpdate={() => {
