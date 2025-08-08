@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 interface GuidedDayViewProps {
   assignments: Assignment[];
   studentName: string;
+  formattedDate?: string; // yyyy-MM-dd from dashboard
   onAssignmentUpdate?: () => void;
 }
 
@@ -19,7 +20,7 @@ const TEST_MODE_MESSAGES = {
   'stuck': 'TEST MODE: Marked for help (not saved)'
 };
 
-export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: GuidedDayViewProps) {
+export function GuidedDayView({ assignments, studentName, onAssignmentUpdate, formattedDate }: GuidedDayViewProps) {
   const TEST_MODE = true; // Toggle this for testing
   
   console.log('Raw assignments received:', assignments);
@@ -33,15 +34,14 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
     console.log(`${a.title}: status=${a.completion_status}, matches=${matches}`);
     return matches;
   }));
-  const today = new Date().toLocaleDateString('en-CA'); // Gets actual current date
-  const actualToday = new Date().toLocaleDateString('en-CA');
-  console.log('ACTUAL current date:', actualToday);
-  console.log('Today variable:', today);
-  console.log('Today date:', today);
+const selectedDate = formattedDate || new Date().toLocaleDateString('en-CA'); // Use dashboard-selected date or today
+const actualToday = new Date().toLocaleDateString('en-CA');
+console.log('ACTUAL current date:', actualToday);
+console.log('Selected date for Guided Day:', selectedDate);
   
   // Filter for today's scheduled assignments only
-  const todaysScheduledAssignments = assignments.filter(a => 
-    a.scheduled_date === today && 
+const todaysScheduledAssignments = assignments.filter(a => 
+    a.scheduled_date === selectedDate && 
     a.scheduled_block !== null && 
     a.completion_status !== 'completed'
   ).sort((a, b) => (a.scheduled_block || 0) - (b.scheduled_block || 0));
@@ -62,15 +62,15 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate }: 
 
   // Update incompleteAssignments when assignments prop changes
   useEffect(() => {
-    const filtered = assignments.filter(a => 
-      a.scheduled_date === today && 
+const filtered = assignments.filter(a => 
+      a.scheduled_date === selectedDate && 
       a.scheduled_block !== null && 
       a.completion_status !== 'completed'
     ).sort((a, b) => (a.scheduled_block || 0) - (b.scheduled_block || 0));
     
     setIncompleteAssignments(filtered);
     setCurrentAssignmentIndex(0);
-  }, [assignments, today]);
+  }, [assignments, selectedDate]);
 
   const currentAssignment = incompleteAssignments[currentAssignmentIndex];
 
