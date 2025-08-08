@@ -36,10 +36,8 @@ export function GuidedDayView({ assignments, studentName, onAssignmentUpdate, fo
   }));
 // Use assignments as authoritative list from parent
 console.log('GuidedDay assignments count:', assignments.length);
-// Only scheduled items (>0) and not completed
-const todaysScheduledAssignments = assignments
-  .filter(a => (a.scheduled_block ?? 0) > 0 && a.completion_status !== 'completed')
-  .sort((a, b) => (a.scheduled_block || 0) - (b.scheduled_block || 0));
+// Use parent order; filter out completed only
+const todaysScheduledAssignments = assignments.filter(a => a.completion_status !== 'completed');
   
   const [currentAssignmentIndex, setCurrentAssignmentIndex] = useState(0);
   const [isTimerActive, setIsTimerActive] = useState(false);
@@ -55,15 +53,22 @@ const todaysScheduledAssignments = assignments
   const { updateAssignmentStatus, isLoading: isUpdating } = useAssignmentCompletion();
   const { toast } = useToast();
 
-  // Update incompleteAssignments when assignments prop changes
-  useEffect(() => {
-    if (TEST_MODE) return; // keep local state stable during test mode
-    const filtered = assignments
-      .filter(a => (a.scheduled_block ?? 0) > 0 && a.completion_status !== 'completed')
-      .sort((a, b) => (a.scheduled_block || 0) - (b.scheduled_block || 0));
-    setIncompleteAssignments(filtered);
-    setCurrentAssignmentIndex(0);
-  }, [assignments]);
+// Initialize or sync local list from parent-provided assignments
+useEffect(() => {
+  if (TEST_MODE) {
+    // Initialize once when data arrives (avoid mid-session resets)
+    if (incompleteAssignments.length === 0 && assignments.length > 0) {
+      const init = assignments.filter(a => a.completion_status !== 'completed');
+      setIncompleteAssignments(init);
+      setCurrentAssignmentIndex(0);
+    }
+    return;
+  }
+  // In real mode, keep in sync with parent
+  const next = assignments.filter(a => a.completion_status !== 'completed');
+  setIncompleteAssignments(next);
+  setCurrentAssignmentIndex(0);
+}, [assignments, incompleteAssignments.length, TEST_MODE]);
 
   const currentAssignment = incompleteAssignments[currentAssignmentIndex];
 
@@ -147,11 +152,12 @@ const todaysScheduledAssignments = assignments
     setStartTime(null);
     setElapsedTime(0);
     
-    if (currentAssignmentIndex < incompleteAssignments.length - 1) {
-      setCurrentAssignmentIndex(currentAssignmentIndex + 1);
-    }
+// After removal, the next item is at the same index; no increment needed
+setCurrentAssignmentIndex((idx) => Math.min(idx, Math.max(0, incompleteAssignments.length - 1)));
 
-    onAssignmentUpdate?.();
+if (!TEST_MODE) {
+  onAssignmentUpdate?.();
+}
   };
 
   const getTransitionMessage = (prevSubject: string, nextSubject: string) => {
