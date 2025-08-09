@@ -72,6 +72,7 @@ const todaysScheduledAssignments = assignments.filter(a => a.completion_status !
   }, [assignments, incompleteAssignments.length, TEST_MODE]);
 
   const currentAssignment = incompleteAssignments[currentIndex] as any as (Assignment & { _blockStart?: string; _blockEnd?: string; _isAssignmentBlock?: boolean; });
+  const isAssignmentBlock = (currentAssignment?._isAssignmentBlock ?? true) as boolean;
 
   type GuidedItem = Assignment & {
     _blockStart?: string;
@@ -276,9 +277,20 @@ const todaysScheduledAssignments = assignments.filter(a => a.completion_status !
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>Estimated: {currentAssignment.actual_estimated_minutes || 30} minutes</span>
-            {currentAssignment.course_name && (
-              <span>Course: {currentAssignment.course_name}</span>
+            {isAssignmentBlock ? (
+              <>
+                <span>Estimated: {currentAssignment.actual_estimated_minutes || 30} minutes</span>
+                {currentAssignment.course_name && (
+                  <span>Course: {currentAssignment.course_name}</span>
+                )}
+              </>
+            ) : (
+              <>
+                {currentAssignment._blockStart && currentAssignment._blockEnd && (
+                  <span>Time: {currentAssignment._blockStart} - {currentAssignment._blockEnd}</span>
+                )}
+                <Badge variant="secondary">Scheduled block</Badge>
+              </>
             )}
           </div>
 
@@ -300,41 +312,48 @@ const todaysScheduledAssignments = assignments.filter(a => a.completion_status !
           )}
 
           <div className="flex items-center justify-center gap-2">
-            {phase !== 'running' ? (
-              <Button 
-                onClick={handleStartAssignment}
-                className="flex items-center gap-2"
-              >
-                <Play className="h-4 w-4" />
-                Start Assignment
-              </Button>
+            {isAssignmentBlock ? (
+              phase !== 'running' ? (
+                <Button 
+                  onClick={handleStartAssignment}
+                  className="flex items-center gap-2"
+                >
+                  <Play className="h-4 w-4" />
+                  Start Assignment
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap justify-center">
+                  <Button 
+                    onClick={() => handleAction('complete')}
+                    disabled={isUpdating}
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    Complete
+                  </Button>
+                  <Button 
+                    onClick={() => handleAction('more-time')}
+                    disabled={isUpdating}
+                    className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white"
+                  >
+                    <Clock className="h-4 w-4" />
+                    Need More Time
+                  </Button>
+                  <Button 
+                    onClick={() => handleAction('stuck')}
+                    disabled={isUpdating}
+                    className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                    Stuck - Need Help
+                  </Button>
+                </div>
+              )
             ) : (
-              <div className="flex items-center gap-2 flex-wrap justify-center">
-                <Button 
-                  onClick={() => handleAction('complete')}
-                  disabled={isUpdating}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Complete
-                </Button>
-                <Button 
-                  onClick={() => handleAction('more-time')}
-                  disabled={isUpdating}
-                  className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white"
-                >
-                  <Clock className="h-4 w-4" />
-                  Need More Time
-                </Button>
-                <Button 
-                  onClick={() => handleAction('stuck')}
-                  disabled={isUpdating}
-                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white"
-                >
-                  <HelpCircle className="h-4 w-4" />
-                  Stuck - Need Help
-                </Button>
-              </div>
+              <Button onClick={finishAndBreak} className="flex items-center gap-2">
+                <MoreHorizontal className="h-4 w-4" />
+                Continue
+              </Button>
             )}
           </div>
         </CardContent>
