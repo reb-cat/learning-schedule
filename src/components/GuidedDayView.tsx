@@ -6,6 +6,7 @@ import { Play, CheckCircle, Clock, HelpCircle, MoreHorizontal } from 'lucide-rea
 import { Assignment } from '@/hooks/useAssignments';
 import { useAssignmentCompletion } from '@/hooks/useAssignmentCompletion';
 import { useToast } from '@/hooks/use-toast';
+import { parseTimeString } from '@/utils/timeAwareness';
 
 interface GuidedDayViewProps {
   assignments: Assignment[];
@@ -39,12 +40,12 @@ console.log('GuidedDay assignments count:', assignments.length);
 // Use parent order; filter out completed only
 const todaysScheduledAssignments = assignments.filter(a => a.completion_status !== 'completed');
   
-  const [currentAssignmentIndex, setCurrentAssignmentIndex] = useState(0);
-  const [isTimerActive, setIsTimerActive] = useState(false);
-  const [startTime, setStartTime] = useState<Date | null>(null);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [showTransition, setShowTransition] = useState(false);
-  const [transitionCountdown, setTransitionCountdown] = useState(5); // 5 seconds only!
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [phase, setPhase] = useState<'idle' | 'running' | 'break'>('idle');
+  const [startedAt, setStartedAt] = useState<Date | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [breakRemaining, setBreakRemaining] = useState(0);
+  const [nextAllowedStartAt, setNextAllowedStartAt] = useState<Date | null>(null);
   
   const [incompleteAssignments, setIncompleteAssignments] = useState<Assignment[]>(() => 
     todaysScheduledAssignments
@@ -53,127 +54,159 @@ const todaysScheduledAssignments = assignments.filter(a => a.completion_status !
   const { updateAssignmentStatus, isLoading: isUpdating } = useAssignmentCompletion();
   const { toast } = useToast();
 
-// Initialize or sync local list from parent-provided assignments
-useEffect(() => {
-  if (TEST_MODE) {
-    // Initialize once when data arrives (avoid mid-session resets)
-    if (incompleteAssignments.length === 0 && assignments.length > 0) {
-      const init = assignments.filter(a => a.completion_status !== 'completed');
-      setIncompleteAssignments(init);
-      setCurrentAssignmentIndex(0);
-    }
-    return;
-  }
-  // In real mode, keep in sync with parent
-  const next = assignments.filter(a => a.completion_status !== 'completed');
-  setIncompleteAssignments(next);
-  setCurrentAssignmentIndex(0);
-}, [assignments, incompleteAssignments.length, TEST_MODE]);
-
-  const currentAssignment = incompleteAssignments[currentAssignmentIndex];
-
-  // Simple timer effect
+  // Keep a stable local list in TEST_MODE; sync in real mode
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isTimerActive && startTime) {
-      interval = setInterval(() => {
-        setElapsedTime(Math.floor((Date.now() - startTime.getTime()) / 1000));
-      }, 1000);
+    if (TEST_MODE) {
+      // Initialize once when data arrives (avoid mid-session resets)
+      if (incompleteAssignments.length === 0 && assignments.length > 0) {
+        const init = assignments.filter(a => a.completion_status !== 'completed');
+        setIncompleteAssignments(init);
+        setCurrentIndex(0);
+      }
+      return;
     }
-    return () => clearInterval(interval);
-  }, [isTimerActive, startTime]);
+    // In real mode, keep in sync with parent
+    const next = assignments.filter(a => a.completion_status !== 'completed');
+    setIncompleteAssignments(next);
+    setCurrentIndex(0);
+  }, [assignments, incompleteAssignments.length, TEST_MODE]);
 
-  // Transition countdown effect
+  const currentAssignment = incompleteAssignments[currentIndex] as any as (Assignment & { _blockStart?: string; _blockEnd?: string; _isAssignmentBlock?: boolean; });
+
+  type GuidedItem = Assignment & {
+    _blockStart?: string;
+    _blockEnd?: string;
+    _isAssignmentBlock?: boolean;
+  };
+
+  const toDateAt = (timeStr?: string): Date | null => {
+    if (!timeStr || !formattedDate) return null;
+    const { hours, minutes } = parseTimeString(timeStr);
+    const [y, m, d] = formattedDate.split('-').map(Number);
+    const dt = new Date(y, (m - 1), d, hours, minutes, 0, 0);
+    return dt;
+  };
+
+  const getBlockDurationSec = (item?: GuidedItem): number => {
+    if (!item?._blockStart || !item?._blockEnd) return (item as any)?.actual_estimated_minutes ? ((item as any).actual_estimated_minutes as number) * 60 : 20 * 60;
+    const s = toDateAt(item._blockStart)!;
+    const e = toDateAt(item._blockEnd)!;
+    return Math.max(0, Math.floor((e.getTime() - s.getTime()) / 1000));
+  };
+
+  // Timer for running phase
   useEffect(() => {
-    if (showTransition && transitionCountdown > 0) {
-      const timer = setTimeout(() => setTransitionCountdown(transitionCountdown - 1), 1000);
-      return () => clearTimeout(timer);
-    } else if (showTransition && transitionCountdown === 0) {
-      // Auto-advance
-      setShowTransition(false);
-      setTransitionCountdown(5);
-      moveToNextAssignment();
-    }
-  }, [showTransition, transitionCountdown]);
+    if (phase !== 'running' || !startedAt) return;
+    const id = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(id);
+          // auto-complete when timer ends
+          handleAction('complete');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, startedAt]);
+
+  // Countdown for break phase until next block scheduled start
+  useEffect(() => {
+    if (phase !== 'break' || !nextAllowedStartAt) return;
+    const tick = () => {
+      const now = Date.now();
+      const remain = Math.max(0, Math.floor((nextAllowedStartAt.getTime() - now) / 1000));
+      setBreakRemaining(remain);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [phase, nextAllowedStartAt]);
 
   const handleStartAssignment = () => {
-    setIsTimerActive(true);
-    setStartTime(new Date());
-    setElapsedTime(0);
+    const item = currentAssignment as GuidedItem;
+    const duration = getBlockDurationSec(item);
+    setTimeRemaining(duration);
+    setStartedAt(new Date());
+    setPhase('running');
+  };
+
+  const computeNextAllowedStart = (): Date | null => {
+    const next = incompleteAssignments[currentIndex + 1] as any as GuidedItem | undefined;
+    if (!next || !next._blockStart) return null;
+    const nextStart = toDateAt(next._blockStart);
+    return nextStart ?? null;
+  };
+
+  const finishAndBreak = () => {
+    const nextStart = computeNextAllowedStart();
+    if (!nextStart) {
+      // last item: remove current and show done
+      setIncompleteAssignments(prev => prev.filter((_, i) => i !== currentIndex));
+      setPhase('idle');
+      setStartedAt(null);
+      setTimeRemaining(0);
+      if (!TEST_MODE) onAssignmentUpdate?.();
+      return;
+    }
+    setNextAllowedStartAt(nextStart);
+    setBreakRemaining(Math.max(0, Math.floor((nextStart.getTime() - Date.now()) / 1000)));
+    setPhase('break');
+    setStartedAt(null);
+    setTimeRemaining(0);
+    // remove current from list and keep index stable
+    setIncompleteAssignments(prev => prev.filter((_, i) => i !== currentIndex));
   };
 
   const handleAction = async (action: 'complete' | 'more-time' | 'stuck') => {
-    if (!currentAssignment) return;
+    const item = currentAssignment as GuidedItem;
+    if (!item) return;
     
     if (TEST_MODE) {
-      console.log(`TEST MODE: ${action} - ${currentAssignment.title}`);
-      
       if (action === 'more-time') {
-        // Add to end of queue
-        setIncompleteAssignments(prev => [...prev.filter(a => a.id !== currentAssignment.id), currentAssignment]);
-        // Reset timer
-        setIsTimerActive(false);
-        setElapsedTime(0);
+        // Move current to end of queue
+        setIncompleteAssignments(prev => {
+          const cur = prev[currentIndex];
+          const rest = prev.filter((_, i) => i !== currentIndex);
+          return [...rest, cur];
+        });
+        setPhase('idle');
+        setStartedAt(null);
+        setTimeRemaining(0);
       } else if (action === 'complete') {
-        console.log('Before complete - assignments:', incompleteAssignments.length);
-        console.log('Current index:', currentAssignmentIndex);
-        const updatedAssignments = incompleteAssignments.filter(a => a.id !== currentAssignment.id);
-        console.log('After filter - assignments:', updatedAssignments.length);
-        setIncompleteAssignments(updatedAssignments);
-        
-        // Only show transition if there are more assignments
-        if (updatedAssignments.length > 0) {
-          setShowTransition(true);
-          setTransitionCountdown(5);
-        }
-        
-        setIsTimerActive(false);
-        setElapsedTime(0);
+        finishAndBreak();
       } else {
         // Remove from queue (stuck)
-        setIncompleteAssignments(prev => prev.filter(a => a.id !== currentAssignment.id));
-        setIsTimerActive(false);
-        setElapsedTime(0);
+        setIncompleteAssignments(prev => prev.filter((_, i) => i !== currentIndex));
+        setPhase('idle');
+        setStartedAt(null);
+        setTimeRemaining(0);
       }
-      
-      toast({
-        title: TEST_MODE_MESSAGES[action],
-        description: `${currentAssignment.title}`
-      });
-      
+      toast({ title: TEST_MODE_MESSAGES[action], description: `${item.title}` });
       return;
     }
     
     // TODO: Real database logic here when TEST_MODE = false
   };
 
-  const moveToNextAssignment = () => {
-    setIsTimerActive(false);
-    setStartTime(null);
-    setElapsedTime(0);
-    
-// After removal, the next item is at the same index; no increment needed
-setCurrentAssignmentIndex((idx) => Math.min(idx, Math.max(0, incompleteAssignments.length - 1)));
+  const canStartNext = phase === 'break' && (!nextAllowedStartAt || breakRemaining <= 0);
 
-if (!TEST_MODE) {
-  onAssignmentUpdate?.();
-}
-  };
-
-  const getTransitionMessage = (prevSubject: string, nextSubject: string) => {
-    if (nextSubject === 'Math' || nextSubject === 'Science') {
-      return "Deep breath! Grab your calculator and notebook.";
-    } else if (nextSubject === 'Literature' || nextSubject === 'History') {
-      return "Quick stretch! Get your reading materials.";
-    } else {
-      return "Nice work! Get ready for the next one.";
-    }
+  const startNextBlock = () => {
+    if (!canStartNext) return;
+    setPhase('idle');
+    setNextAllowedStartAt(null);
+    setBreakRemaining(0);
+    // After removal, the next item is at the same index; no increment needed
+    setCurrentIndex((idx) => Math.min(idx, Math.max(0, incompleteAssignments.length - 1)));
+    if (!TEST_MODE) onAssignmentUpdate?.();
   };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
   if (!incompleteAssignments.length) {
@@ -188,33 +221,33 @@ if (!TEST_MODE) {
     );
   }
 
-  // Show transition screen
-  if (showTransition) {
-    const nextAssignment = incompleteAssignments[currentAssignmentIndex + 1];
-    const currentSubject = currentAssignment?.subject || currentAssignment?.course_name || '';
-    const nextSubject = nextAssignment?.subject || nextAssignment?.course_name || '';
-    
+  // Break screen
+  if (phase === 'break') {
+    const next = incompleteAssignments[currentIndex] as any as GuidedItem | undefined;
+    const nextLabel = next?.title ?? 'Next block';
     return (
       <div className="space-y-4">
         <div className="text-center">
           <p className="text-sm text-muted-foreground">
-            Assignment {currentAssignmentIndex + 1} of {incompleteAssignments.length}
+            {breakRemaining > 0 ? `Break time: ${formatTime(breakRemaining)}` : 'Break complete'}
           </p>
         </div>
         
         <Card className="bg-card border border-border">
           <CardContent className="p-8 text-center space-y-4">
-            <div className="text-6xl mb-4">✅</div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Assignment Complete!</h3>
-            <p className="text-sm text-muted-foreground mb-4">Next in {transitionCountdown}...</p>
-            <p className="text-lg text-foreground mb-4">
-              {getTransitionMessage(currentSubject, nextSubject)}
-            </p>
+            <div className="text-6xl mb-4">🎉</div>
+            <h3 className="text-lg font-semibold text-foreground mb-2">Great work!</h3>
+            {next && next._blockStart && (
+              <p className="text-sm text-muted-foreground">
+                Next starts at {next._blockStart}: {nextLabel}
+              </p>
+            )}
             <Button 
-              onClick={() => setTransitionCountdown(0)}
+              onClick={startNextBlock}
+              disabled={!canStartNext}
               className="flex items-center gap-2"
             >
-              Ready now!
+              Start next block
             </Button>
           </CardContent>
         </Card>
