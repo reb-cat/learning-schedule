@@ -18,6 +18,7 @@ export type AssignmentRow = {
   available_on: string | null; // date (YYYY-MM-DD)
   created_at: string; // timestamp
   scheduled_date?: string | null; // optional guard
+  subject?: string | null;
 };
 
 export type DisplayBlock = {
@@ -84,7 +85,7 @@ export async function buildDisplayEntries(
   const formattedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   // 1) Fetch schedule_template rows for student + weekday
-  const { data: templateData, error: templateError } = await supabase
+  const { data: templateData, error: templateError } = await (supabase as any)
     .from('schedule_template')
     .select('student_name,weekday,block_number,start_time,end_time,subject,block_type')
     .eq('student_name', studentName)
@@ -100,7 +101,7 @@ export async function buildDisplayEntries(
   const template: TemplateRow[] = (templateData || []) as TemplateRow[];
 
   // 2) Fetch assignments for student
-  const { data: asgData, error: asgError } = await supabase
+  const { data: asgData, error: asgError } = await (supabase as any)
     .from('assignments')
     .select('id,title,completion_status,due_date,available_on,created_at,scheduled_date,subject')
     .eq('student_name', studentName)
@@ -119,9 +120,7 @@ export async function buildDisplayEntries(
     available_on: a.available_on,
     created_at: a.created_at,
     scheduled_date: a.scheduled_date,
-    // keep subject if present for display hints
-    // @ts-ignore
-    subject: a.subject
+    subject: a.subject ?? null,
   }));
 
   // 3) Build eligible = assignments where (available_on is null OR available_on <= today)
