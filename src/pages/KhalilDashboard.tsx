@@ -39,10 +39,23 @@ const KhalilDashboard = () => {
     todaySchedule
   );
 
-  // Derive the exact assignments shown in Regular View (ordered by blocks)
+  // Derive the items in Regular View order: include fixed schedule blocks, plus any assignment blocks with tasks
   const guidedAssignments = todaySchedule
-    .filter((b: any) => b.isAssignmentBlock)
-    .map((b: any) => scheduledAssignments[`${b.block}`])
+    .map((b: any, idx: number) => {
+      if (b.isAssignmentBlock) {
+        return scheduledAssignments[`${b.block}`] ?? null;
+      }
+      // Create a pseudo item for fixed (non-assignment) blocks so Guided Day matches the full schedule
+      return {
+        id: `fixed-${formattedDate}-${b.block ?? idx}`,
+        title: b.subject || b.type || 'Scheduled Block',
+        subject: b.subject || b.type || 'Schedule',
+        course_name: null,
+        completion_status: 'not_started',
+        actual_estimated_minutes: undefined,
+        instructions: `${b.subject ? b.subject + ' • ' : ''}${b.start} - ${b.end}`,
+      };
+    })
     .filter((a: any) => Boolean(a));
 
   // Update event handler to clear assignment cache
