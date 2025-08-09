@@ -259,7 +259,7 @@ const todaysScheduledAssignments = assignments.filter(a => a.completion_status !
     <div className="space-y-4">
       <div className="text-center">
         <p className="text-sm text-muted-foreground">
-          Assignment {currentAssignmentIndex + 1} of {incompleteAssignments.length}
+          Assignment {currentIndex + 1} of {incompleteAssignments.length}
         </p>
       </div>
       
@@ -290,17 +290,17 @@ const todaysScheduledAssignments = assignments.filter(a => a.completion_status !
             </p>
           </div>
 
-          {isTimerActive && (
+          {phase === 'running' && (
             <div className="text-center">
               <div className="text-3xl font-mono font-bold text-foreground">
-                {formatTime(elapsedTime)}
+                {formatTime(timeRemaining)}
               </div>
-              <p className="text-sm text-muted-foreground">Time spent</p>
+              <p className="text-sm text-muted-foreground">Time remaining</p>
             </div>
           )}
 
           <div className="flex items-center justify-center gap-2">
-            {!isTimerActive ? (
+            {phase !== 'running' ? (
               <Button 
                 onClick={handleStartAssignment}
                 className="flex items-center gap-2"
