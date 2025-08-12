@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0'
 
@@ -5,6 +6,32 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0'
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-internal-secret',
+};
+
+function verifyRequest(req: Request): Response | null {
+  const enforce = Deno.env.get('ENFORCE_X_INTERNAL_FN_SECRET') === 'true';
+  const secret = Deno.env.get('X_INTERNAL_FN_SECRET');
+  if (!enforce) {
+    console.log('Auth gating disabled (ENFORCE_X_INTERNAL_FN_SECRET not true) - allowing request');
+    return null;
+  }
+  if (!secret) {
+    console.warn('ENFORCE_X_INTERNAL_FN_SECRET is true but X_INTERNAL_FN_SECRET is not set - allowing request');
+    return null;
+  }
+  const headerSecret = req.headers.get('x-internal-secret') || '';
+  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  if (headerSecret === secret || bearer === secret) return null;
+
+  return new Response(JSON.stringify({ success: false, error: 'Unauthorized: invalid internal secret' }), {
+    status: 401,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
 
 interface PerformanceAnalysis {
   studentName: string;
@@ -203,12 +230,13 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', {
       headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        ...corsHeaders,
       },
     });
   }
+
+  const unauthorized = verifyRequest(req);
+  if (unauthorized) return unauthorized;
 
   try {
     const result = await runEnergyPatternAnalysis();
@@ -216,10 +244,10 @@ serve(async (req) => {
     return new Response(JSON.stringify(result), {
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        ...corsHeaders,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Function error:', error);
     return new Response(JSON.stringify({ 
       success: false, 
@@ -228,7 +256,7 @@ serve(async (req) => {
       status: 500,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        ...corsHeaders,
       },
     });
   }
