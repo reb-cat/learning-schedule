@@ -74,6 +74,9 @@ verify_jwt = false
 [functions.import-bible-assignments]
 verify_jwt = false
 
+[functions.create-weekly-bible-assignments]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 inspector_port = 8083
