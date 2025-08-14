@@ -24,6 +24,14 @@ export function useAssignmentCompletion() {
     setIsLoading(true);
     
     try {
+      // Check if this is a synthetic assignment (fixed schedule blocks)
+      if (assignment.id && assignment.id.toString().startsWith('fixed-')) {
+        console.log('Skipping database update for synthetic assignment:', assignment.id);
+        // Just show success feedback for synthetic assignments without database update
+        setIsLoading(false);
+        return;
+      }
+
       console.log('Updating assignment status:', {
         assignmentId: assignment.id,
         completionStatus: completionData.completionStatus,
