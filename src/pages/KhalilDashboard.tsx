@@ -145,7 +145,15 @@ const KhalilDashboard = () => {
 
             {/* Today's Schedule */}
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-foreground">Today's Schedule</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-foreground">Today's Schedule</h2>
+                {(currentDay === 'Monday' || currentDay === 'Thursday') && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Co-op Day</span>
+                  </div>
+                )}
+              </div>
               
               {isCheckingAllDayEvent ? (
                 <Card className="bg-card border border-border">
