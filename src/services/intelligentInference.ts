@@ -4,120 +4,64 @@ export interface SubjectPattern {
   defaultLoad: 'light' | 'medium' | 'heavy';
   defaultDuration: number;
   keywords: string[];
-  durationPatterns: { pattern: RegExp; multiplier: number }[];
 }
 
 export interface EnergyPattern {
   peakBlocks: number[];
   lowBlocks: number[];
-  secondWind: number[];
-  patternType: 'subject_based' | 'time_based';
-  subjectEnergy?: {
-    high: string[];
-    medium: string[];
-    low: string[];
-  };
+  patternType: 'time_based';
 }
 
 export interface StudentAccommodation {
   name: string;
   subjectAdjustments: Record<string, Partial<SubjectPattern>>;
-  energyPattern: EnergyPattern;
   globalMultipliers: {
     duration: number;
     cognitiveLoad: number;
   };
 }
 
-// Enhanced subject knowledge base
+// Essential subject patterns for inference
 export const subjectPatterns: Record<string, SubjectPattern> = {
   'Math': {
     defaultLoad: 'heavy',
     defaultDuration: 30,
-    keywords: ['algebra', 'geometry', 'calculate', 'solve', 'equation', 'problem', 'worksheet'],
-    durationPatterns: [
-      { pattern: /(\d+)\s*problems?/i, multiplier: 3 }, // 3 min per problem
-      { pattern: /worksheet/i, multiplier: 30 },
-      { pattern: /test|exam/i, multiplier: 60 },
-      { pattern: /practice/i, multiplier: 20 }
-    ]
+    keywords: ['algebra', 'geometry', 'calculate', 'solve', 'equation', 'problem', 'worksheet']
   },
   'Reading': {
     defaultLoad: 'light',
     defaultDuration: 30,
-    keywords: ['read', 'chapter', 'pages', 'story', 'book', 'novel', 'article'],
-    durationPatterns: [
-      { pattern: /pages?\s*(\d+)-(\d+)/i, multiplier: 2 }, // 2 min per page
-      { pattern: /chapter\s*(\d+)/i, multiplier: 20 }, // 20 min per chapter
-      { pattern: /(\d+)\s*pages?/i, multiplier: 2 }
-    ]
+    keywords: ['read', 'chapter', 'pages', 'story', 'book', 'novel', 'article']
   },
   'Writing': {
     defaultLoad: 'heavy',
     defaultDuration: 35,
-    keywords: ['essay', 'write', 'paragraph', 'composition', 'paper', 'report'],
-    durationPatterns: [
-      { pattern: /(\d+)[-\s]*paragraph/i, multiplier: 15 }, // 15 min per paragraph
-      { pattern: /(\d+)[-\s]*page/i, multiplier: 30 }, // 30 min per page
-      { pattern: /essay/i, multiplier: 60 },
-      { pattern: /outline/i, multiplier: 20 }
-    ]
+    keywords: ['essay', 'write', 'paragraph', 'composition', 'paper', 'report']
   },
   'Science': {
     defaultLoad: 'medium',
     defaultDuration: 40,
-    keywords: ['experiment', 'lab', 'hypothesis', 'research', 'observe'],
-    durationPatterns: [
-      { pattern: /lab|experiment/i, multiplier: 60 },
-      { pattern: /worksheet/i, multiplier: 25 },
-      { pattern: /research/i, multiplier: 45 }
-    ]
-  },
-  'Social Studies': {
-    defaultLoad: 'medium',
-    defaultDuration: 35,
-    keywords: ['history', 'geography', 'government', 'civics', 'culture'],
-    durationPatterns: [
-      { pattern: /research/i, multiplier: 45 },
-      { pattern: /map/i, multiplier: 20 },
-      { pattern: /timeline/i, multiplier: 30 }
-    ]
-  },
-  'Life Skills': {
-    defaultLoad: 'medium',
-    defaultDuration: 60,
-    keywords: ['driving', 'cooking', 'job', 'application', 'budget', 'finance'],
-    durationPatterns: [
-      { pattern: /driving/i, multiplier: 90 },
-      { pattern: /cooking|recipe/i, multiplier: 45 },
-      { pattern: /application/i, multiplier: 30 },
-      { pattern: /practice/i, multiplier: 60 }
-    ]
+    keywords: ['experiment', 'lab', 'hypothesis', 'research', 'observe']
   },
   'Art': {
     defaultLoad: 'light',
     defaultDuration: 50,
-    keywords: ['draw', 'paint', 'sketch', 'create', 'design'],
-    durationPatterns: [
-      { pattern: /project/i, multiplier: 90 },
-      { pattern: /sketch/i, multiplier: 20 },
-      { pattern: /painting/i, multiplier: 60 }
-    ]
+    keywords: ['draw', 'paint', 'sketch', 'create', 'design']
   }
 };
 
-// Student-specific accommodations (static data)
-export const studentAccommodations: Record<string, Omit<StudentAccommodation, 'energyPattern'>> = {
+// Student-specific accommodations
+export const studentAccommodations: Record<string, StudentAccommodation> = {
   'Khalil': {
     name: 'Khalil',
     subjectAdjustments: {
       'Reading': { 
-        defaultLoad: 'heavy', // Dyslexia makes reading harder
-        defaultDuration: 40 // Takes longer due to dyslexia
+        defaultLoad: 'heavy',
+        defaultDuration: 40
       }
     },
     globalMultipliers: {
-      duration: 1.1, // Generally takes 10% longer
+      duration: 1.1,
       cognitiveLoad: 1.0
     }
   },
@@ -125,12 +69,12 @@ export const studentAccommodations: Record<string, Omit<StudentAccommodation, 'e
     name: 'Abigail',
     subjectAdjustments: {
       'Reading': {
-        defaultLoad: 'heavy' // Executive function challenges with reading comprehension
+        defaultLoad: 'heavy'
       }
     },
     globalMultipliers: {
       duration: 1.0,
-      cognitiveLoad: 1.1 // Slightly higher cognitive load due to executive function
+      cognitiveLoad: 1.1
     }
   }
 };
@@ -151,30 +95,14 @@ export async function getStudentEnergyPattern(studentName: string): Promise<Ener
       return null;
     }
 
-    const { pattern_type, energy_data } = data;
+    const { energy_data } = data;
+    const energyData = energy_data as any;
 
-    const energyData = energy_data as any; // Type assertion for JSONB data
-
-    if (pattern_type === 'subject_based') {
-      return {
-        peakBlocks: [],
-        lowBlocks: [],
-        secondWind: [],
-        patternType: 'subject_based',
-        subjectEnergy: {
-          high: energyData.high_energy_subjects || [],
-          medium: energyData.medium_energy_subjects || [],
-          low: energyData.low_energy_subjects || []
-        }
-      };
-    } else {
-      return {
-        peakBlocks: energyData.high_energy_blocks || [],
-        lowBlocks: energyData.low_energy_blocks || [],
-        secondWind: energyData.medium_energy_blocks || [],
-        patternType: 'time_based'
-      };
-    }
+    return {
+      peakBlocks: energyData.high_energy_blocks || [],
+      lowBlocks: energyData.low_energy_blocks || [],
+      patternType: 'time_based'
+    };
   } catch (error) {
     console.error('Failed to load energy pattern:', error);
     return null;
@@ -256,26 +184,11 @@ export async function inferDuration(
   const pattern = subjectPatterns[subject];
   let estimatedDuration = pattern?.defaultDuration || 30;
 
-  // Apply pattern-based duration detection
-  if (pattern?.durationPatterns) {
-    for (const durationPattern of pattern.durationPatterns) {
-      const match = assignment.title.match(durationPattern.pattern);
-      if (match) {
-        if (match[1] && match[2]) {
-          // Range pattern (e.g., "pages 1-5")
-          const range = parseInt(match[2]) - parseInt(match[1]) + 1;
-          estimatedDuration = range * durationPattern.multiplier;
-        } else if (match[1]) {
-          // Single number pattern (e.g., "5 problems")
-          estimatedDuration = parseInt(match[1]) * durationPattern.multiplier;
-        } else {
-          // Fixed pattern (e.g., "worksheet")
-          estimatedDuration = durationPattern.multiplier;
-        }
-        break;
-      }
-    }
-  }
+  // Basic pattern matching for common cases
+  const title = assignment.title.toLowerCase();
+  if (title.includes('worksheet')) estimatedDuration = 30;
+  if (title.includes('test') || title.includes('exam')) estimatedDuration = 60;
+  if (title.includes('practice')) estimatedDuration = 20;
 
   // Apply learning patterns adjustment
   const learningFactor = await getLearningPatternAdjustment(studentName, subject, assignment.title);
@@ -420,83 +333,35 @@ function decreaseCognitiveLoad(load: 'light' | 'medium' | 'heavy'): 'light' | 'm
 export async function getOptimalSchedulingTime(
   studentName: string,
   cognitiveLoad: 'light' | 'medium' | 'heavy',
-  urgency: string = 'upcoming',
-  subject?: string
+  urgency: string = 'upcoming'
 ): Promise<{ preferredBlocks: number[]; avoidBlocks: number[] }> {
   const energyPattern = await getStudentEnergyPattern(studentName);
   
   if (!energyPattern) {
-    // Fallback to reasonable defaults
     return { 
       preferredBlocks: [1, 2, 3, 4, 5, 6, 7, 8], 
       avoidBlocks: [] 
     };
   }
 
-  let preferredBlocks: number[] = [];
-  let avoidBlocks: number[] = [];
+  const { peakBlocks, lowBlocks } = energyPattern;
 
-  if (energyPattern.patternType === 'subject_based' && subject && energyPattern.subjectEnergy) {
-    // For subject-based patterns, determine energy level for this subject
-    const { high, medium, low } = energyPattern.subjectEnergy;
-    
-    let subjectEnergyLevel: 'high' | 'medium' | 'low' = 'medium';
-    
-    if (high.some(s => subject.toLowerCase().includes(s.toLowerCase()))) {
-      subjectEnergyLevel = 'high';
-    } else if (low.some(s => subject.toLowerCase().includes(s.toLowerCase()))) {
-      subjectEnergyLevel = 'low';
-    }
-    
-    // Match cognitive load requirements with subject energy
-    if (cognitiveLoad === 'heavy') {
-      if (subjectEnergyLevel === 'high') {
-        preferredBlocks = [1, 2, 3, 4, 5, 6, 7, 8]; // Can schedule anytime
-      } else if (subjectEnergyLevel === 'medium') {
-        preferredBlocks = [1, 2, 3, 4, 5]; // Earlier blocks preferred
-        avoidBlocks = [7, 8]; // Avoid late blocks
-      } else {
-        preferredBlocks = [1, 2]; // Only early morning
-        avoidBlocks = [5, 6, 7, 8]; // Avoid afternoon
-      }
-    } else if (cognitiveLoad === 'medium') {
-      if (subjectEnergyLevel === 'high') {
-        preferredBlocks = [1, 2, 3, 4, 5, 6, 7, 8];
-      } else if (subjectEnergyLevel === 'medium') {
-        preferredBlocks = [1, 2, 3, 4, 5, 6];
-        avoidBlocks = [8];
-      } else {
-        preferredBlocks = [1, 2, 3, 4];
-        avoidBlocks = [6, 7, 8];
-      }
-    } else {
-      // Light tasks - less restrictive
-      preferredBlocks = [1, 2, 3, 4, 5, 6, 7, 8];
-    }
+  if (cognitiveLoad === 'heavy') {
+    return {
+      preferredBlocks: peakBlocks.length > 0 ? peakBlocks : [1, 2, 3],
+      avoidBlocks: lowBlocks
+    };
+  } else if (cognitiveLoad === 'medium') {
+    return {
+      preferredBlocks: [...peakBlocks, 3, 4, 5, 6],
+      avoidBlocks: lowBlocks
+    };
   } else {
-    // Time-based energy patterns
-    const { peakBlocks, lowBlocks, secondWind } = energyPattern;
-
-    if (cognitiveLoad === 'heavy') {
-      // Heavy tasks need peak energy
-      preferredBlocks = urgency === 'overdue' ? peakBlocks : [...peakBlocks, ...secondWind];
-      avoidBlocks = lowBlocks;
-    } else if (cognitiveLoad === 'medium') {
-      // Medium tasks avoid low energy but don't require peak
-      preferredBlocks = [...peakBlocks, ...secondWind];
-      avoidBlocks = lowBlocks;
-    } else {
-      // Light tasks can fill low energy slots
-      preferredBlocks = [...peakBlocks, ...secondWind, ...lowBlocks];
-      avoidBlocks = [];
-    }
+    return {
+      preferredBlocks: [1, 2, 3, 4, 5, 6, 7, 8],
+      avoidBlocks: []
+    };
   }
-
-  // Ensure blocks are within valid range (1-8)
-  return { 
-    preferredBlocks: preferredBlocks.filter(block => block >= 1 && block <= 8),
-    avoidBlocks: avoidBlocks.filter(block => block >= 1 && block <= 8)
-  };
 }
 
 /**

@@ -2,15 +2,16 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format, parse, isValid } from 'date-fns';
 import { useAssignments } from './useAssignments';
-import { getScheduleForStudentAndDay } from '@/data/scheduleData';
+import { useScheduleTemplate } from './useScheduleTemplate';
 import { getEffectiveScheduleForDay } from '@/data/allDayEvents';
-import { unifiedScheduler } from '@/services/unifiedScheduler';
+import { blockSharingScheduler } from '@/services/blockSharingScheduler';
 
 export const useStudentDashboard = (studentName: string) => {
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
   
   const { assignments, loading: assignmentsLoading, error: assignmentsError, getScheduledAssignment, refetch } = useAssignments(studentName);
+  const { getScheduleForStudentAndDay } = useScheduleTemplate(studentName);
   
   // State for dashboard data
   const [criticalError, setCriticalError] = useState<string | null>(null);
@@ -130,24 +131,19 @@ export const useStudentDashboard = (studentName: string) => {
 
   // Auto-scheduling logic
   const triggerAutoScheduling = useCallback(async () => {
-    if (isAutoScheduling) return; // Prevent concurrent scheduling
+    if (isAutoScheduling) return;
     
     console.log(`🤖 Auto-scheduling triggered for ${studentName}`);
     setIsAutoScheduling(true);
     
     try {
-      const result = await unifiedScheduler.analyzeAndSchedule(studentName, {
-        daysAhead: 7,
-        includeAdminTasks: true,
-        autoExecute: true
-      });
+      const result = await blockSharingScheduler.analyzeAndSchedule(studentName, 7, new Date());
       
-      console.log(`✅ Auto-scheduling completed for ${studentName}:`, {
-        scheduledTasks: result.stats.scheduledTasks,
-        warnings: result.warnings.length
-      });
+      if (result.academic_blocks.length > 0) {
+        await blockSharingScheduler.executeSchedule(result);
+      }
       
-      // Refresh assignments after scheduling
+      console.log(`✅ Auto-scheduling completed for ${studentName}`);
       refetch();
     } catch (error) {
       console.error(`❌ Auto-scheduling failed for ${studentName}:`, error);
@@ -160,24 +156,22 @@ export const useStudentDashboard = (studentName: string) => {
   useEffect(() => {
     if (assignmentsLoading || !assignments.length) return;
     
-    // Check if there are unscheduled assignments
     const unscheduledCount = assignments.filter(a => 
       !a.scheduled_date && 
       a.completion_status !== 'completed'
     ).length;
     
     if (unscheduledCount > 0 && !hasAutoScheduledRef.current) {
-      console.log(`📋 Found ${unscheduledCount} unscheduled assignments for ${studentName} - triggering auto-scheduler (once)`);
+      console.log(`📋 Found ${unscheduledCount} unscheduled assignments - triggering auto-scheduler`);
       hasAutoScheduledRef.current = true;
       
-      // Debounce auto-scheduling to prevent rapid successive calls
       if (autoSchedulerRef.current) {
         clearTimeout(autoSchedulerRef.current);
       }
       
       autoSchedulerRef.current = setTimeout(() => {
         triggerAutoScheduling();
-      }, 2000); // Wait 2 seconds before auto-scheduling
+      }, 2000);
     }
   }, [assignments, assignmentsLoading, triggerAutoScheduling, studentName]);
   // Reset one-time auto-schedule when date or student changes

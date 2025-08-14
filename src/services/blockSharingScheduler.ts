@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { format, addDays } from "date-fns";
 import { filterPastBlocks, generatePassedBlocksWarning, allTodaysBlocksPassed } from "@/utils/timeAwareness";
-import { scheduleData } from "@/data/scheduleData";
+import { inferCognitiveLoad, inferDuration, inferSubjectFromTitle } from "./simplifiedInference";
 
 export interface TaskClassification {
   id: string;
@@ -169,8 +169,7 @@ export class BlockSharingScheduler {
       
       // Check if no blocks are available due to time restrictions
       if (availableBlocks.length === 0) {
-        const timeWarning = generatePassedBlocksWarning(studentName, scheduleData, currentTime || new Date());
-        const warnings = timeWarning ? [timeWarning] : ['No available blocks found for the selected time period.'];
+        const warnings = ['No available blocks found for the selected time period.'];
         
         return {
           academic_blocks: [],
@@ -195,12 +194,6 @@ export class BlockSharingScheduler {
       );
       
       const warnings = this.generateWarnings(unscheduledTasks, updatedBlocks);
-      
-      // Add time awareness warning if all today's blocks have passed
-      const timeWarning = generatePassedBlocksWarning(studentName, scheduleData, currentTime || new Date());
-      if (timeWarning) {
-        warnings.push(timeWarning);
-      }
       
       const result: SchedulingDecision = {
         academic_blocks: updatedBlocks,
@@ -344,8 +337,17 @@ export class BlockSharingScheduler {
   }
 
   async getAvailableBlocks(studentName: string, daysAhead: number, startDate?: Date, currentTime?: Date): Promise<BlockComposition[]> {
-    // Use real schedule data instead of mock data
-    const { getScheduleForStudentAndDay } = await import('../data/scheduleData');
+    // Get schedule from database
+    const { data: scheduleTemplate } = await supabase
+      .from('schedule_template')
+      .select('*')
+      .eq('student_name', studentName);
+    
+    if (!scheduleTemplate) {
+      console.warn(`No schedule template found for ${studentName}`);
+      return [];
+    }
+
     const blocks: BlockComposition[] = [];
     const now = new Date();
     const currentHour = now.getHours();
@@ -360,52 +362,50 @@ export class BlockSharingScheduler {
     }
     
     const timeToCheck = currentTime || new Date();
+    const startDay = currentHour >= 20 ? 1 : 0; // Start from tomorrow if after 8 PM
     
-    // Check if all today's blocks have passed and we should start from tomorrow
-    const todaysBlocksPassed = allTodaysBlocksPassed(studentName, scheduleData, timeToCheck) || currentHour >= 20;
-    const startDay = todaysBlocksPassed ? 1 : 0; // Start from tomorrow if today's blocks passed
-    
-    console.log(`📅 Block scheduling: ${todaysBlocksPassed ? 'All today\'s blocks passed, starting from tomorrow' : 'Starting from today'}`);
+    console.log(`📅 Block scheduling: ${startDay > 0 ? 'Starting from tomorrow' : 'Starting from today'}`);
     
     for (let day = startDay; day < daysAhead + startDay; day++) {
       const date = addDays(effectiveStartDate, day);
       const dayName = format(date, 'EEEE');
       const dateStr = format(date, 'yyyy-MM-dd');
       
-      console.log(`📅 Processing day ${day}: ${dayName} ${dateStr}`, {
-        effectiveStartDate: effectiveStartDate.toISOString(),
-        addDaysResult: date.toISOString(),
-        dayOffset: day,
-        startDay,
-        todaysBlocksPassed
-      });
+      console.log(`📅 Processing day ${day}: ${dayName} ${dateStr}`);
       
       // Skip weekends
       if (dayName === 'Saturday' || dayName === 'Sunday') continue;
       
-      // Get the actual schedule for this student and day
-      let daySchedule = getScheduleForStudentAndDay(studentName, dayName);
+      // Get the schedule template for this student and day
+      const daySchedule = scheduleTemplate.filter(template => 
+        template.weekday === dayName && template.block_type === 'Assignment'
+      );
       
-      // Apply time awareness: filter out past blocks only for today (day 0)
-      if (day === 0 && !todaysBlocksPassed) { // Only filter for today if we're starting from today
-        daySchedule = filterPastBlocks(daySchedule, timeToCheck);
-        console.log(`⏰ Time awareness: Filtered out past blocks for today (${dayName}). Remaining: ${daySchedule.length} blocks`);
+      // Apply time awareness: filter out past blocks only for today
+      let availableBlocks = daySchedule;
+      if (day === 0) {
+        availableBlocks = daySchedule.filter(template => {
+          if (!template.block_number) return false;
+          // Simple time check - if it's past 3 PM, skip today's blocks
+          return timeToCheck.getHours() < 15;
+        });
+        console.log(`⏰ Time awareness: Filtered out past blocks for today. Remaining: ${availableBlocks.length} blocks`);
       }
       
-      const assignmentBlocks = daySchedule.filter(block => block.isAssignmentBlock && block.block);
-      
       // Add each assignment block as available
-      for (const scheduleBlock of assignmentBlocks) {
-        blocks.push({
-          block_number: scheduleBlock.block!,
-          date: dateStr,
-          day: dayName,
-          total_minutes: BlockSharingScheduler.BLOCK_DURATION,
-          used_minutes: 0,
-          buffer_minutes: BlockSharingScheduler.MIN_BUFFER_TIME,
-          tasks: [],
-          cognitive_balance: 'light'
-        });
+      for (const template of availableBlocks) {
+        if (template.block_number) {
+          blocks.push({
+            block_number: template.block_number,
+            date: dateStr,
+            day: dayName,
+            total_minutes: BlockSharingScheduler.BLOCK_DURATION,
+            used_minutes: 0,
+            buffer_minutes: BlockSharingScheduler.MIN_BUFFER_TIME,
+            tasks: [],
+            cognitive_balance: 'light'
+          });
+        }
       }
     }
     

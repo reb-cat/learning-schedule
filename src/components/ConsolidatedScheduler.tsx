@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { unifiedScheduler, UnifiedSchedulingResult, SchedulerOptions } from "@/services/unifiedScheduler";
+import { blockSharingScheduler, SchedulingDecision } from "@/services/blockSharingScheduler";
 import { useToast } from "@/hooks/use-toast";
 import { useClearAssignmentScheduling } from "@/hooks/useClearAssignmentScheduling";
 
@@ -15,7 +15,7 @@ type StudentOption = 'Abigail' | 'Khalil' | 'Both';
 
 export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSchedulerProps) {
   const [selectedStudent, setSelectedStudent] = useState<StudentOption>('Abigail');
-  const [result, setResult] = useState<UnifiedSchedulingResult | null>(null);
+  const [result, setResult] = useState<SchedulingDecision | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
   const { clearScheduling, isClearing } = useClearAssignmentScheduling();
@@ -23,35 +23,24 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
   const handleAutoSchedule = useCallback(async () => {
     setIsAnalyzing(true);
     try {
-      const options: SchedulerOptions = {
-        daysAhead: 3, // Default to "Next 3 Days"
-        startDate: new Date(),
-        previewOnly: false,
-        includeAdminTasks: true,
-        autoExecute: true,
-        currentTime: new Date()
-      };
-
-      let schedulingResult: UnifiedSchedulingResult;
+      let schedulingResult: SchedulingDecision;
       
       if (selectedStudent === 'Both') {
-        const abigailResult = await unifiedScheduler.analyzeAndSchedule('Abigail', options);
-        const khalilResult = await unifiedScheduler.analyzeAndSchedule('Khalil', options);
+        const abigailResult = await blockSharingScheduler.analyzeAndSchedule('Abigail', 3, new Date());
+        const khalilResult = await blockSharingScheduler.analyzeAndSchedule('Khalil', 3, new Date());
         
-        await unifiedScheduler.executeSchedule(abigailResult, 'Abigail');
-        await unifiedScheduler.executeSchedule(khalilResult, 'Khalil');
+        await blockSharingScheduler.executeSchedule(abigailResult);
+        await blockSharingScheduler.executeSchedule(khalilResult);
         
         schedulingResult = {
-          ...abigailResult,
-          stats: {
-            ...abigailResult.stats,
-            scheduledTasks: abigailResult.stats.scheduledTasks + khalilResult.stats.scheduledTasks,
-            totalBlocks: abigailResult.stats.totalBlocks + khalilResult.stats.totalBlocks
-          }
+          academic_blocks: [...abigailResult.academic_blocks, ...khalilResult.academic_blocks],
+          administrative_tasks: [...abigailResult.administrative_tasks, ...khalilResult.administrative_tasks],
+          unscheduled_tasks: [...abigailResult.unscheduled_tasks, ...khalilResult.unscheduled_tasks],
+          warnings: [...abigailResult.warnings, ...khalilResult.warnings]
         };
       } else {
-        schedulingResult = await unifiedScheduler.analyzeAndSchedule(selectedStudent, options);
-        await unifiedScheduler.executeSchedule(schedulingResult, selectedStudent);
+        schedulingResult = await blockSharingScheduler.analyzeAndSchedule(selectedStudent, 3, new Date());
+        await blockSharingScheduler.executeSchedule(schedulingResult);
       }
 
       setResult(schedulingResult);
@@ -59,7 +48,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
 
       toast({
         title: "Auto-Schedule Complete!",
-        description: `Successfully scheduled ${schedulingResult.stats.scheduledTasks} assignments for ${selectedStudent}.`
+        description: `Successfully scheduled assignments for ${selectedStudent}.`
       });
     } catch (error) {
       console.error('❌ Auto-schedule failed', error);
@@ -158,7 +147,7 @@ export function ConsolidatedScheduler({ onSchedulingComplete }: ConsolidatedSche
             <div className="mt-4 p-4 bg-secondary/50 rounded-lg">
               <h4 className="font-medium mb-2">Results</h4>
               <p className="text-sm text-muted-foreground">
-                Scheduled {result.stats.scheduledTasks} assignments across {result.stats.totalBlocks} blocks for {selectedStudent}
+                Scheduled {result.academic_blocks.length} assignments for {selectedStudent}
               </p>
             </div>
           )}

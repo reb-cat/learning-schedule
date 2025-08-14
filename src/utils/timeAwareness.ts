@@ -4,7 +4,17 @@
  */
 
 import { format } from 'date-fns';
-import { ScheduleBlock } from '@/data/scheduleData';
+
+interface ScheduleBlock {
+  student: string;
+  day: string;
+  block?: number;
+  start: string;
+  end: string;
+  subject: string;
+  type: string;
+  isAssignmentBlock: boolean;
+}
 
 interface TimeInfo {
   hours: number;
