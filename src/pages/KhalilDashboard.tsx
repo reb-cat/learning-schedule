@@ -10,7 +10,7 @@ import { EnhancedGuidedDayView } from "@/components/EnhancedGuidedDayView";
 import { useStudentDashboard } from "@/hooks/useStudentDashboard";
 import { useScheduledAssignments } from "@/hooks/useScheduledAssignments";
 import { transformScheduleForGuidedView } from "@/utils/dashboardHelpers";
-import { BibleAssignmentImporter } from "@/components/BibleAssignmentImporter";
+import { WeeklyBibleAssignmentCreator } from "@/components/WeeklyBibleAssignmentCreator";
 
 const KhalilDashboard = () => {
   const [isGuidedMode, setIsGuidedMode] = useState(false);
@@ -90,7 +90,14 @@ const KhalilDashboard = () => {
                 {isAutoScheduling ? 'Scheduling...' : 'Force Refresh'}
               </Button>
               
-              <BibleAssignmentImporter />
+              <WeeklyBibleAssignmentCreator 
+                studentName="Khalil"
+                onAssignmentsCreated={() => {
+                  clearCache();
+                  handleEventUpdate();
+                  refetch();
+                }}
+              />
               
             <div className="flex items-center bg-muted rounded-lg p-1">
               <Button
