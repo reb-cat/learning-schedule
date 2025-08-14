@@ -5,6 +5,7 @@ import { useAssignments } from './useAssignments';
 import { useScheduleTemplate } from './useScheduleTemplate';
 import { getEffectiveScheduleForDay } from '@/data/allDayEvents';
 import { blockSharingScheduler } from '@/services/blockSharingScheduler';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useStudentDashboard = (studentName: string) => {
   const [searchParams] = useSearchParams();
@@ -157,11 +158,36 @@ export const useStudentDashboard = (studentName: string) => {
     hasAutoScheduledRef.current = false;
   }, [formattedDate, studentName]);
 
-  // Force refresh function
+  // Force refresh function - calls the actual Supabase auto-scheduler
   const forceRefresh = useCallback(async () => {
     console.log(`🔄 Force refresh triggered for ${studentName}`);
-    await triggerAutoScheduling();
-  }, [triggerAutoScheduling, studentName]);
+    setIsAutoScheduling(true);
+    
+    try {
+      // Call the Supabase auto-scheduler function directly
+      console.log(`🤖 Calling Supabase auto-scheduler for ${studentName}`);
+      const { data, error } = await supabase.functions.invoke('auto-scheduler', {
+        body: { 
+          students: [studentName],
+          stagingMode: false 
+        }
+      });
+      
+      if (error) {
+        console.error('Auto-scheduler error:', error);
+        throw error;
+      }
+      
+      console.log('✅ Auto-scheduler response:', data);
+      
+      // Refresh assignments after scheduling
+      await refetch();
+    } catch (error) {
+      console.error(`❌ Force refresh failed for ${studentName}:`, error);
+    } finally {
+      setIsAutoScheduling(false);
+    }
+  }, [studentName, refetch]);
 
   return {
     // Data
