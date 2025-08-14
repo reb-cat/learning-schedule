@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, Clock, AlertTriangle, Play, RotateCcw } from 'lucide-react';
+import { CheckCircle, Clock, AlertTriangle, Play } from 'lucide-react';
 import { useAssignmentCompletion } from '@/hooks/useAssignmentCompletion';
 import { useToast } from '@/hooks/use-toast';
 
@@ -30,7 +30,7 @@ export function StudentBlockDisplay({
 }: StudentBlockDisplayProps) {
   
   
-  const [showTransition, setShowTransition] = useState(false);
+  
   const { updateAssignmentStatus, isLoading: isUpdating } = useAssignmentCompletion();
   const { toast } = useToast();
 
@@ -196,68 +196,38 @@ export function StudentBlockDisplay({
           </Alert>
         )}
 
-        {/* Transition Preview */}
-        {showTransition && (
-          <Alert className="bg-green-50 border-green-200">
-            <CheckCircle className="h-4 w-4" />
-            <AlertDescription className="text-sm">
-              <strong>Getting ready:</strong>
-              <ul className="list-disc list-inside mt-1 space-y-1">
-                <li>Gather your materials for {assignment.subject}</li>
-                <li>Clear your workspace</li>
-                <li>Set a timer for {assignment.actual_estimated_minutes || 30} minutes</li>
-                <li>Take a deep breath - you've got this!</li>
-              </ul>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Action Buttons */}
+        {/* Action Buttons - Only for quick status updates */}
         {assignment.completion_status !== 'completed' && (
           <div className="flex items-center gap-2 pt-2">
-            {!showTransition ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowTransition(true)}
-                className="flex items-center gap-1"
-              >
-                <Play className="h-3 w-3" />
-                Get Ready
-              </Button>
-            ) : (
-              <>
-                <Button
-                  size="sm"
-                  onClick={() => handleStatusUpdate('completed')}
-                  disabled={isUpdating}
-                  className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
-                >
-                  <CheckCircle className="h-3 w-3" />
-                  Done!
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleStatusUpdate('in_progress')}
-                  disabled={isUpdating}
-                  className="flex items-center gap-1"
-                >
-                  <Clock className="h-3 w-3" />
-                  Need More Time
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleStatusUpdate('stuck')}
-                  disabled={isUpdating}
-                  className="flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  <AlertTriangle className="h-3 w-3" />
-                  Stuck - Need Help
-                </Button>
-              </>
-            )}
+            <Button
+              size="sm"
+              onClick={() => handleStatusUpdate('completed')}
+              disabled={isUpdating}
+              className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle className="h-3 w-3" />
+              Done!
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleStatusUpdate('in_progress')}
+              disabled={isUpdating}
+              className="flex items-center gap-1"
+            >
+              <Clock className="h-3 w-3" />
+              Need More Time
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleStatusUpdate('stuck')}
+              disabled={isUpdating}
+              className="flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
+            >
+              <AlertTriangle className="h-3 w-3" />
+              Stuck - Need Help
+            </Button>
           </div>
         )}
 

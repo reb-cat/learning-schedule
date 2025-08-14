@@ -120,11 +120,20 @@ const todaysScheduledAssignments = assignments.filter(a => a.completion_status !
       const now = Date.now();
       const remain = Math.max(0, Math.floor((nextAllowedStartAt.getTime() - now) / 1000));
       setBreakRemaining(remain);
+      
+      // Automatically start next block when countdown reaches 0
+      if (remain <= 0) {
+        setPhase('idle');
+        setNextAllowedStartAt(null);
+        setBreakRemaining(0);
+        setCurrentIndex((idx) => Math.min(idx, Math.max(0, incompleteAssignments.length - 1)));
+        if (!TEST_MODE) onAssignmentUpdate?.();
+      }
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [phase, nextAllowedStartAt]);
+  }, [phase, nextAllowedStartAt, incompleteAssignments.length, TEST_MODE, onAssignmentUpdate]);
 
   const handleStartAssignment = () => {
     const item = currentAssignment as GuidedItem;
@@ -192,17 +201,6 @@ const todaysScheduledAssignments = assignments.filter(a => a.completion_status !
     // TODO: Real database logic here when TEST_MODE = false
   };
 
-  const canStartNext = phase === 'break' && (!nextAllowedStartAt || breakRemaining <= 0);
-
-  const startNextBlock = () => {
-    if (!canStartNext) return;
-    setPhase('idle');
-    setNextAllowedStartAt(null);
-    setBreakRemaining(0);
-    // After removal, the next item is at the same index; no increment needed
-    setCurrentIndex((idx) => Math.min(idx, Math.max(0, incompleteAssignments.length - 1)));
-    if (!TEST_MODE) onAssignmentUpdate?.();
-  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -222,7 +220,7 @@ const todaysScheduledAssignments = assignments.filter(a => a.completion_status !
     );
   }
 
-  // Break screen
+  // Break screen - fully automated, no manual intervention
   if (phase === 'break') {
     const next = incompleteAssignments[currentIndex] as any as GuidedItem | undefined;
     const nextLabel = next?.title ?? 'Next block';
@@ -230,7 +228,7 @@ const todaysScheduledAssignments = assignments.filter(a => a.completion_status !
       <div className="space-y-4">
         <div className="text-center">
           <p className="text-sm text-muted-foreground">
-            {breakRemaining > 0 ? `Break time: ${formatTime(breakRemaining)}` : 'Break complete'}
+            {breakRemaining > 0 ? `Break time: ${formatTime(breakRemaining)}` : 'Starting next block...'}
           </p>
         </div>
         
@@ -243,13 +241,22 @@ const todaysScheduledAssignments = assignments.filter(a => a.completion_status !
                 Next starts at {next._blockStart}: {nextLabel}
               </p>
             )}
-            <Button 
-              onClick={startNextBlock}
-              disabled={!canStartNext}
-              className="flex items-center gap-2"
-            >
-              Start next block
-            </Button>
+            {breakRemaining > 0 ? (
+              <div className="space-y-2">
+                <p className="text-lg font-mono font-bold text-primary">
+                  {formatTime(breakRemaining)}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Until next block starts automatically
+                </p>
+              </div>
+            ) : (
+              <div className="animate-pulse">
+                <p className="text-lg font-semibold text-primary">
+                  Starting next block...
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
