@@ -2,6 +2,8 @@
 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { DatabasePermissionTest } from "@/components/DatabasePermissionTest";
+import { ConsolidatedScheduler } from "@/components/ConsolidatedScheduler";
 
 const Index = () => {
   return (
@@ -32,6 +34,26 @@ const Index = () => {
               Khalil's Dashboard
             </Button>
           </Link>
+          
+          <Link to="/admin" className="block">
+            <Button 
+              variant="outline" 
+              size="lg" 
+              className="w-full h-16 text-lg font-semibold"
+            >
+              Admin Setup
+            </Button>
+          </Link>
+        </div>
+        
+        <div className="space-y-6 mt-8 pt-8 border-t border-border">
+          <h2 className="text-2xl font-semibold text-foreground">Testing Tools</h2>
+          
+          <DatabasePermissionTest />
+          
+          <ConsolidatedScheduler onSchedulingComplete={() => {
+            console.log('✅ Scheduling test completed');
+          }} />
         </div>
       </div>
     </div>
