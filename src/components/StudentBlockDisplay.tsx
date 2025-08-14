@@ -7,6 +7,7 @@ import { CheckCircle, Clock, AlertTriangle, Play } from 'lucide-react';
 import { useAssignmentCompletion } from '@/hooks/useAssignmentCompletion';
 import { useToast } from '@/hooks/use-toast';
 import { StatusChip } from '@/components/StatusChip';
+import { CoopAttendanceCard } from './CoopAttendanceCard';
 
 interface StudentBlockDisplayProps {
   block: {
@@ -15,6 +16,7 @@ interface StudentBlockDisplayProps {
     subject: string;
     block?: number;
     isAssignmentBlock: boolean;
+    block_type?: string;
   };
   assignment?: any;
   studentName: string;
@@ -40,12 +42,11 @@ export function StudentBlockDisplay({
 
     try {
       await updateAssignmentStatus(assignment, {
-        completionStatus: status,
-        progressPercentage: status === 'completed' ? 100 : status === 'in_progress' ? 50 : 25,
-        actualMinutes: assignment.actual_estimated_minutes || 30,
-        difficultyRating: 'medium',
+        status: status,
+        timeSpent: assignment.actual_estimated_minutes || 30,
+        difficulty: 'medium',
         notes: status === 'stuck' ? 'Student marked as stuck - needs help' : '',
-        stuckReason: status === 'stuck' ? 'Student requested help' : undefined
+        progress: status === 'completed' ? 100 : status === 'in_progress' ? 50 : 25
       });
 
       // Check if assignment is urgent (due today or overdue)
@@ -54,12 +55,10 @@ export function StudentBlockDisplay({
 
       toast({
         title: status === 'completed' ? "Great work!" : 
-               status === 'in_progress' ? "Keep going!" : 
+               status === 'in_progress' ? "Creating continuation..." : 
                "Help is on the way!",
         description: status === 'completed' ? "Assignment completed successfully." :
-                    status === 'in_progress' ? (isUrgent 
-                      ? "We'll reschedule this urgent assignment as soon as possible." 
-                      : "We'll reschedule this for tomorrow.") :
+                    status === 'in_progress' ? "A continuation assignment will be created for tomorrow." :
                     "This task will be prioritized for help."
       });
 
@@ -73,6 +72,32 @@ export function StudentBlockDisplay({
       });
     }
   };
+
+  // Handle Co-op blocks with attendance system  
+  const isCoopBlock = (block.block_type?.toLowerCase() === 'co-op') || 
+    (block.subject && (
+      block.subject.toLowerCase().includes('travel') || 
+      block.subject.toLowerCase().includes('prep') || 
+      block.subject.toLowerCase().includes('load') ||
+      block.subject.toLowerCase().includes('co-op')
+    ));
+
+  if (isCoopBlock) {
+    return (
+      <CoopAttendanceCard
+        blockTitle={block.subject || 'Co-op Activity'}
+        startTime={block.start}
+        endTime={block.end}
+        studentName={studentName}
+        onAttendanceMarked={() => {
+          toast({
+            title: "Attendance Recorded",
+            description: `${block.subject} attendance marked`,
+          });
+        }}
+      />
+    );
+  }
 
   const getStatusColor = (status?: string) => {
     switch (status) {

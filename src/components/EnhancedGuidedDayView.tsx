@@ -138,10 +138,10 @@ export function EnhancedGuidedDayView({
     
     try {
       await updateAssignmentStatus(currentBlock, {
-        completionStatus: 'completed',
-        progressPercentage: 100,
-        actualMinutes: Math.ceil((totalTime - timeRemaining) / 60),
-        difficultyRating: 'medium'
+        status: 'completed',
+        timeSpent: Math.ceil((totalTime - timeRemaining) / 60),
+        difficulty: 'medium',
+        progress: 100
       });
       
       toast({
@@ -165,10 +165,10 @@ export function EnhancedGuidedDayView({
     
     try {
       await updateAssignmentStatus(currentBlock, {
-        completionStatus: 'in_progress',
-        progressPercentage: 50,
-        actualMinutes: Math.ceil((totalTime - timeRemaining) / 60),
-        difficultyRating: 'medium'
+        status: 'in_progress',
+        timeSpent: Math.ceil((totalTime - timeRemaining) / 60),
+        difficulty: 'medium',
+        progress: 50
       });
       
       // Move to end of queue for rescheduling
@@ -195,10 +195,10 @@ export function EnhancedGuidedDayView({
     
     try {
       await updateAssignmentStatus(currentBlock, {
-        completionStatus: 'stuck',
-        progressPercentage: 25,
-        actualMinutes: Math.ceil((totalTime - timeRemaining) / 60),
-        difficultyRating: 'hard',
+        status: 'stuck',
+        timeSpent: Math.ceil((totalTime - timeRemaining) / 60),
+        difficulty: 'hard',
+        progress: 25,
         notes: 'Student marked as stuck - needs help'
       });
       

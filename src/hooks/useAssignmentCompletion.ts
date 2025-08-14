@@ -5,82 +5,94 @@ import { Assignment } from './useAssignments';
 import { useEnergyPatternLearning } from './useEnergyPatternLearning';
 
 export interface CompletionData {
-  actualMinutes: number;
-  difficultyRating: 'easy' | 'medium' | 'hard';
+  timeSpent: number;
+  difficulty: 'easy' | 'medium' | 'hard';
   notes?: string;
-  completionStatus: 'not_started' | 'completed' | 'in_progress' | 'stuck';
-  progressPercentage?: number;
-  stuckReason?: string;
+  status: 'not_started' | 'completed' | 'in_progress' | 'stuck' | 'need_more_time';
+  progress?: number;
 }
 
 export function useAssignmentCompletion() {
   const [isLoading, setIsLoading] = useState(false);
   const { recordPerformanceData } = useEnergyPatternLearning();
 
-  const updateAssignmentStatus = async (
-    assignment: Assignment, 
-    completionData: CompletionData
-  ): Promise<void> => {
+  const updateAssignmentStatus = async (assignment: Assignment, completionData: CompletionData) => {
+    // Skip database updates for synthetic assignments
+    if ((assignment as any).is_synthetic || (assignment.id && assignment.id.toString().startsWith('fixed-'))) {
+      console.log('Skipping database update for synthetic assignment:', assignment.title);
+      return;
+    }
+
     setIsLoading(true);
-    
     try {
-      // Check if this is a synthetic assignment (fixed schedule blocks)
-      if (assignment.id && assignment.id.toString().startsWith('fixed-')) {
-        console.log('Skipping database update for synthetic assignment:', assignment.id);
-        // Just show success feedback for synthetic assignments without database update
-        setIsLoading(false);
-        return;
+      // If marking "need_more_time" or "in_progress", create a continuation assignment
+      if (completionData.status === 'need_more_time' || completionData.status === 'in_progress') {
+        const continuationTime = Math.max(15, (assignment.estimated_time_minutes || 30) - completionData.timeSpent);
+        
+        const { error: continuationError } = await supabase
+          .from('assignments')
+          .insert({
+            student_name: assignment.student_name,
+            title: `${assignment.title} [CONTINUED]`,
+            course_name: assignment.course_name,
+            subject: assignment.subject,
+            assignment_type: assignment.assignment_type,
+            category: assignment.category,
+            task_type: assignment.assignment_type || 'academic', // Use assignment_type as fallback
+            source: 'continuation',
+            estimated_time_minutes: continuationTime,
+            due_date: assignment.due_date,
+            completion_status: 'not_started',
+            notes: `Continuation of: ${assignment.title}. Original time spent: ${completionData.timeSpent} minutes.`,
+            parent_assignment_id: assignment.id,
+            eligible_for_scheduling: true,
+            instructions: assignment.instructions
+          });
+
+        if (continuationError) {
+          console.error('Error creating continuation assignment:', continuationError);
+        }
       }
 
-      console.log('Updating assignment status:', {
-        assignmentId: assignment.id,
-        completionStatus: completionData.completionStatus,
-        progressPercentage: completionData.progressPercentage
-      });
-
-      // Update assignment with completion data
-      const updateData = {
-        completion_status: completionData.completionStatus,
-        time_spent_minutes: completionData.actualMinutes,
-        completion_notes: completionData.notes,
-        progress_percentage: completionData.progressPercentage || 0,
-        stuck_reason: completionData.stuckReason,
-        // Clear scheduling if in progress or stuck to allow rescheduling
-        scheduled_block: completionData.completionStatus !== 'completed' ? null : assignment.scheduled_block,
-        scheduled_date: completionData.completionStatus !== 'completed' ? null : assignment.scheduled_date
-      };
-
-      console.log('Updating assignment with data:', updateData);
-
-      const { error: updateError } = await supabase
+      const { error } = await supabase
         .from('assignments')
-        .update(updateData)
+        .update({
+          completion_status: completionData.status === 'in_progress' ? 'need_more_time' : completionData.status,
+          time_spent_minutes: completionData.timeSpent,
+          completion_notes: completionData.notes,
+          progress_percentage: completionData.progress,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', assignment.id);
 
       // If this assignment has a shared_block_id, update all other assignments with the same shared_block_id
-      if (!updateError && assignment.shared_block_id && completionData.completionStatus === 'completed') {
+      if (!error && assignment.shared_block_id && completionData.status === 'completed') {
         console.log('Updating shared assignments with shared_block_id:', assignment.shared_block_id);
         
         const { error: sharedUpdateError } = await supabase
           .from('assignments')
-          .update(updateData)
+          .update({
+            completion_status: completionData.status,
+            time_spent_minutes: completionData.timeSpent,
+            completion_notes: completionData.notes,
+            progress_percentage: completionData.progress,
+            updated_at: new Date().toISOString()
+          })
           .eq('shared_block_id', assignment.shared_block_id)
-          .neq('id', assignment.id); // Don't update the current assignment again
+          .neq('id', assignment.id);
 
         if (sharedUpdateError) {
           console.error('Error updating shared assignments:', sharedUpdateError);
-        } else {
-          console.log('Successfully updated shared assignments');
         }
       }
 
-      if (updateError) {
-        console.error('Database update error:', updateError);
-        throw updateError;
+      if (error) {
+        console.error('Database update error:', error);
+        throw error;
       }
 
       // Update learning patterns only for completed assignments (non-blocking)
-      if (completionData.completionStatus === 'completed') {
+      if (completionData.status === 'completed') {
         try {
           const estimatedMinutes = assignment.estimated_time_minutes || 
                                    assignment.actual_estimated_minutes || 
@@ -90,7 +102,7 @@ export function useAssignmentCompletion() {
             assignment.student_name,
             assignment,
             estimatedMinutes,
-            completionData.actualMinutes
+            completionData.timeSpent
           );
         } catch (learningError) {
           console.warn('Learning pattern update failed (non-critical):', learningError);
@@ -98,7 +110,7 @@ export function useAssignmentCompletion() {
       }
 
       // Record performance data for energy pattern learning (non-blocking)
-      if (assignment.scheduled_block && assignment.scheduled_date && completionData.completionStatus === 'completed') {
+      if (assignment.scheduled_block && assignment.scheduled_date && completionData.status === 'completed') {
         try {
           const estimatedMinutes = assignment.estimated_time_minutes || 
                                    assignment.actual_estimated_minutes || 
@@ -110,9 +122,9 @@ export function useAssignmentCompletion() {
             subject: assignment.subject || assignment.course_name,
             scheduledBlock: assignment.scheduled_block,
             scheduledDate: assignment.scheduled_date,
-            actualMinutes: completionData.actualMinutes,
+            actualMinutes: completionData.timeSpent,
             estimatedMinutes,
-            difficultyRating: completionData.difficultyRating,
+            difficultyRating: completionData.difficulty,
             completedAt: new Date().toISOString()
           });
         } catch (energyError) {
@@ -124,11 +136,10 @@ export function useAssignmentCompletion() {
       // No need for split assignment logic since we use the same assignment record
 
       // Log success for analytics
-      console.log(`Assignment "${assignment.title}" status updated to ${completionData.completionStatus}`, {
-        status: completionData.completionStatus,
-        timeSpent: completionData.actualMinutes,
-        progress: completionData.progressPercentage || 0,
-        stuckReason: completionData.stuckReason
+      console.log(`Assignment "${assignment.title}" status updated to ${completionData.status}`, {
+        status: completionData.status,
+        timeSpent: completionData.timeSpent,
+        progress: completionData.progress || 0
       });
 
     } catch (error) {
