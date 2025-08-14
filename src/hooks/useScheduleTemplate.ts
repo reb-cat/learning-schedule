@@ -73,7 +73,9 @@ export const useScheduleTemplate = (studentName?: string) => {
   }, [templateData]);
 
   const getScheduleForStudentAndDay = (student: string, day: string): ScheduleBlock[] => {
-    return legacyScheduleData.filter(block => block.student === student && block.day === day);
+    const filtered = legacyScheduleData.filter(block => block.student === student && block.day === day);
+    console.log(`📋 getScheduleForStudentAndDay(${student}, ${day}):`, filtered);
+    return filtered;
   };
 
   return {

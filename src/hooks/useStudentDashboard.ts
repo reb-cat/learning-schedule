@@ -52,12 +52,15 @@ export const useStudentDashboard = (studentName: string) => {
 
   // Check for all-day events and get effective schedule
   const checkEffectiveSchedule = useCallback(async () => {
+    console.log(`🔍 [${studentName}] Checking schedule for ${currentDay} (${formattedDate})`);
+    console.log(`📋 [${studentName}] Base schedule from template:`, baseTodaySchedule);
+    
     setIsCheckingAllDayEvent(true);
     
     try {
-      // Set a hard 3-second timeout - if it takes longer, just show regular schedule
+      // Set a hard 1-second timeout - fail fast
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 3000)
+        setTimeout(() => reject(new Error('Timeout')), 1000)
       );
       
       const schedulePromise = getEffectiveScheduleForDay(
@@ -69,18 +72,18 @@ export const useStudentDashboard = (studentName: string) => {
       
       const schedule = await Promise.race([schedulePromise, timeoutPromise]) as any[] | null;
       
+      console.log(`✅ [${studentName}] All-day event check result:`, schedule === null ? 'Has all-day event' : 'Regular schedule');
       setEffectiveSchedule(schedule);
       setHasAllDayEvent(schedule === null);
     } catch (error) {
-      console.log('All-day event check failed/timed out - using regular schedule');
+      console.log(`⚠️ [${studentName}] All-day event check failed/timed out - using regular schedule:`, baseTodaySchedule);
       // On any error or timeout, just show the regular schedule
       setEffectiveSchedule(undefined);
       setHasAllDayEvent(false);
     } finally {
-      // ALWAYS reset loading state, no matter what happens
       setIsCheckingAllDayEvent(false);
     }
-  }, [studentName, currentDay, formattedDate]);
+  }, [studentName, currentDay, formattedDate, baseTodaySchedule]);
 
   useEffect(() => {
     checkEffectiveSchedule();
@@ -88,12 +91,17 @@ export const useStudentDashboard = (studentName: string) => {
 
   // Use effective schedule or fallback to base schedule
   const baseSchedule = effectiveSchedule || baseTodaySchedule;
+  console.log(`📅 [${studentName}] Final baseSchedule:`, baseSchedule);
   
   // Enrich schedule blocks with their assignments
   const todaySchedule = useMemo(() => {
-    if (!baseSchedule) return [];
+    if (!baseSchedule || baseSchedule.length === 0) {
+      console.log(`❌ [${studentName}] No baseSchedule available!`);
+      return [];
+    }
     
-    return baseSchedule.map(block => ({
+    console.log(`🔧 [${studentName}] Enriching ${baseSchedule.length} blocks with assignments`);
+    const enrichedSchedule = baseSchedule.map(block => ({
       ...block,
       assignments: block.isAssignmentBlock 
         ? assignments.filter(a => 
@@ -102,7 +110,10 @@ export const useStudentDashboard = (studentName: string) => {
           )
         : []
     }));
-  }, [baseSchedule, assignments, formattedDate]);
+    
+    console.log(`✅ [${studentName}] Final enriched schedule:`, enrichedSchedule);
+    return enrichedSchedule;
+  }, [baseSchedule, assignments, formattedDate, studentName]);
 
   // Handle critical errors that would cause blank pages
   useEffect(() => {
