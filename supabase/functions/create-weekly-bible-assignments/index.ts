@@ -17,36 +17,37 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { studentName, weekNumber } = await req.json()
+    const { studentName, daysToCreate = 7 } = await req.json()
 
     if (!studentName) {
       throw new Error('Student name is required')
     }
 
-    // Calculate current week if not provided
-    const currentWeek = weekNumber || (() => {
-      const startOfYear = new Date(new Date().getFullYear(), 0, 1);
-      const now = new Date();
-      const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
-      return Math.ceil((dayOfYear + startOfYear.getDay() + 1) / 7);
-    })();
+    // Find the last Bible assignment for this student to determine where to continue
+    const { data: lastAssignment } = await supabase
+      .from('assignments')
+      .select('notes')
+      .eq('student_name', studentName)
+      .eq('subject', 'Bible')
+      .not('notes', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    // Get next Monday
-    const getNextMonday = () => {
-      const today = new Date();
-      const dayOfWeek = today.getDay();
-      const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
-      const nextMonday = new Date(today);
-      nextMonday.setDate(today.getDate() + daysUntilMonday);
-      return nextMonday;
-    };
+    // Extract the reading number from the last assignment's notes, or start from 1
+    let startingIndex = 1;
+    if (lastAssignment && lastAssignment.length > 0) {
+      const notesMatch = lastAssignment[0].notes?.match(/Reading #(\d+)/);
+      if (notesMatch) {
+        startingIndex = parseInt(notesMatch[1]) + 1;
+      }
+    }
 
-    // Fetch Bible curriculum for this week
+    // Fetch the next sequential readings from curriculum
     const { data: curriculumData, error: fetchError } = await supabase
       .from('bible_curriculum')
       .select('*')
-      .eq('week_number', currentWeek)
-      .order('day_of_week');
+      .order('week_number, day_of_week')
+      .range(startingIndex - 1, startingIndex + daysToCreate - 1);
 
     if (fetchError) {
       throw fetchError;
@@ -55,7 +56,7 @@ serve(async (req) => {
     if (!curriculumData || curriculumData.length === 0) {
       return new Response(
         JSON.stringify({ 
-          error: `No Bible curriculum found for week ${currentWeek}. Try a different week.` 
+          error: `No more Bible curriculum found starting from reading #${startingIndex}` 
         }),
         { 
           status: 404, 
@@ -64,23 +65,29 @@ serve(async (req) => {
       );
     }
 
-    const startDate = getNextMonday();
+    const assignments = [];
+    const today = new Date();
+    
+    // Track current memory verse for daily repetition
+    let currentMemoryVerse = null;
 
-    // Create assignments for each day
-    const assignments = curriculumData.map((item: any, index: number) => {
-      const assignmentDate = new Date(startDate);
-      assignmentDate.setDate(startDate.getDate() + index);
+    curriculumData.forEach((item: any, index: number) => {
+      const assignmentDate = new Date(today);
+      assignmentDate.setDate(today.getDate() + index + 1); // Start tomorrow
       
-      return {
+      const readingNumber = startingIndex + index;
+      
+      // Create the daily reading assignment
+      assignments.push({
         student_name: studentName,
-        title: item.reading_title || `Week ${currentWeek} Bible Reading`,
+        title: item.reading_title || `Bible Reading #${readingNumber}`,
         course_name: 'Bible',
         subject: 'Bible',
         assignment_type: 'reading',
         category: 'academic',
         task_type: 'academic',
         source: 'curriculum',
-        estimated_time_minutes: 30,
+        estimated_time_minutes: 25,
         estimated_blocks_needed: 1,
         scheduling_priority: 3,
         due_date: assignmentDate.toISOString(),
@@ -88,10 +95,40 @@ serve(async (req) => {
         completion_status: 'not_started',
         progress_percentage: 0,
         time_spent_minutes: 0,
-        notes: `Week ${currentWeek}, Day ${item.day_of_week}: ${item.reading_type || 'Daily Reading'}`,
+        notes: `Bible Reading #${readingNumber}: ${item.reading_type || 'Daily Reading'}`,
         eligible_for_scheduling: true,
         is_fixed: false
-      };
+      });
+
+      // If this item has a memory verse, update our current memory verse
+      if (item.reading_type === 'memory_verse' && item.reading_title) {
+        currentMemoryVerse = item.reading_title;
+      }
+
+      // Add daily memory verse practice if we have one
+      if (currentMemoryVerse) {
+        assignments.push({
+          student_name: studentName,
+          title: `Memory Verse Practice: ${currentMemoryVerse}`,
+          course_name: 'Bible',
+          subject: 'Bible',
+          assignment_type: 'memory_work',
+          category: 'academic',
+          task_type: 'academic',
+          source: 'curriculum',
+          estimated_time_minutes: 10,
+          estimated_blocks_needed: 1,
+          scheduling_priority: 3,
+          due_date: assignmentDate.toISOString(),
+          available_on: assignmentDate.toISOString().split('T')[0],
+          completion_status: 'not_started',
+          progress_percentage: 0,
+          time_spent_minutes: 0,
+          notes: `Daily practice for memory verse: ${currentMemoryVerse}`,
+          eligible_for_scheduling: true,
+          is_fixed: false
+        });
+      }
     });
 
     // Insert assignments into database
@@ -107,7 +144,8 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         assignmentsCreated: assignments.length,
-        weekNumber: currentWeek
+        startingFromReading: startingIndex,
+        memoryVerseIncluded: currentMemoryVerse !== null
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

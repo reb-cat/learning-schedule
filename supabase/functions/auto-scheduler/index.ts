@@ -382,9 +382,49 @@ function findBestBlock(
   return scores[0].block;
 }
 
+// Function to ensure adequate Bible assignments exist
+async function ensureBibleAssignments(studentName: string): Promise<void> {
+  try {
+    // Check how many unscheduled Bible assignments this student has
+    const { data: bibleAssignments } = await supabase
+      .from('assignments')
+      .select('id')
+      .eq('student_name', studentName)
+      .eq('subject', 'Bible')
+      .eq('completion_status', 'not_started')
+      .is('scheduled_date', null);
+
+    const unscheduledCount = bibleAssignments?.length || 0;
+    console.log(`📖 ${studentName} has ${unscheduledCount} unscheduled Bible assignments`);
+
+    // If fewer than 3 unscheduled Bible assignments, create more
+    if (unscheduledCount < 3) {
+      console.log(`📝 Generating more Bible assignments for ${studentName}...`);
+      
+      const createResponse = await supabase.functions.invoke('create-weekly-bible-assignments', {
+        body: { 
+          studentName, 
+          daysToCreate: 7 
+        }
+      });
+
+      if (createResponse.error) {
+        console.error('Error creating Bible assignments:', createResponse.error);
+      } else {
+        console.log(`✅ Created Bible assignments for ${studentName}:`, createResponse.data);
+      }
+    }
+  } catch (error) {
+    console.error('Error ensuring Bible assignments:', error);
+  }
+}
+
 // Main unified scheduling function (replaces old auto-scheduler logic)
 async function scheduleAssignments(studentName: string, stagingMode: boolean = false): Promise<number> {
   console.log(`🚀 Starting UNIFIED auto-scheduling for ${studentName} (same logic as manual)`);
+  
+  // Ensure adequate Bible assignments exist before scheduling
+  await ensureBibleAssignments(studentName);
   
   const today = new Date();
   const isWeekend = today.getDay() === 0 || today.getDay() === 6;
