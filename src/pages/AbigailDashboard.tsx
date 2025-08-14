@@ -53,6 +53,9 @@ const AbigailDashboard = () => {
               completion_status: 'not_started',
               actual_estimated_minutes: undefined,
               instructions: `${b.subject ? b.subject + ' • ' : ''}${b.start} - ${b.end}`,
+              student_name: 'Abigail', // Required field
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
             };
         if (!base) return null;
         return {
