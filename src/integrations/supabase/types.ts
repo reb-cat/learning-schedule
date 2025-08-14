@@ -362,6 +362,27 @@ export type Database = {
           },
         ]
       }
+      bible_curriculum: {
+        Row: {
+          day_of_week: number | null
+          reading_title: string | null
+          reading_type: string | null
+          week_number: number | null
+        }
+        Insert: {
+          day_of_week?: number | null
+          reading_title?: string | null
+          reading_type?: string | null
+          week_number?: number | null
+        }
+        Update: {
+          day_of_week?: number | null
+          reading_title?: string | null
+          reading_type?: string | null
+          week_number?: number | null
+        }
+        Relationships: []
+      }
       learning_patterns: {
         Row: {
           assignment_type: string

@@ -38,6 +38,8 @@ export function transformScheduleForGuidedView(
             student_name: studentName, // Required field for Assignment interface
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
+            // Mark as non-completable to prevent completion errors
+            is_synthetic: true
           };
         }
       }
