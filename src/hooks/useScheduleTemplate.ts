@@ -68,7 +68,7 @@ export const useScheduleTemplate = (studentName?: string) => {
       end: formatTime(template.end_time),
       subject: template.subject || '',
       type: template.block_type,
-      isAssignmentBlock: template.block_type === 'Assignment'
+      isAssignmentBlock: template.block_type === 'Assignment' || template.block_number !== null
     }));
   }, [templateData]);
 
