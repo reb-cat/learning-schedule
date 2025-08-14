@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, Clock, AlertTriangle, Play } from 'lucide-react';
 import { useAssignmentCompletion } from '@/hooks/useAssignmentCompletion';
 import { useToast } from '@/hooks/use-toast';
+import { StatusChip } from '@/components/StatusChip';
 
 interface StudentBlockDisplayProps {
   block: {
@@ -94,9 +95,24 @@ export function StudentBlockDisplay({
   const needsGrounding = assignment?.cognitive_load === 'heavy' || 
                          ['Math', 'Science'].includes(assignment?.subject);
 
+  const getBlockType = (): 'assignment' | 'co-op' | 'movement' | 'lunch' | 'travel' | 'bible' | 'prep' => {
+    if (!block.isAssignmentBlock) {
+      const subject = block.subject.toLowerCase();
+      if (subject.includes('movement')) return 'movement';
+      if (subject.includes('lunch')) return 'lunch';
+      if (subject.includes('co-op')) return 'co-op';
+      if (subject.includes('travel')) return 'travel';
+      if (subject.includes('bible')) return 'bible';
+      if (subject.includes('prep')) return 'prep';
+      return 'co-op'; // Default for non-assignment blocks
+    }
+    return 'assignment';
+  };
+
   if (!block.isAssignmentBlock) {
+    const blockType = getBlockType();
     return (
-      <Card className="bg-muted border border-border">
+      <Card className="border-border">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -107,9 +123,7 @@ export function StudentBlockDisplay({
                 {block.subject}
               </div>
             </div>
-            <Badge variant="secondary" className="text-xs">
-              Fixed Class
-            </Badge>
+            <StatusChip type={blockType} size="sm" />
           </div>
         </CardContent>
       </Card>
@@ -134,9 +148,7 @@ export function StudentBlockDisplay({
                 </Badge>
               )}
             </div>
-            <Badge variant="secondary" className="text-xs">
-              Available
-            </Badge>
+            <StatusChip type="assignment" size="sm" />
           </div>
         </CardContent>
       </Card>
@@ -165,12 +177,16 @@ export function StudentBlockDisplay({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Badge className={cognitiveInfo.color}>
-              {assignment.cognitive_load || 'medium'}
-            </Badge>
-            <Badge variant="secondary" className="text-xs">
+            <StatusChip 
+              type="assignment" 
+              status={assignment.completion_status === 'completed' ? 'completed' : 
+                     assignment.completion_status === 'in_progress' ? 'need-more-time' :
+                     assignment.completion_status === 'stuck' ? 'stuck' : 'pending'} 
+              size="sm" 
+            />
+            <span className="text-xs text-muted-foreground">
               {assignment.actual_estimated_minutes || 30} min
-            </Badge>
+            </span>
           </div>
         </div>
 

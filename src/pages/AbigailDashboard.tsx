@@ -6,7 +6,7 @@ import { Home, RefreshCw } from "lucide-react";
 import { CoopChecklist } from "@/components/CoopChecklist";
 import { OptimizedStudentBlockDisplay } from "@/components/OptimizedStudentBlockDisplay";
 import { ErrorFallback } from "@/components/ErrorFallback";
-import { GuidedDayView } from "@/components/GuidedDayView";
+import { EnhancedGuidedDayView } from "@/components/EnhancedGuidedDayView";
 import { useStudentDashboard } from "@/hooks/useStudentDashboard";
 import { useScheduledAssignments } from "@/hooks/useScheduledAssignments";
 
@@ -135,7 +135,7 @@ const AbigailDashboard = () => {
           {isGuidedMode ? (
             <div className="space-y-4">
               <h2 className="text-xl font-semibold text-foreground">Guided Day Mode</h2>
-<GuidedDayView 
+<EnhancedGuidedDayView 
                 assignments={guidedAssignments as any}
                 studentName="Abigail"
                 formattedDate={formattedDate}
