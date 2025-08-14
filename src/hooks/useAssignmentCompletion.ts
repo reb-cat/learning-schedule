@@ -30,27 +30,39 @@ export function useAssignmentCompletion() {
         progressPercentage: completionData.progressPercentage
       });
 
-      // Skip database updates for synthetic fixed schedule blocks
-      if (assignment.id.startsWith('fixed-')) {
-        console.log('Skipping database update for synthetic schedule block:', assignment.id);
-        setIsLoading(false);
-        return;
-      }
-
       // Update assignment with completion data
+      const updateData = {
+        completion_status: completionData.completionStatus,
+        time_spent_minutes: completionData.actualMinutes,
+        completion_notes: completionData.notes,
+        progress_percentage: completionData.progressPercentage || 0,
+        stuck_reason: completionData.stuckReason,
+        // Clear scheduling if in progress or stuck to allow rescheduling
+        scheduled_block: completionData.completionStatus !== 'completed' ? null : assignment.scheduled_block,
+        scheduled_date: completionData.completionStatus !== 'completed' ? null : assignment.scheduled_date
+      };
+
       const { error: updateError } = await supabase
         .from('assignments')
-        .update({
-          completion_status: completionData.completionStatus,
-          time_spent_minutes: completionData.actualMinutes,
-          completion_notes: completionData.notes,
-          progress_percentage: completionData.progressPercentage || 0,
-          stuck_reason: completionData.stuckReason,
-          // Clear scheduling if in progress or stuck to allow rescheduling
-          scheduled_block: completionData.completionStatus !== 'completed' ? null : assignment.scheduled_block,
-          scheduled_date: completionData.completionStatus !== 'completed' ? null : assignment.scheduled_date
-        })
+        .update(updateData)
         .eq('id', assignment.id);
+
+      // If this assignment has a shared_block_id, update all other assignments with the same shared_block_id
+      if (!updateError && assignment.shared_block_id && completionData.completionStatus === 'completed') {
+        console.log('Updating shared assignments with shared_block_id:', assignment.shared_block_id);
+        
+        const { error: sharedUpdateError } = await supabase
+          .from('assignments')
+          .update(updateData)
+          .eq('shared_block_id', assignment.shared_block_id)
+          .neq('id', assignment.id); // Don't update the current assignment again
+
+        if (sharedUpdateError) {
+          console.error('Error updating shared assignments:', sharedUpdateError);
+        } else {
+          console.log('Successfully updated shared assignments');
+        }
+      }
 
       if (updateError) {
         console.error('Database update error:', updateError);

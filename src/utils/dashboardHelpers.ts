@@ -10,9 +10,24 @@ export function transformScheduleForGuidedView(
 ) {
   return todaySchedule
     .map((b: any, idx: number) => {
-      const base = b.isAssignmentBlock
-        ? (scheduledAssignments[`${b.block}`] ?? null)
-        : {
+      let base;
+      
+      if (b.isAssignmentBlock) {
+        // This is an assignment block - use the scheduled assignment
+        base = scheduledAssignments[`${b.block}`] ?? null;
+      } else {
+        // This is a fixed block - check if there's a real assignment for this subject/time
+        const fixedAssignment = Object.values(scheduledAssignments).find((assignment: any) => 
+          assignment?.is_fixed && 
+          assignment?.subject?.toLowerCase() === b.subject?.toLowerCase()
+        );
+        
+        if (fixedAssignment) {
+          // Use the real fixed assignment
+          base = fixedAssignment;
+        } else {
+          // Create synthetic assignment for blocks like Movement, Lunch, Travel
+          base = {
             id: `fixed-${formattedDate}-${b.block ?? idx}`,
             title: b.subject || b.type || 'Scheduled Block',
             subject: b.subject || b.type || 'Schedule',
@@ -24,6 +39,9 @@ export function transformScheduleForGuidedView(
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
+        }
+      }
+      
       if (!base) return null;
       return {
         ...base,

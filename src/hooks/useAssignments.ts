@@ -48,6 +48,8 @@ export interface Assignment {
   scheduling_priority?: number;
   is_split_assignment?: boolean;
   split_part_number?: number;
+  shared_block_id?: string;
+  is_fixed?: boolean;
   total_split_parts?: number;
   // Instructions field
   instructions?: string;
