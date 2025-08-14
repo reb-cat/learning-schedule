@@ -10,6 +10,7 @@ import { EnhancedGuidedDayView } from "@/components/EnhancedGuidedDayView";
 import { useStudentDashboard } from "@/hooks/useStudentDashboard";
 import { useScheduledAssignments } from "@/hooks/useScheduledAssignments";
 import { transformScheduleForGuidedView } from "@/utils/dashboardHelpers";
+import { BibleAssignmentImporter } from "@/components/BibleAssignmentImporter";
 
 const KhalilDashboard = () => {
   const [isGuidedMode, setIsGuidedMode] = useState(false);
@@ -88,6 +89,9 @@ const KhalilDashboard = () => {
                 <RefreshCw className={`h-4 w-4 ${isAutoScheduling ? 'animate-spin' : ''}`} />
                 {isAutoScheduling ? 'Scheduling...' : 'Force Refresh'}
               </Button>
+              
+              <BibleAssignmentImporter />
+              
             <div className="flex items-center bg-muted rounded-lg p-1">
               <Button
                 variant={!isGuidedMode ? "default" : "ghost"}

@@ -42,6 +42,8 @@ export function useAssignmentCompletion() {
         scheduled_date: completionData.completionStatus !== 'completed' ? null : assignment.scheduled_date
       };
 
+      console.log('Updating assignment with data:', updateData);
+
       const { error: updateError } = await supabase
         .from('assignments')
         .update(updateData)
