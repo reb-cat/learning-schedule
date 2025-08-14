@@ -34,7 +34,7 @@ export function transformScheduleForGuidedView(
             course_name: null,
             completion_status: 'not_started',
             actual_estimated_minutes: undefined,
-            instructions: `${b.subject ? b.subject + ' • ' : ''}${b.start} - ${b.end}`,
+            instructions: base?.instructions || `${b.subject ? b.subject + ' • ' : ''}${b.start} - ${b.end}`,
             student_name: studentName, // Required field for Assignment interface
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
