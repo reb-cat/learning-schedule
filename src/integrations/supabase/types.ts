@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
@@ -110,11 +110,65 @@ export type Database = {
         }
         Relationships: []
       }
+      assignment_events: {
+        Row: {
+          action: string
+          assignment_id: string
+          created_at: string
+          from_block: number | null
+          from_date: string | null
+          from_status: string | null
+          id: string
+          reason: string | null
+          student_name: string
+          title: string | null
+          to_block: number | null
+          to_date: string | null
+          to_status: string | null
+          victim_assignment_id: string | null
+        }
+        Insert: {
+          action: string
+          assignment_id: string
+          created_at?: string
+          from_block?: number | null
+          from_date?: string | null
+          from_status?: string | null
+          id?: string
+          reason?: string | null
+          student_name: string
+          title?: string | null
+          to_block?: number | null
+          to_date?: string | null
+          to_status?: string | null
+          victim_assignment_id?: string | null
+        }
+        Update: {
+          action?: string
+          assignment_id?: string
+          created_at?: string
+          from_block?: number | null
+          from_date?: string | null
+          from_status?: string | null
+          id?: string
+          reason?: string | null
+          student_name?: string
+          title?: string | null
+          to_block?: number | null
+          to_date?: string | null
+          to_status?: string | null
+          victim_assignment_id?: string | null
+        }
+        Relationships: []
+      }
       assignments: {
         Row: {
           academic_year: string | null
           actual_estimated_minutes: number | null
           assignment_type: string | null
+          attendance_notes: string | null
+          attendance_status: string | null
+          available_on: string | null
           block_position: number | null
           blocks_scheduling: boolean | null
           buffer_time_minutes: number | null
@@ -129,11 +183,14 @@ export type Database = {
           display_as_single_event: boolean | null
           due_date: string | null
           eligible_for_scheduling: boolean
+          escalate_parent: boolean
+          escalation_reason: string | null
           estimated_blocks_needed: number | null
           estimated_time_minutes: number | null
           event_group_id: string | null
           id: string
           instructions: string | null
+          is_fixed: boolean
           is_full_day_block: boolean | null
           is_split_assignment: boolean | null
           is_template: boolean | null
@@ -170,6 +227,9 @@ export type Database = {
           academic_year?: string | null
           actual_estimated_minutes?: number | null
           assignment_type?: string | null
+          attendance_notes?: string | null
+          attendance_status?: string | null
+          available_on?: string | null
           block_position?: number | null
           blocks_scheduling?: boolean | null
           buffer_time_minutes?: number | null
@@ -184,11 +244,14 @@ export type Database = {
           display_as_single_event?: boolean | null
           due_date?: string | null
           eligible_for_scheduling?: boolean
+          escalate_parent?: boolean
+          escalation_reason?: string | null
           estimated_blocks_needed?: number | null
           estimated_time_minutes?: number | null
           event_group_id?: string | null
           id?: string
           instructions?: string | null
+          is_fixed?: boolean
           is_full_day_block?: boolean | null
           is_split_assignment?: boolean | null
           is_template?: boolean | null
@@ -225,6 +288,9 @@ export type Database = {
           academic_year?: string | null
           actual_estimated_minutes?: number | null
           assignment_type?: string | null
+          attendance_notes?: string | null
+          attendance_status?: string | null
+          available_on?: string | null
           block_position?: number | null
           blocks_scheduling?: boolean | null
           buffer_time_minutes?: number | null
@@ -239,11 +305,14 @@ export type Database = {
           display_as_single_event?: boolean | null
           due_date?: string | null
           eligible_for_scheduling?: boolean
+          escalate_parent?: boolean
+          escalation_reason?: string | null
           estimated_blocks_needed?: number | null
           estimated_time_minutes?: number | null
           event_group_id?: string | null
           id?: string
           instructions?: string | null
+          is_fixed?: boolean
           is_full_day_block?: boolean | null
           is_split_assignment?: boolean | null
           is_template?: boolean | null
@@ -335,6 +404,39 @@ export type Database = {
         }
         Relationships: []
       }
+      schedule_template: {
+        Row: {
+          block_number: number | null
+          block_type: Database["public"]["Enums"]["block_type"]
+          end_time: string
+          id: string
+          start_time: string
+          student_name: string
+          subject: string | null
+          weekday: string
+        }
+        Insert: {
+          block_number?: number | null
+          block_type: Database["public"]["Enums"]["block_type"]
+          end_time: string
+          id?: string
+          start_time: string
+          student_name: string
+          subject?: string | null
+          weekday: string
+        }
+        Update: {
+          block_number?: number | null
+          block_type?: Database["public"]["Enums"]["block_type"]
+          end_time?: string
+          id?: string
+          start_time?: string
+          student_name?: string
+          subject?: string | null
+          weekday?: string
+        }
+        Relationships: []
+      }
       student_energy_patterns: {
         Row: {
           confidence_score: number | null
@@ -411,35 +513,42 @@ export type Database = {
         Returns: number
       }
       classify_task_type: {
-        Args: { title: string; course_name: string }
+        Args: { course_name: string; title: string }
         Returns: string
       }
       estimate_task_time: {
-        Args: { title: string; estimated_minutes: number }
+        Args: { estimated_minutes: number; title: string }
         Returns: number
       }
       update_energy_pattern: {
         Args: {
-          p_student_name: string
-          p_energy_data: Json
           p_confidence_adjustment?: number
+          p_energy_data: Json
+          p_student_name: string
         }
         Returns: undefined
       }
       update_learning_patterns: {
         Args: {
+          p_actual_minutes: number
+          p_assignment_type: string
+          p_cognitive_load: string
+          p_estimated_minutes: number
           p_student_name: string
           p_subject: string
-          p_assignment_type: string
-          p_estimated_minutes: number
-          p_actual_minutes: number
-          p_cognitive_load: string
         }
         Returns: undefined
       }
     }
     Enums: {
-      [_ in never]: never
+      block_type:
+        | "Assignment"
+        | "Bible"
+        | "Co-op"
+        | "Movement"
+        | "Lunch"
+        | "Travel"
+        | "Prep/Load"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -566,6 +675,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      block_type: [
+        "Assignment",
+        "Bible",
+        "Co-op",
+        "Movement",
+        "Lunch",
+        "Travel",
+        "Prep/Load",
+      ],
+    },
   },
 } as const
