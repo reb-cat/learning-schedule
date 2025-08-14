@@ -30,6 +30,13 @@ export function useAssignmentCompletion() {
         progressPercentage: completionData.progressPercentage
       });
 
+      // Skip database updates for synthetic fixed schedule blocks
+      if (assignment.id.startsWith('fixed-')) {
+        console.log('Skipping database update for synthetic schedule block:', assignment.id);
+        setIsLoading(false);
+        return;
+      }
+
       // Update assignment with completion data
       const { error: updateError } = await supabase
         .from('assignments')
