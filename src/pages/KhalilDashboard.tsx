@@ -90,14 +90,6 @@ const KhalilDashboard = () => {
                 {isAutoScheduling ? 'Scheduling...' : 'Force Refresh'}
               </Button>
               
-              <WeeklyBibleAssignmentCreator 
-                studentName="Khalil"
-                onAssignmentsCreated={() => {
-                  clearCache();
-                  handleEventUpdate();
-                  refetch();
-                }}
-              />
               
             <div className="flex items-center bg-muted rounded-lg p-1">
               <Button
