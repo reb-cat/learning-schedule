@@ -6,9 +6,10 @@ import { Home, RefreshCw } from "lucide-react";
 import { CoopChecklist } from "@/components/CoopChecklist";
 import { OptimizedStudentBlockDisplay } from "@/components/OptimizedStudentBlockDisplay";
 import { ErrorFallback } from "@/components/ErrorFallback";
-import { GuidedDayView } from "@/components/GuidedDayView";
+import { EnhancedGuidedDayView } from "@/components/EnhancedGuidedDayView";
 import { useStudentDashboard } from "@/hooks/useStudentDashboard";
 import { useScheduledAssignments } from "@/hooks/useScheduledAssignments";
+import { transformScheduleForGuidedView } from "@/utils/dashboardHelpers";
 
 const KhalilDashboard = () => {
   const [isGuidedMode, setIsGuidedMode] = useState(false);
@@ -40,29 +41,12 @@ const KhalilDashboard = () => {
   );
 
   // Derive the items in Regular View order: include fixed schedule blocks, plus any assignment blocks with tasks
-  const guidedAssignments = todaySchedule
-    .map((b: any, idx: number) => {
-      const base = b.isAssignmentBlock
-        ? (scheduledAssignments[`${b.block}`] ?? null)
-        : {
-            id: `fixed-${formattedDate}-${b.block ?? idx}`,
-            title: b.subject || b.type || 'Scheduled Block',
-            subject: b.subject || b.type || 'Schedule',
-            course_name: null,
-            completion_status: 'not_started',
-            actual_estimated_minutes: undefined,
-            instructions: `${b.subject ? b.subject + ' • ' : ''}${b.start} - ${b.end}`,
-          };
-      if (!base) return null;
-      return {
-        ...base,
-        _blockStart: b.start,
-        _blockEnd: b.end,
-        _isAssignmentBlock: b.isAssignmentBlock,
-        _blockIndex: b.block ?? idx,
-      };
-    })
-    .filter(Boolean as any);
+  const guidedAssignments = transformScheduleForGuidedView(
+    todaySchedule,
+    scheduledAssignments,
+    'Khalil',
+    formattedDate
+  );
 
   // Update event handler to clear assignment cache
   const handleEventUpdateWithCache = () => {
@@ -134,7 +118,7 @@ const KhalilDashboard = () => {
         {isGuidedMode ? (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-foreground">Guided Day Mode</h2>
-<GuidedDayView 
+<EnhancedGuidedDayView 
               assignments={guidedAssignments as any}
               studentName="Khalil"
               formattedDate={formattedDate}
