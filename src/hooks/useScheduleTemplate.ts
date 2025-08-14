@@ -60,16 +60,29 @@ export const useScheduleTemplate = (studentName?: string) => {
 
   // Transform database format to legacy format for compatibility
   const legacyScheduleData = useMemo((): ScheduleBlock[] => {
-    return templateData.map(template => ({
-      student: template.student_name,
-      day: template.weekday,
-      block: template.block_number || undefined,
-      start: formatTime(template.start_time),
-      end: formatTime(template.end_time),
-      subject: template.subject || '',
-      type: template.block_type,
-      isAssignmentBlock: template.block_type === 'Assignment'
-    }));
+    console.log(`🔧 [useScheduleTemplate] Processing ${templateData.length} template blocks`);
+    
+    const transformed = templateData.map((template, index) => {
+      // Handle null block_number properly - some blocks don't need numbers
+      const blockNumber = template.block_number !== null ? template.block_number : undefined;
+      
+      const block = {
+        student: template.student_name,
+        day: template.weekday,
+        block: blockNumber,
+        start: formatTime(template.start_time),
+        end: formatTime(template.end_time),
+        subject: template.subject || '',
+        type: template.block_type,
+        isAssignmentBlock: template.block_type === 'Assignment'
+      };
+      
+      console.log(`📋 [useScheduleTemplate] Block ${index + 1}:`, block);
+      return block;
+    });
+    
+    console.log(`✅ [useScheduleTemplate] Transformed ${transformed.length} blocks`);
+    return transformed;
   }, [templateData]);
 
   const getScheduleForStudentAndDay = (student: string, day: string): ScheduleBlock[] => {

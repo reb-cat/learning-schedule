@@ -50,47 +50,16 @@ export const useStudentDashboard = (studentName: string) => {
     return () => window.removeEventListener('assignmentsCleared', handleAssignmentsCleared);
   }, [refetch]);
 
-  // Check for all-day events and get effective schedule
-  const checkEffectiveSchedule = useCallback(async () => {
-    console.log(`🔍 [${studentName}] Checking schedule for ${currentDay} (${formattedDate})`);
-    console.log(`📋 [${studentName}] Base schedule from template:`, baseTodaySchedule);
-    
-    setIsCheckingAllDayEvent(true);
-    
-    try {
-      // Set a hard 1-second timeout - fail fast
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 1000)
-      );
-      
-      const schedulePromise = getEffectiveScheduleForDay(
-        studentName, 
-        currentDay, 
-        formattedDate,
-        (student, day) => getScheduleForStudentAndDay(student, day)
-      );
-      
-      const schedule = await Promise.race([schedulePromise, timeoutPromise]) as any[] | null;
-      
-      console.log(`✅ [${studentName}] All-day event check result:`, schedule === null ? 'Has all-day event' : 'Regular schedule');
-      setEffectiveSchedule(schedule);
-      setHasAllDayEvent(schedule === null);
-    } catch (error) {
-      console.log(`⚠️ [${studentName}] All-day event check failed/timed out - using regular schedule:`, baseTodaySchedule);
-      // On any error or timeout, just show the regular schedule
-      setEffectiveSchedule(undefined);
-      setHasAllDayEvent(false);
-    } finally {
-      setIsCheckingAllDayEvent(false);
-    }
-  }, [studentName, currentDay, formattedDate, baseTodaySchedule]);
-
+  // TEMPORARILY DISABLED: All-day event checking is causing failures
+  // Just use the base schedule directly for now
+  const baseSchedule = baseTodaySchedule;
+  
+  // Set these states for compatibility but don't actually check all-day events
   useEffect(() => {
-    checkEffectiveSchedule();
-  }, [checkEffectiveSchedule]);
-
-  // Use effective schedule or fallback to base schedule
-  const baseSchedule = effectiveSchedule || baseTodaySchedule;
+    setHasAllDayEvent(false);
+    setIsCheckingAllDayEvent(false);
+    setEffectiveSchedule(undefined);
+  }, []);
   console.log(`📅 [${studentName}] Final baseSchedule:`, baseSchedule);
   
   // Enrich schedule blocks with their assignments
@@ -132,13 +101,11 @@ export const useStudentDashboard = (studentName: string) => {
     }
   }, [assignmentsError, assignments.length, assignmentsLoading]);
 
-  // Debounced update handler to prevent rapid successive calls
+  // Simple event update handler for compatibility
   const handleEventUpdate = useCallback(() => {
-    // Use setTimeout to batch updates
-    setTimeout(() => {
-      checkEffectiveSchedule();
-    }, 100);
-  }, [checkEffectiveSchedule]);
+    // Since we're not checking all-day events anymore, just trigger refetch
+    refetch();
+  }, [refetch]);
 
   // Auto-scheduling logic
   const triggerAutoScheduling = useCallback(async () => {
